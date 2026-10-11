@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+venv/
+__pycache__/
+*.pyc
+# biometric reference photos must never be committed
+face-service/reference/*
+!face-service/reference/.gitkeep

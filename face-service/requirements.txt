@@ -1,0 +1,7 @@
+flask>=3.0
+flask-cors>=4.0
+numpy
+Pillow
+face_recognition
+# face_recognition needs dlib (cmake + a C++ compiler on first install).
+# On Windows the easiest route is a prebuilt dlib wheel or conda: conda install -c conda-forge dlib
