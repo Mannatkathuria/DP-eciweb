@@ -1,86 +1,51 @@
-import { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import "./Login.css";
 
+const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
+
 function Login() {
-    const { login } = useContext(AuthContext);
     const navigate = useNavigate();
+    const [params] = useSearchParams();
+    // "voter" or "blo" (set by the portal the user chose); the server checks the role.
+    const portal = params.get("role") === "blo" ? "blo" : "voter";
 
-    const [formData, setFormData] = useState({
-        username: "",
-        password: ""
-    });
-
+    const [epic, setEpic] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         setError("");
 
-        if (!formData.username.trim() || !formData.password) {
-            setError("Please enter your username and password.");
+        const value = epic.trim().toUpperCase();
+
+        if (!EPIC_PATTERN.test(value)) {
+            setError("Enter a valid EPIC number (three letters followed by seven digits).");
             return;
         }
 
         try {
             setLoading(true);
 
-            const response = await api.post("/auth/login", {
-                username: formData.username.trim(),
-                password: formData.password
-            });
+            // The server only checks that this EPIC belongs to a registered account
+            // and generates the OTP. It never creates an account.
+            await api.post("/auth/login", { epic: value, portal });
 
-            /*
-             * Expected backend response:
-             *
-             * {
-             *   token: "...",
-             *   user: {
-             *      username: "..."
-             *   }
-             * }
-             *
-             * Adjust these fields once we confirm
-             * your actual backend response.
-             */
+            // console.log(value);
 
-            const token = response.data.token;
-            const username =
-                response.data.user?.username ||
-                response.data.username ||
-                formData.username;
-
-            if (!token) {
-                throw new Error("Authentication token was not returned.");
-            }
-
-            const userData = response.data.user || {};
-            login(username, token, userData);
-
-            if (userData.role === "blo" || userData.role === "admin") navigate("/admin");
-            else navigate("/");
+            // Go straight to the verification page, where the OTP is entered.
+            navigate("/verify", { state: { loginEpic: value, portal } });
         } catch (err) {
-            console.error("Login error:", err);
+            
+            console.log("Status:", err.response?.status);
+            console.log("Response:", err.response?.data);
 
-            const message =
+            setError(
                 err.response?.data?.message ||
-                err.response?.data?.error ||
-                "Unable to sign in. Please check your credentials and try again.";
-
-            setError(message);
+                "Unable to sign in. Please check your EPIC number and try again."
+            );
         } finally {
             setLoading(false);
         }
@@ -92,13 +57,15 @@ function Login() {
             <section className="login-card">
 
                 <div className="login-header">
-                    <p className="eyebrow">ELECTOR SERVICES</p>
+                    <p className="eyebrow">
+                        {portal === "blo" ? "BLO PORTAL" : "ELECTOR SERVICES"}
+                    </p>
 
                     <h1>Sign in</h1>
 
                     <p>
-                        Sign in to access your election verification
-                        services.
+                        Enter your EPIC number. We will send a one-time
+                        code (OTP) to verify it is you.
                     </p>
                 </div>
 
@@ -111,36 +78,21 @@ function Login() {
                 <form onSubmit={handleSubmit}>
 
                     <div className="form-group">
-                        <label htmlFor="username">
-                            Username
+                        <label htmlFor="epic">
+                            EPIC number
                         </label>
 
                         <input
-                            id="username"
-                            name="username"
+                            id="epic"
+                            name="epic"
                             type="text"
-                            value={formData.username}
-                            onChange={handleChange}
-                            autoComplete="username"
-                            placeholder="Enter your username"
+                            value={epic}
+                            onChange={(e) => setEpic(e.target.value.toUpperCase())}
+                            autoComplete="off"
+                            maxLength={10}
+                            placeholder="e.g. ABC1234567"
                             disabled={loading}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="password">
-                            Password
-                        </label>
-
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            autoComplete="current-password"
-                            placeholder="Enter your password"
-                            disabled={loading}
+                            autoFocus
                         />
                     </div>
 
@@ -149,7 +101,7 @@ function Login() {
                         className="login-button"
                         disabled={loading}
                     >
-                        {loading ? "Signing in..." : "Sign in"}
+                        {loading ? "Sending OTP..." : "Continue"}
                     </button>
 
                 </form>

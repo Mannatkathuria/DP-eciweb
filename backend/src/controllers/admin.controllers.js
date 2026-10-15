@@ -1,5 +1,7 @@
 import { listVerifications as getAllVerifications, saveVerification, getVerification } from "../repositories/verification.repository.js";
 import { listElectors } from "../repositories/elector.repository.js";
+import { listRegistrations as getAllRegistrations, getRegistration, saveRegistration, lockRegistration } from "../repositories/registration.repository.js";
+import { createVoterFromApplication } from "../services/registration.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -32,7 +34,7 @@ export const resolveVerification = asyncHandler(async (req, res) => {
     if (verification.status !== "review_required") throw new ApiError(409, "Only cases awaiting manual review can be resolved.");
 
     verification.resolution = {
-        by: req.user._id, decision, note: String(note ?? "").slice(0, 500), at: new Date().toISOString()
+        by: req.user._id, byEpic: req.user.epic, decision, note: String(note ?? "").slice(0, 500), at: new Date().toISOString()
     };
     await saveVerification(verification);
     res.json({ success: true, message: "Case updated.", data: verification });
@@ -58,4 +60,56 @@ export const getStats = asyncHandler(async (req, res) => {
         processingSeconds: { mean: mean === null ? null : +mean.toFixed(1), median: percentile(secs, 50), p95: percentile(secs, 95) },
         identityBreakdown
     }});
+});
+
+
+// ---- Voter registration requests (BLO / admin) ----
+
+const summarise = ({ referenceImage, ...rest }) => ({ ...rest, hasReferenceImage: Boolean(referenceImage) });
+
+export const listRegistrationRequests = asyncHandler(async (req, res) => {
+    const status = req.query.status || "pending";
+    const items = (await getAllRegistrations())
+        .filter((r) => status === "all" || r.status === status)
+        .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))
+        .map(summarise);
+    res.json({ success: true, data: { items, total: items.length } });
+});
+
+export const approveRegistration = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
+
+    const application = await getRegistration(id);
+    if (!application) throw new ApiError(404, "Registration request not found.");
+    if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
+
+    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user);
+
+    application.status = "approved";
+    application.epic = epic;
+    application.decidedBy = req.user.epic;
+    application.decidedAt = new Date().toISOString();
+    application.referenceImage = null;
+    await saveRegistration(application);
+
+    res.json({ success: true, message: "Voter approved. They can now sign in.", data: { epic, biometricEnrolled } });
+});
+
+export const rejectRegistration = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
+
+    const application = await getRegistration(id);
+    if (!application) throw new ApiError(404, "Registration request not found.");
+    if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
+
+    application.status = "rejected";
+    application.decisionNote = String(req.body?.note ?? "").slice(0, 500);
+    application.decidedBy = req.user.epic;
+    application.decidedAt = new Date().toISOString();
+    application.referenceImage = null;
+    await saveRegistration(application);
+
+    res.json({ success: true, message: "Request rejected.", data: summarise(application) });
 });

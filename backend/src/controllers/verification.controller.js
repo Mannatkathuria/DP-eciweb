@@ -1,5 +1,8 @@
 import crypto from "crypto";
 import { getElectorByEpic } from "../repositories/elector.repository.js";
+import { getUserByEpic } from "../repositories/user.repository.js";
+import { issueOtp, checkOtp } from "../services/otp.service.js";
+import { issueSession, publicUser } from "../services/session.service.js";
 import { getVerification, saveVerification } from "../repositories/verification.repository.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -331,9 +334,6 @@ export async function decodeAadhaar(imagePath) {
   return JSON.parse(stdout);
 }
 
-// Demo-only OTP storage. Lost when the backend restarts.
-const demoOtpStore = new Map();
-
 export const sendDemoOtp = asyncHandler(async (req, res) => {
     const { electorId } = req.body ?? {};
 
@@ -341,22 +341,14 @@ export const sendDemoOtp = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Elector ID is required.");
     }
 
-    const elector = await getElectorByEpic(electorId.trim());
+    const epic = electorId.trim().toUpperCase();
+    const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
-    if (!elector || !elector.isActive) {
+    if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
     }
 
-    const otp = String(crypto.randomInt(100000, 1000000));
-
-    demoOtpStore.set(elector.epic, {
-        otp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-        attempts: 0
-    });
-
-    // Demo delivery only: inspect the backend terminal to obtain the code.
-    console.log(`[DEMO OTP] EPIC ${elector.epic}: ${otp}`);
+    issueOtp(epic);
 
     res.json({
         success: true,
@@ -377,34 +369,25 @@ export const verifyDemoOtp = asyncHandler(async (req, res) => {
     }
 
     const epic = electorId.trim().toUpperCase();
-    const record = await getElectorByEpic(epic);
+    const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
-    if (!record || !record.isActive) {
+    if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
     }
 
-    const saved = demoOtpStore.get(record.epic);
+    checkOtp(epic, otp);
 
-    if (!saved || Date.now() > saved.expiresAt) {
-        demoOtpStore.delete(record.epic);
-        throw new ApiError(400, "OTP expired. Request a new one.");
+    // The OTP is the only credential. If this EPIC belongs to a registered account,
+    // a correct OTP signs that account in.
+    if (user) {
+        const token = issueSession(res, user);
+        return res.json({
+            success: true,
+            message: "OTP verified. Signed in.",
+            token,
+            user: publicUser(user)
+        });
     }
-
-    saved.attempts += 1;
-
-    if (saved.attempts > 5) {
-        demoOtpStore.delete(record.epic);
-        throw new ApiError(429, "Too many attempts. Request a new OTP.");
-    }
-
-    if (saved.otp !== otp) {
-        if (saved.attempts >= 5) {
-            demoOtpStore.delete(record.epic);
-        }
-        throw new ApiError(400, "Incorrect OTP. Please try again.");
-    }
-
-    demoOtpStore.delete(record.epic);
 
     res.json({
         success: true,

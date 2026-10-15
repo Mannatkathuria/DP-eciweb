@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./Verify.css";
 import api from "../api/axios";
+import { AuthContext } from "../context/AuthContext";
 
 /* -------------------------------------------------------
 Helpers
@@ -189,6 +191,14 @@ function Verify() {
 // Step 4: Review document and prepare face check
 // Step 5: Perform face/liveness check
 
+const location = useLocation();
+const navigate = useNavigate();
+const { login: authLogin } = useContext(AuthContext);
+
+// Set when the user arrives here from the sign-in page: the OTP has already
+// been generated for this EPIC, so we jump straight to the OTP step.
+const loginState = location.state?.loginEpic ? location.state : null;
+
 const [step, setStep] = useState(1);
 const [method, setMethod] = useState("epic");
 
@@ -206,8 +216,10 @@ const [error, setError] = useState("");
 const [loading, setLoading] = useState(false);
 
 // OTP
-const [pendingElector, setPendingElector] = useState(null);
-const [otpPending, setOtpPending] = useState(false);
+const [pendingElector, setPendingElector] = useState(
+    loginState ? { epic: loginState.loginEpic } : null
+);
+const [otpPending, setOtpPending] = useState(Boolean(loginState));
 const [otp, setOtp] = useState("");
 const [otpLoading, setOtpLoading] = useState(false);
 
@@ -422,12 +434,47 @@ const handleOtpVerify = async (event) => {
     try {
         setOtpLoading(true);
 
-        await api.post("/verification/otp/verify", {
+        const { data: verifyResult } = await api.post("/verification/otp/verify", {
             electorId: pendingElector.epic,
             otp
         });
 
-        setElector(pendingElector);
+        // A correct OTP signs in the registered account that owns this EPIC.
+        if (verifyResult?.token && verifyResult?.user) {
+            authLogin(verifyResult.user.epic, verifyResult.token, verifyResult.user);
+        }
+
+        let record = pendingElector;
+
+        if (loginState && verifyResult?.user) {
+            const role = verifyResult.user.role;
+
+            // Staff go to their own portal once they are signed in.
+            if (role === "blo" || role === "admin") {
+                navigate("/admin", { replace: true });
+                return;
+            }
+
+            if (role === "eci") {
+                navigate("/eci/voting-verification", { replace: true });
+                return;
+            }
+
+            // Voters continue with record verification. Load their record now.
+            if (!record.name) {
+                try {
+                    const res = await api.post("/electors/search", {
+                        method: "epic",
+                        epic: record.epic
+                    });
+                    record = res.data?.data ?? record;
+                } catch (lookupError) {
+                    console.error("Could not load electoral record:", lookupError);
+                }
+            }
+        }
+
+        setElector(record);
         setPendingElector(null);
         setOtpPending(false);
         setOtp("");
@@ -992,6 +1039,13 @@ return (
                             onSubmit={handleOtpVerify}
                             className="otp-form"
                         >
+                            {loginState && (
+                                <p className="card-description">
+                                    Signing in with EPIC{" "}
+                                    <strong>{pendingElector?.epic}</strong>.
+                                </p>
+                            )}
+
                             <p className="record-warning">
                                 Demo OTP generated. Check the backend
                                 terminal where your Express server is
@@ -1045,6 +1099,15 @@ return (
                                 type="button"
                                 className="back-button"
                                 onClick={() => {
+                                    if (loginState) {
+                                        navigate(
+                                            loginState.portal === "eci"
+                                                ? "/eci/login"
+                                                : `/login?role=${loginState.portal || "voter"}`
+                                        );
+                                        return;
+                                    }
+
                                     setOtpPending(false);
                                     setPendingElector(null);
                                     setOtp("");
@@ -1052,7 +1115,7 @@ return (
                                 }}
                                 disabled={otpLoading}
                             >
-                                Back to Search
+                                {loginState ? "Back to Sign in" : "Back to Search"}
                             </button>
 
                             <p className="card-description">

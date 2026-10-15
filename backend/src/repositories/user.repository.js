@@ -1,12 +1,14 @@
 import { jsonGet, jsonSet, redis } from "../config/redis.js";
 
-const key = (username) => `user:${String(username).trim().toLowerCase()}`;
+// Accounts are identified by EPIC number only: there are no usernames or passwords.
+const normaliseEpic = (epic) => String(epic ?? "").trim().toUpperCase();
+const key = (epic) => `user:${normaliseEpic(epic)}`;
 
-export const getUserByUsername = async (username) => jsonGet(key(username));
+export const getUserByEpic = async (epic) => jsonGet(key(epic));
 export const getUserById = async (id) => jsonGet(`user:id:${id}`);
 
 export const saveUser = async (user) => {
-    await jsonSet(key(user.username), user);
+    await jsonSet(key(user.epic), user);
     await jsonSet(`user:id:${user._id}`, user);
     await redis().sAdd("users:all", user._id);
     return user;

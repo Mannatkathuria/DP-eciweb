@@ -9,13 +9,13 @@ const roleInfo = {
         actions: [
             {
                 title: "Sign in",
-                description: "Access your existing voter account.",
-                link: "/login",
+                description: "Sign in with your EPIC number and a one-time code (OTP).",
+                link: "/login?role=voter",
                 icon: "🔐",
             },
             {
                 title: "Register",
-                description: "Create your voter account or submit registration details.",
+                description: "Send a registration request to your BLO. You can sign in once it is approved.",
                 link: "/register",
                 icon: "✍️",
             },
@@ -33,8 +33,8 @@ const roleInfo = {
         actions: [
             {
                 title: "BLO Sign in",
-                description: "Continue to the voter and verification management portal.",
-                link: "/login",
+                description: "Sign in with your EPIC number and a one-time code (OTP).",
+                link: "/login?role=blo",
                 icon: "🔐",
             },
         ],

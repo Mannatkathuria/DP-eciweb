@@ -14,17 +14,21 @@ function Admin() {
     const [filter, setFilter] = useState("review_required");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [registrations, setRegistrations] = useState([]);
+    const [notice, setNotice] = useState("");
 
     const load = useCallback(async () => {
         setLoading(true);
         setError("");
         try {
-            const [s, v] = await Promise.all([
+            const [s, v, r] = await Promise.all([
                 api.get("/admin/stats"),
                 api.get("/admin/verifications", {
                     params: { status: filter || undefined, limit: 50 }
-                })
+                }),
+                api.get("/admin/registrations", { params: { status: "pending" } })
             ]);
+            setRegistrations(r.data.data.items);
             setStats(s.data.data);
             setItems(v.data.data.items);
         } catch (err) {
@@ -48,7 +52,26 @@ function Admin() {
         }
     };
 
-    if (!logged) return <Navigate to="/login" replace />;
+    const decideRegistration = async (id, decision) => {
+        setError(""); setNotice("");
+        let body = {};
+        if (decision === "reject") {
+            const note = window.prompt("Reason for rejection (shown to the applicant):");
+            if (note === null) return;
+            body = { note };
+        }
+        try {
+            const { data } = await api.post(`/admin/registrations/${id}/${decision}`, body);
+            setNotice(decision === "approve"
+                ? `Approved. The voter's EPIC number is ${data.data.epic}. They can now sign in.`
+                : "Request rejected.");
+            load();
+        } catch (err) {
+            setError(err.response?.data?.message || "Could not update the request.");
+        }
+    };
+
+    if (!logged) return <Navigate to="/login?role=blo" replace />;
 
     return (
         <main className="admin-page">
@@ -66,6 +89,45 @@ function Admin() {
                 </header>
 
                 {error && <div className="verification-error" role="alert">{error}</div>}
+
+                {notice && <div className="admin-notice" role="status">{notice}</div>}
+
+                <section className="admin-card">
+                    <div className="admin-toolbar">
+                        <h2>Voter registration requests ({registrations.length} pending)</h2>
+                    </div>
+                    {registrations.length === 0 && <p>No pending requests.</p>}
+                    {registrations.length > 0 && (
+                        <div className="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Submitted</th><th>Applicant</th><th>Date of birth</th>
+                                        <th>Constituency / Part</th><th>Polling station</th><th>Photo</th><th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {registrations.map((r) => (
+                                        <tr key={r._id}>
+                                            <td>{new Date(r.submittedAt).toLocaleString()}</td>
+                                            <td>{r.name}<br /><small>{r.gender}</small></td>
+                                            <td>{new Date(r.dateOfBirth).toLocaleDateString()}</td>
+                                            <td>{r.assemblyConstituency}, {r.district}, {r.state}<br /><small>Part {r.partNumber}</small></td>
+                                            <td>{r.pollingStation}</td>
+                                            <td>{r.hasReferenceImage ? "Provided" : "—"}</td>
+                                            <td>
+                                                <div className="row-actions">
+                                                    <button onClick={() => decideRegistration(r._id, "approve")}>Approve</button>
+                                                    <button onClick={() => decideRegistration(r._id, "reject")}>Reject</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
 
                 {stats && (
                     <section className="stat-grid">
@@ -121,7 +183,7 @@ function Admin() {
                                                         <button onClick={() => resolve(v._id, "escalated")}>Escalate</button>
                                                     </div>
                                                 ) : v.resolution?.decision ? (
-                                                    <span>{v.resolution.decision} by {v.resolution.by?.username}</span>
+                                                    <span>{v.resolution.decision} by {v.resolution.byEpic || v.resolution.by}</span>
                                                 ) : "—"}
                                             </td>
                                         </tr>

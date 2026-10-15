@@ -1,26 +1,30 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import "./Portal.css";
 
+const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
+
 function EciLogin() {
-    const { login } = useContext(AuthContext);
     const navigate = useNavigate();
-    const [username, setUsername] = useState("eci");
-    const [password, setPassword] = useState("");
+    const [epic, setEpic] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const submit = async e => {
         e.preventDefault();
         setError("");
+
+        const value = epic.trim().toUpperCase();
+        if (!EPIC_PATTERN.test(value)) {
+            setError("Enter a valid EPIC number (three letters followed by seven digits).");
+            return;
+        }
+
         setLoading(true);
         try {
-            const { data } = await api.post("/auth/login", { username, password });
-            if (data.user?.role !== "eci") throw new Error("This account is not authorised for the ECI portal.");
-            login(data.user.username, data.token, data.user);
-            navigate("/eci/voting-verification");
+            await api.post("/auth/login", { epic: value, portal: "eci" });
+            navigate("/verify", { state: { loginEpic: value, portal: "eci" } });
         } catch (err) {
             setError(err.response?.data?.message || err.message || "Unable to sign in.");
         } finally { setLoading(false); }
@@ -31,12 +35,11 @@ function EciLogin() {
             <section className="portal-card">
                 <p className="eyebrow">ECI OFFICIAL PORTAL</p>
                 <h1>Polling-station verification</h1>
-                <p className="portal-muted">Restricted to authorised election officials.</p>
+                <p className="portal-muted">Restricted to authorised election officials. Sign in with your EPIC number; a one-time code (OTP) will be sent for verification.</p>
                 {error && <div className="portal-error">{error}</div>}
                 <form onSubmit={submit} className="portal-form">
-                    <label>Official username<input value={username} onChange={e => setUsername(e.target.value)} /></label>
-                    <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
-                    <button disabled={loading}>{loading ? "Signing in…" : "Enter ECI portal"}</button>
+                    <label>Official EPIC number<input value={epic} onChange={e => setEpic(e.target.value.toUpperCase())} maxLength={10} placeholder="e.g. ECI0000001" autoComplete="off" /></label>
+                    <button disabled={loading}>{loading ? "Sending OTP…" : "Continue"}</button>
                 </form>
                 <p className="portal-footer"><Link to="/">Back to public portal</Link></p>
             </section>

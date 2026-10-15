@@ -56,3 +56,27 @@ test("HTTP: health, 404, validation (no DB needed)", async () => {
         server.close();
     }
 });
+
+
+test("HTTP: sign-in is EPIC-only and approval is BLO-only (no DB needed)", async () => {
+    const { default: app } = await import("../src/app.js");
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}/api/v1`;
+    const post = (path, body) => fetch(`${base}${path}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+    try {
+        // Missing / malformed EPIC is rejected before any lookup.
+        assert.equal((await post("/auth/login", {})).status, 400);
+        assert.equal((await post("/auth/login", { epic: "not-an-epic" })).status, 400);
+        // A username/password pair is no longer a valid way in.
+        assert.equal((await post("/auth/login", { username: "blo", password: "x" })).status, 400);
+        // Registration is a public request form, but incomplete requests are rejected.
+        assert.equal((await post("/auth/register", { name: "A" })).status, 400);
+        // Reviewing / approving requests requires a signed-in BLO or admin.
+        assert.equal((await fetch(`${base}/admin/registrations`)).status, 401);
+        assert.equal((await post("/admin/registrations/abc/approve", {})).status, 401);
+    } finally {
+        server.close();
+    }
+});

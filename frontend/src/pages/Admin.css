@@ -19,3 +19,4 @@
 .admin-card tr:last-child td { border-bottom:0; }
 .row-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
 @media(max-width:650px) { .admin-page {padding:1.25rem .8rem;} .admin-card {padding:1rem;} }
+.admin-notice { margin-bottom:1.25rem; padding:.9rem 1.1rem; border-radius:14px; background:var(--bg-primary); box-shadow:var(--shadow-inset); font-weight:600; }

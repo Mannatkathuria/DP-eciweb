@@ -29,12 +29,13 @@ function AuthProvider({ children }) {
         }
     }, [logged]);
 
-    const login = (username, token, data = {}) => {
+    // `identifier` is the account's EPIC number.
+    const login = (identifier, token, data = {}) => {
         localStorage.setItem("token", token);
-        localStorage.setItem("user", username);
+        localStorage.setItem("user", identifier);
         localStorage.setItem("userData", JSON.stringify(data));
         localStorage.setItem("logged", "true");
-        setUser(username);
+        setUser(identifier);
         setUserData(data);
         setLogged(true);
     };

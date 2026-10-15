@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import {
     submitIdentity,
     issueChallenge,
@@ -15,11 +16,18 @@ import { unlink } from "node:fs/promises";
 
 const router = express.Router();
 
+// OTP is now the only sign-in credential, so throttle send/verify per IP
+// (each OTP also locks after 5 wrong attempts).
+const otpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false,
+    message: { success: false, message: "Too many OTP requests. Try again later." }
+});
+
 router.post("/identity", submitIdentity);
 router.post("/:id/challenge", issueChallenge);
 router.post("/:id/face", submitFace);
-router.post("/otp/send", sendDemoOtp);
-router.post("/otp/verify", verifyDemoOtp);
+router.post("/otp/send", otpLimiter, sendDemoOtp);
+router.post("/otp/verify", otpLimiter, verifyDemoOtp);
 
 const uploadIdentityDocument = multer({
     dest: os.tmpdir(),

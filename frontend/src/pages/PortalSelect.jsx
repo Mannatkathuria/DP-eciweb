@@ -8,7 +8,7 @@ const portals = [
         number: "01",
         title: "Voter",
         description:
-            "Access voter services, register, verify your identity, and check electoral records.",
+            "Register, sign in with your EPIC number, verify your identity, and check electoral records.",
         icon: "👤",
     },
     {
@@ -16,7 +16,7 @@ const portals = [
         number: "02",
         title: "Booth Level Officer",
         description:
-            "Access voter records and verification requests for your assigned area.",
+            "Approve voter registration requests and review verification cases for your assigned area.",
         icon: "📋",
     },
     {

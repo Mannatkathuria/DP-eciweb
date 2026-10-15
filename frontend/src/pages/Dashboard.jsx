@@ -22,7 +22,7 @@ function Dashboard() {
                 <div className="info-card">
                     <span className="step-number">01</span>
                     <h3>Register</h3>
-                    <p>Create a voter record and optionally enrol a reference face for later identity matching.</p>
+                    <p>Submit a registration request. Once your Booth Level Officer approves it, you can sign in with your EPIC number.</p>
                 </div>
                 <div className="info-card">
                     <span className="step-number">02</span>
@@ -45,7 +45,8 @@ function Dashboard() {
             </section>
 
             <p style={{ textAlign: "center", marginTop: "1.5rem" }}>
-                <Link to="/login">Voter / BLO sign in</Link>{" · "}
+                <Link to="/login?role=voter">Voter sign in</Link>{" · "}
+                <Link to="/login?role=blo">BLO sign in</Link>{" · "}
                 <Link to="/eci/login">ECI official portal</Link>
             </p>
         </main>

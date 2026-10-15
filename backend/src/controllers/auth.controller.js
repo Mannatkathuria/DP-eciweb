@@ -1,38 +1,57 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { getUserByUsername, saveUser } from "../repositories/user.repository.js";
-import { saveElector } from "../repositories/elector.repository.js";
+import { getUserByEpic } from "../repositories/user.repository.js";
+import { getRegistration, saveRegistration } from "../repositories/registration.repository.js";
+import { issueOtp } from "../services/otp.service.js";
+import { publicUser } from "../services/session.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-const publicUser = (user) => ({
-    _id: user._id, username: user.username, role: user.role, epic: user.epic || null
-});
+// EPIC format: three letters followed by seven digits.
+export const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
 
+// Which account roles may use which portal's sign-in page.
+const PORTAL_ROLES = {
+    voter: ["voter"],
+    blo: ["blo", "admin"],
+    eci: ["eci"]
+};
+
+/**
+ * Step 1 of sign-in. Takes an EPIC number only (no username, no password).
+ * It never creates an account: the EPIC must already belong to a user that a BLO
+ * registered (or a seeded staff account). On success an OTP is generated and the
+ * client is sent to the verification page, where the OTP is entered. The session
+ * is issued by POST /verification/otp/verify once the OTP is correct.
+ */
 export const login = asyncHandler(async (req, res) => {
-    const username = String(req.body?.username ?? "").trim().toLowerCase();
-    const password = String(req.body?.password ?? "");
-    if (!username || !password) throw new ApiError(400, "Username and password are required.");
+    const epic = String(req.body?.epic ?? "").trim().toUpperCase();
+    const portal = req.body?.portal;
 
-    const user = await getUserByUsername(username);
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-        throw new ApiError(401, "Invalid username or password.");
+    // console.log(epic);
+
+    if (!epic) throw new ApiError(400, "EPIC number is required.");
+    if (!EPIC_PATTERN.test(epic)) {
+        throw new ApiError(400, "Enter a valid EPIC number (three letters followed by seven digits).");
     }
 
-    const token = jwt.sign(
-        { _id: user._id, username: user.username, role: user.role, epic: user.epic || null },
-        process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "8h" }
-    );
+    const user = await getUserByEpic(epic);
+    // console.log(user);
 
-    res.cookie("accessToken", token, {
-        httpOnly: true, sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 8 * 60 * 60 * 1000
+    if (!user) {
+        throw new ApiError(404, "This EPIC number is not registered. Apply for registration first; you can sign in once a Booth Level Officer approves it.");
+    }
+
+    if (PORTAL_ROLES[portal] && !PORTAL_ROLES[portal].includes(user.role)) {
+        throw new ApiError(403, "This EPIC number is not authorised for this portal.");
+    }
+
+    issueOtp(epic);
+
+    res.status(200).json({
+        success: true,
+        message: "OTP generated. Continue to verification.",
+        data: { epic }
     });
-
-    res.status(200).json({ success: true, message: "Signed in.", token, user: publicUser(user) });
 });
 
 export const me = asyncHandler(async (req, res) => {
@@ -44,54 +63,71 @@ export const logout = asyncHandler(async (req, res) => {
     res.json({ success: true, message: "Signed out." });
 });
 
-export const registerVoter = asyncHandler(async (req, res) => {
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const clean = (value) => String(value ?? "").trim();
+
+/**
+ * Public. A voter submits a registration request. This does NOT create an account:
+ * it only stores a pending application that a BLO must approve. The applicant can
+ * sign in only after approval.
+ */
+export const submitRegistration = asyncHandler(async (req, res) => {
     const {
-        username, password, name, dateOfBirth, gender, state, district,
+        name, dateOfBirth, gender, state, district,
         assemblyConstituency, partNumber, pollingStation, referenceImage
     } = req.body ?? {};
 
-    if (!username || !password || !name || !dateOfBirth || !state || !district ||
-        !assemblyConstituency || !partNumber || !pollingStation) {
+    if (![name, dateOfBirth, state, district, assemblyConstituency, partNumber, pollingStation]
+        .every((v) => clean(v))) {
         throw new ApiError(400, "All required registration fields must be provided.");
     }
 
-    const normalUsername = String(username).trim().toLowerCase();
-    if (await getUserByUsername(normalUsername)) {
-        throw new ApiError(409, "Username is already registered.");
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime()) || dob > new Date()) {
+        throw new ApiError(400, "Date of birth is not valid.");
     }
 
-    const epic = `DEM${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
-    const elector = {
-        _id: crypto.randomUUID(), epic, name: String(name).trim(),
-        dateOfBirth: new Date(dateOfBirth).toISOString(),
-        age: Math.max(0, new Date().getFullYear() - new Date(dateOfBirth).getFullYear()),
-        gender: gender || "Other", state: String(state).trim(), district: String(district).trim(),
-        assemblyConstituency: String(assemblyConstituency).trim(),
-        partNumber: String(partNumber).trim(), pollingStation: String(pollingStation).trim(),
-        photoUrl: null, isActive: true, registeredAt: new Date().toISOString()
-    };
-    await saveElector(elector);
-
-    const user = {
-        _id: crypto.randomUUID(), username: normalUsername,
-        passwordHash: await bcrypt.hash(password, 12), role: "voter", epic,
-        createdAt: new Date().toISOString()
-    };
-    await saveUser(user);
-
-    let biometricEnrolled = false;
-    if (referenceImage) {
-        try {
-            const { enrollFace } = await import("../services/faceClient.js");
-            await enrollFace({ epic, image: referenceImage });
-            biometricEnrolled = true;
-        } catch (error) {
-            console.error("Reference face enrollment failed:", error.message);
+    if (referenceImage !== undefined && referenceImage !== null && referenceImage !== "") {
+        if (typeof referenceImage !== "string" || !referenceImage.startsWith("data:image/") ||
+            referenceImage.length > 6_000_000) {
+            throw new ApiError(400, "Reference image must be an image under about 4 MB.");
         }
     }
 
+    const application = {
+        _id: crypto.randomUUID(), status: "pending",
+        name: clean(name), dateOfBirth: dob.toISOString(),
+        gender: ["Male", "Female", "Other"].includes(gender) ? gender : "Other",
+        state: clean(state), district: clean(district),
+        assemblyConstituency: clean(assemblyConstituency),
+        partNumber: clean(partNumber), pollingStation: clean(pollingStation),
+        // Kept only until the BLO decides; removed on approval or rejection.
+        referenceImage: referenceImage || null,
+        submittedAt: new Date().toISOString()
+    };
+    await saveRegistration(application);
+
     res.status(201).json({
-        success: true, message: "Voter registration submitted.",
-        data: { epic, username: normalUsername, biometricEnrolled }
+        success: true,
+        message: "Registration request submitted. A Booth Level Officer will review it.",
+        data: { referenceId: application._id, status: application.status }
+    });
+});
+
+/** Public. Lets an applicant check their request using the reference ID they were given. */
+export const getRegistrationStatus = asyncHandler(async (req, res) => {
+    const id = clean(req.params.id);
+    const application = UUID_PATTERN.test(id) ? await getRegistration(id) : null;
+    if (!application) throw new ApiError(404, "No registration request found for that reference ID.");
+
+    res.json({
+        success: true,
+        data: {
+            status: application.status,
+            name: application.name,
+            submittedAt: application.submittedAt,
+            epic: application.status === "approved" ? application.epic : null,
+            note: application.status === "rejected" ? application.decisionNote || null : null
+        }
     });
 });
