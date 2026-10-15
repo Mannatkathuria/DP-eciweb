@@ -1,62 +1,48 @@
+/* Shared neumorphic design system */
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-
-  color: #1f2937;
-  background: #f7f8fa;
-
-  --bg-primary: #f7f8fa;
-  --bg-secondary: #ffffff;
-
-  --text-primary: #1f2937;
-  --text-secondary: #667085;
-
-  --border: #dfe3e8;
-
-  --accent: #1f4f82;
-  --accent-dark: #173b62;
-  --accent-bg: #eef4fa;
-
-  --success: #217346;
-  --warning: #9a6700;
-  --danger: #b42318;
-
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #27364b;
+  background: #e9eef5;
+  --bg-primary: #e9eef5;
+  --bg-secondary: #e9eef5;
+  --surface: #e9eef5;
+  --surface-raised: #e9eef5;
+  --surface-inset: #e2e8f0;
+  --text-primary: #27364b;
+  --text-secondary: #68788e;
+  --border: #dbe3ed;
+  --accent: #244f7d;
+  --accent-dark: #193c63;
+  --accent-bg: #e4ebf4;
+  --success: #247a55;
+  --warning: #986b16;
+  --danger: #b42332;
+  --shadow: 7px 7px 16px #cbd3de, -7px -7px 16px #ffffff;
+  --shadow-soft: 4px 4px 10px #cbd3de, -4px -4px 10px #ffffff;
+  --shadow-inset: inset 4px 4px 8px #cbd3de, inset -4px -4px 8px #ffffff;
+  --shadow-hover: 9px 9px 18px #c7d0dc, -9px -9px 18px #ffffff;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
 }
-
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+html { margin: 0; padding: 0; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg-primary); color: var(--text-primary); }
+#root { min-height: 100vh; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+:where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  color: var(--text-primary); background: var(--bg-primary); border: 0; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset); outline: none; transition: box-shadow .2s ease, background .2s ease;
 }
-
-html {
-  margin: 0;
-  padding: 0;
+:where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(36,79,125,.22);
 }
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-
-  background: var(--bg-primary);
-  color: var(--text-primary);
+:where(button, .primary-btn, .secondary-btn, .login-button, .search-button, .portal-form button, .verification-stage button, .ghost-button) {
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease;
 }
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-a {
-  color: inherit;
-}
-
-#root {
-  min-height: 100vh;
-}
+:where(button, .primary-btn, .secondary-btn, .login-button, .search-button, .portal-form button, .verification-stage button, .ghost-button):focus-visible,
+a:focus-visible { outline: 3px solid rgba(36,79,125,.45); outline-offset: 3px; }
+::selection { background: #c7d8ec; color: #193c63; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
