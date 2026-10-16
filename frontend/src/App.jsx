@@ -7,12 +7,13 @@ import ServiceSelect from "./pages/ServiceSelect";
 import Dashboard from "./pages/Dashboard";
 import Verify from "./pages/Verify";
 import Login from "./pages/Login";
+import LoginOtp from "./pages/LoginOtp";
 import Register from "./pages/Register";
 import ElectoralRoll from "./pages/ElectoralRoll";
 import Admin from "./pages/Admin";
 import EciLogin from "./pages/EciLogin";
+import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
-import PersonaVerification from "./pages/Test";
 
 function App() {
     return (
@@ -23,17 +24,18 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
 
                 <Route path="/login" element={<Login />} />
+                <Route path="/login/otp" element={<LoginOtp />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/electoral-roll" element={<ElectoralRoll />} />
                 <Route path="/admin" element={<Admin />} />
 
                 <Route path="/eci/login" element={<EciLogin />} />
+                <Route path="/eci/dashboard" element={<EciDashboard />} />
                 <Route
                     path="/eci/voting-verification"
                     element={<VotingVerification />}
                 />
-                <Route path="/test" element={<PersonaVerification />} />
             </Routes>
         </BrowserRouter>
     );

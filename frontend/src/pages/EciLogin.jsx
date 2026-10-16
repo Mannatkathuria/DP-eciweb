@@ -24,7 +24,7 @@ function EciLogin() {
         setLoading(true);
         try {
             await api.post("/auth/login", { epic: value, portal: "eci" });
-            navigate("/verify", { state: { loginEpic: value, portal: "eci" } });
+            navigate(`/login/otp?epic=${encodeURIComponent(value)}&portal=eci`);
         } catch (err) {
             setError(err.response?.data?.message || err.message || "Unable to sign in.");
         } finally { setLoading(false); }
@@ -41,6 +41,7 @@ function EciLogin() {
                     <label>Official EPIC number<input value={epic} onChange={e => setEpic(e.target.value.toUpperCase())} maxLength={10} placeholder="e.g. ECI0000001" autoComplete="off" /></label>
                     <button disabled={loading}>{loading ? "Sending OTP…" : "Continue"}</button>
                 </form>
+                <p className="portal-muted">Sandbox demo EPIC: <strong>ECI1234567</strong>. The generated OTP appears in the backend terminal.</p>
                 <p className="portal-footer"><Link to="/">Back to public portal</Link></p>
             </section>
         </main>

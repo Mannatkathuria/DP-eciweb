@@ -1,16 +1,7 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import "./Portal.css";
-
-function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
 
 const emptyForm = {
     name: "", dateOfBirth: "", gender: "Other",
@@ -20,11 +11,9 @@ const emptyForm = {
 // Voters submit a registration REQUEST here. No account exists until a BLO approves it.
 function Register() {
     const [form, setForm] = useState(emptyForm);
-    const [referenceImage, setReferenceImage] = useState("");
     const [submitted, setSubmitted] = useState(null); // { referenceId }
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const inputRef = useRef();
 
     const [checkId, setCheckId] = useState("");
     const [statusResult, setStatusResult] = useState(null);
@@ -33,28 +22,14 @@ function Register() {
 
     const update = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-    const chooseImage = async e => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (file.size > 4 * 1024 * 1024) {
-            setError("The reference image must be smaller than 4 MB.");
-            e.target.value = "";
-            return;
-        }
-        try { setReferenceImage(await fileToDataUrl(file)); setError(""); }
-        catch { setError("Could not read the reference image."); }
-    };
-
     const submit = async e => {
         e.preventDefault();
         setError(""); setLoading(true);
         try {
-            const { data } = await api.post("/auth/register", { ...form, referenceImage: referenceImage || null });
+            const { data } = await api.post("/auth/register", form);
             setSubmitted(data.data);
             setCheckId(data.data.referenceId);
             setForm(emptyForm);
-            setReferenceImage("");
-            if (inputRef.current) inputRef.current.value = "";
         } catch (err) {
             setError(err.response?.data?.message || "Could not submit the registration request.");
         } finally { setLoading(false); }
@@ -101,13 +76,6 @@ function Register() {
                     <label>Assembly constituency<input name="assemblyConstituency" value={form.assemblyConstituency} onChange={update} required /></label>
                     <label>Part number<input name="partNumber" value={form.partNumber} onChange={update} required /></label>
                     <label>Polling station<input name="pollingStation" value={form.pollingStation} onChange={update} required /></label>
-
-                    <div className="portal-upload">
-                        <strong>Reference face (recommended)</strong>
-                        <p>Used for later face matching once your registration is approved. It is discarded if the request is rejected.</p>
-                        <input ref={inputRef} type="file" accept="image/*" onChange={chooseImage} />
-                        {referenceImage && <img className="reference-preview" src={referenceImage} alt="Reference preview" />}
-                    </div>
 
                     <button disabled={loading}>{loading ? "Submitting…" : "Submit request to BLO"}</button>
                 </form>

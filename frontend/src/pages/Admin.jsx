@@ -7,7 +7,7 @@ import "./Admin.css";
 const fmt = (n, unit = "") => (n === null || n === undefined ? "—" : `${n}${unit}`);
 
 function Admin() {
-    const { logged, user, logout } = useContext(AuthContext);
+    const { logged, user, userData, logout } = useContext(AuthContext);
 
     const [stats, setStats] = useState(null);
     const [items, setItems] = useState([]);
@@ -72,6 +72,9 @@ function Admin() {
     };
 
     if (!logged) return <Navigate to="/login?role=blo" replace />;
+    if (userData?.role !== "blo" && userData?.role !== "admin") {
+        return <Navigate to={userData?.role === "eci" ? "/eci/dashboard" : "/dashboard"} replace />;
+    }
 
     return (
         <main className="admin-page">
@@ -79,7 +82,8 @@ function Admin() {
                 <header className="admin-header">
                     <div>
                         <p className="eyebrow">ELECTION OFFICIAL</p>
-                        <h1>Verification review</h1>
+                        <h1>BLO dashboard</h1>
+                        <p>Registration requests and voter verification cases</p>
                         <p>Signed in as <strong>{user}</strong></p>
                     </div>
                     <div className="admin-actions">
@@ -103,7 +107,7 @@ function Admin() {
                                 <thead>
                                     <tr>
                                         <th>Submitted</th><th>Applicant</th><th>Date of birth</th>
-                                        <th>Constituency / Part</th><th>Polling station</th><th>Photo</th><th>Action</th>
+                                        <th>Constituency / Part</th><th>Polling station</th><th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -114,7 +118,6 @@ function Admin() {
                                             <td>{new Date(r.dateOfBirth).toLocaleDateString()}</td>
                                             <td>{r.assemblyConstituency}, {r.district}, {r.state}<br /><small>Part {r.partNumber}</small></td>
                                             <td>{r.pollingStation}</td>
-                                            <td>{r.hasReferenceImage ? "Provided" : "—"}</td>
                                             <td>
                                                 <div className="row-actions">
                                                     <button onClick={() => decideRegistration(r._id, "approve")}>Approve</button>

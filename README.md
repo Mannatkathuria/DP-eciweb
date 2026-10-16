@@ -1,50 +1,30 @@
 # Election Management Prototype
 
-A React + Express election-management prototype with three distinct workflows:
-
-- **Voter portal:** registration, electoral-roll lookup and pre-election identity verification.
-- **BLO/officer portal:** manual review of verification cases.
-- **ECI official portal:** restricted during-voting verification using document OCR → face/liveness → fingerprint-scanner adapter.
+A React + Express election-management prototype with role-based dashboards, OTP sign-in, voter registration, and Persona Sandbox identity verification.
 
 ## Architecture
 
 ```text
-Voter/BLO/ECI React portals
-          │
-          ▼
-      Node/Express API
-          │
-     ┌────┴───────────────┐
-     ▼                    ▼
-   Redis              Face service
- (records, auth,       (Python,
-  sessions, audit)    face+liveness)
-                           │
-                           ▼
-                  local reference images
+Voter / BLO / ECI React portals
+             │
+             ▼
+      Node / Express API ───── Persona Embedded Flow + API + webhooks
+             │
+             ▼
+           Redis
 ```
 
-Redis is now the application database. Biometric reference images are intentionally kept outside Redis; production should place them behind a controlled encrypted biometric service/storage layer.
+Persona runs the configured document and face-verification steps inside the app. The local Python face service and Aadhaar QR decoder are no longer used.
 
-## 1. Redis
+## Start Redis
 
-Install/run Redis locally:
+Run Redis locally or set `REDIS_URL` to your Redis provider URL. Check it with:
 
 ```bash
-sudo pacman -S redis
-sudo systemctl enable --now redis
 redis-cli ping
 ```
 
-Expected:
-
-```text
-PONG
-```
-
-For Redis Cloud/Upstash, set `REDIS_URL` to the provider connection URL.
-
-## 2. Backend
+## Configure and start the backend
 
 ```bash
 cd backend
@@ -54,40 +34,33 @@ npm run seed
 npm run dev
 ```
 
-Important `.env` values:
+Set these values in `backend/.env` using the Persona Sandbox dashboard:
 
 ```env
-REDIS_URL=redis://127.0.0.1:6379
-ACCESS_TOKEN_SECRET=replace_with_a_long_random_secret
-FACE_SERVICE_URL=http://localhost:5000
-ALLOW_ENROLL=1
+PERSONA_API_KEY=persona_sandbox_your_key
+PERSONA_TEMPLATE_ID=itmpl_your_template_id
+PERSONA_ENVIRONMENT_ID=env_your_sandbox_environment_id
+PERSONA_API_VERSION=2026-09-29
+PERSONA_WEBHOOK_SECRET=wbhsec_your_webhook_secret
 ```
 
-Demo accounts created by `npm run seed`:
+Keep Persona credentials on the backend. Do not add them to frontend environment variables or commit `backend/.env`.
+
+### Persona webhook
+
+Create a webhook in the Persona Sandbox environment with this endpoint:
 
 ```text
-admin / ChangeMe@123
-blo   / ChangeMe@123
-eci   / ChangeMe@123
+https://<your-public-api-host>/api/v1/persona/webhook
 ```
 
-Change these before using the project beyond a local demo.
+Enable at least `inquiry.completed`, `inquiry.approved`, `inquiry.declined`, and `inquiry.marked-for-review`. The backend verifies Persona's HMAC signature with `PERSONA_WEBHOOK_SECRET`. For local development, expose the API with a tunnel and set the webhook URL to that public address.
 
-## 3. Face service
+Allow your frontend origin in Persona's Embedded Flow security settings so its verification iframe can load.
 
-The existing Python service performs face detection, face matching and liveness.
+The app treats `approved` as verified. `completed` means the user finished the Persona flow, so the dashboard shows that the inquiry is awaiting a decision until Persona approves it.
 
-```bash
-cd face-service
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
-
-`ALLOW_ENROLL=1` is required if voter registration should enrol a reference face.
-
-## 4. Frontend
+## Start the frontend
 
 ```bash
 cd frontend
@@ -95,72 +68,39 @@ npm install
 npm run dev
 ```
 
-The frontend uses Tesseract.js for document OCR.
+Set `VITE_API_URL` in `frontend/.env` only if the API is not at `http://localhost:8000/api/v1`. Persona's embedded Web SDK is loaded by the frontend; the API key stays on the backend.
+
+## Sandbox demo accounts
+
+Run `npm run seed` to create these accounts:
+
+| Role | EPIC |
+| --- | --- |
+| Voter | `ABC1234567` |
+| BLO | `BLO1234567` |
+| ECI official | `ECI1234567` |
+
+Sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. The sign-in flow requires the OTP for every role, then routes voters to `/dashboard`, BLOs to `/admin`, and ECI officials to `/eci/dashboard`.
+
+During the ECI polling-station flow, the demonstration scanner token is `FP-<EPIC>` (for example, `FP-ABC1234567`). This token is a demo adapter, not a real fingerprint scan.
 
 ## Main routes
 
 ```text
-/                         Public voter portal
-/register                 Voter registration
-/login                    Voter/BLO sign-in
-/verify                   Pre-election verification
-/electoral-roll           Electoral-roll lookup
-/admin                    BLO/officer review portal
-
-/eci/login                Separate ECI official login
-/eci/voting-verification  Restricted during-voting verification
+/                 Portal selection
+/login            Voter or BLO sign-in
+/login/otp        OTP confirmation
+/dashboard        Voter dashboard and Persona status
+/verify           Embedded Persona document and face verification
+/admin            BLO dashboard: registrations and review cases
+/eci/login        ECI sign-in
+/eci/dashboard    ECI official dashboard
+/eci/voting-verification  Persona and demo fingerprint workflow
 ```
 
-## During-voting flow
+## Notes
 
-1. ECI official signs in through `/eci/login`.
-2. Official enters the voter's EPIC.
-3. The backend creates a short-lived verification session.
-4. Official uploads/scans the voter document.
-5. Tesseract OCR extracts EPIC/name/DOB.
-6. Backend compares extracted data against the Redis electoral record.
-7. Face + server-selected liveness challenge runs through the Python face service.
-8. Fingerprint stage invokes the scanner adapter.
-9. On success, the session becomes `verified`; mismatches go to `review_required`.
-
-### Fingerprint limitation
-
-A normal browser cannot expose a raw fingerprint image/template to JavaScript. Therefore this repository contains a **demo scanner adapter**, not a real fingerprint biometric integration. The demo uses a one-time synthetic scan token.
-
-For production, replace that adapter with the certified fingerprint scanner SDK/API approved for the deployment environment. Do not pretend that a webcam or browser API is equivalent to a fingerprint scanner.
-
-### Government integrations
-
-Aadhaar/DigiLocker/PAN/DL integrations remain sandbox adapters. Real government identity systems require the relevant authorisation and security controls.
-
-## Redis data layout
-
-Examples:
-
-```text
-elector:<EPIC>
-user:<username>
-user:id:<UUID>
-verification:<UUID>
-voting-verification:<UUID>
-
-electors:all
-users:all
-verifications:all
-```
-
-Records are stored as JSON values. Sets provide simple indexes for the prototype.
-
-## Security boundary
-
-The ECI voting-verification API is protected by:
-
-```text
-JWT authentication
-+
-role === "eci"
-```
-
-So the public voter/BLO UI cannot directly invoke the during-voting workflow.
-
-This remains a prototype and should not be used as an actual election system without formal security review, certified biometric integrations, privacy controls, audit design, threat modelling, and government authorisation.
+- Persona inquiry status changes come from its API and signed webhooks. A browser callback alone never marks a voter verified.
+- Persona's template controls the document and face checks shown in the flow. Enable the appropriate checks and publish the template in the Sandbox environment.
+- The fingerprint step is synthetic for this prototype. A production deployment needs the certified scanner integration approved for that environment.
+- The project is a prototype and is not an election system or a legal eligibility decision service.

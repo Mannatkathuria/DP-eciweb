@@ -23,8 +23,10 @@ function AuthProvider({ children }) {
                 .catch(() => {
                     localStorage.removeItem("token");
                     localStorage.removeItem("userData");
+                    localStorage.removeItem("user");
                     setLogged(false);
                     setUser("");
+                    setUserData(null);
                 });
         }
     }, [logged]);
