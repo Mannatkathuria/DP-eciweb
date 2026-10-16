@@ -14,8 +14,10 @@ function Login() {
     const [epic, setEpic] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [role, setRole] = useState("voter");
 
     const handleSubmit = async (e) => {
+        console.log(e);
         e.preventDefault();
         setError("");
 

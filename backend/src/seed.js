@@ -52,6 +52,42 @@ const ensureDemoVoter = async () => {
     console.log(`Created approved demo voter: ${epic}`);
 };
 
+const ensureBlo = async () => {
+    const epic = "BLO1234567";
+
+    if (await getUserByEpic(epic)) return;
+
+    await saveUser({
+        _id: crypto.randomUUID(),
+        epic,
+        name: "BLO",
+        role: "blo",
+        approvedBy: process.env.BLO_EPIC || "BLO0000001",
+        createdAt: new Date().toISOString(),
+        demoAccount: true
+    });
+
+    console.log(`Created approved demo voter: ${epic}`);
+};
+
+const ensureEci = async () => {
+    const epic = "ECI1234567";
+
+    if (await getUserByEpic(epic)) return;
+
+    await saveUser({
+        _id: crypto.randomUUID(),
+        epic,
+        name: "ECI",
+        role: "eci",
+        approvedBy: process.env.BLO_EPIC || "BLO0000001",
+        createdAt: new Date().toISOString(),
+        demoAccount: true
+    });
+
+    console.log(`Created approved demo voter: ${epic}`);
+};
+
 
 await connectRedis();
 
@@ -61,6 +97,8 @@ await ensureStaff(process.env.ADMIN_EPIC || "ADM0000001", "Administrator", "admi
 await ensureStaff(process.env.BLO_EPIC || "BLO0000001", "Booth Level Officer", "blo");
 await ensureStaff(process.env.ECI_EPIC || "ECI0000001", "ECI Official", "eci");
 await ensureDemoVoter();
+await ensureBlo();
+await ensureEci();
 
 console.log("Redis seed complete.");
 await redis().quit();

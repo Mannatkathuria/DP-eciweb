@@ -12,6 +12,7 @@ import ElectoralRoll from "./pages/ElectoralRoll";
 import Admin from "./pages/Admin";
 import EciLogin from "./pages/EciLogin";
 import VotingVerification from "./pages/VotingVerification";
+import PersonaVerification from "./pages/Test";
 
 function App() {
     return (
@@ -32,6 +33,7 @@ function App() {
                     path="/eci/voting-verification"
                     element={<VotingVerification />}
                 />
+                <Route path="/test" element={<PersonaVerification />} />
             </Routes>
         </BrowserRouter>
     );

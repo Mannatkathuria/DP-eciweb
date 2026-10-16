@@ -9,15 +9,17 @@ import verificationRoutes from "./routes/verification.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import votingVerificationRoutes from "./routes/votingVerification.routes.js";
+import personaRoutes from "./routes/persona.routes.js";
+
 
 const app = express();
 
 app.set("trust proxy", 1);
 
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean);
+.split(",")
+.map((o) => o.trim())
+.filter(Boolean);
 
 // (Express 5: cors() answers preflight itself - no app.options("*") needed)
 app.use(
@@ -52,6 +54,7 @@ app.use("/api/v1/verification", publicLimiter, verificationRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/voting-verification", votingVerificationRoutes);
+app.use("/api/v1/persona", personaRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
