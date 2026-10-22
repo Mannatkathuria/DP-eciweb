@@ -19,9 +19,13 @@ const getRedisUrl = () => {
 };
 
 const buildClient = () => {
+  const url = getRedisUrl();
+  const isLocal = /^rediss?:\/\/(127\.0\.0\.1|localhost)/.test(url);
+
   const c = createClient({
-    url: getRedisUrl(),
+    url,
     socket: {
+      tls: !isLocal,
       connectTimeout: 10000,
       reconnectStrategy: (retries) =>
         retries > 5 ? new Error("Redis reconnect limit reached") : Math.min(retries * 200, 2000)
