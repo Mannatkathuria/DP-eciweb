@@ -6,26 +6,24 @@ let connecting;
 const isProd = process.env.NODE_ENV === "production";
 
 const getRedisUrl = () => {
-  const url = process.env.REDIS_URL;
+  let url = process.env.REDIS_URL;
   if (!url) {
     if (isProd) throw new Error("REDIS_URL is not set.");
     return "redis://127.0.0.1:6379";
   }
-  const isLocal = /^redis:\/\/(127\.0\.0\.1|localhost)/.test(url);
-  if (url.startsWith("redis://") && !isLocal) {
-    console.warn("REDIS_URL uses redis:// for a remote host. Hosted providers like Upstash need rediss:// (TLS).");
+  url = url.trim();
+  const isLocal = /^rediss?:\/\/(127\.0\.0\.1|localhost)/.test(url);
+  // Remote hosts (Upstash etc.) require TLS, so upgrade redis:// to rediss://
+  if (!isLocal && url.startsWith("redis://")) {
+    url = url.replace("redis://", "rediss://");
   }
   return url;
 };
 
 const buildClient = () => {
-  const url = getRedisUrl();
-  const isLocal = /^rediss?:\/\/(127\.0\.0\.1|localhost)/.test(url);
-
   const c = createClient({
-    url,
+    url: getRedisUrl(),   // TLS is inferred from the rediss:// scheme, so no tls option here
     socket: {
-      tls: !isLocal,
       connectTimeout: 10000,
       reconnectStrategy: (retries) =>
         retries > 5 ? new Error("Redis reconnect limit reached") : Math.min(retries * 200, 2000)
