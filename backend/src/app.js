@@ -17,18 +17,21 @@ const app = express();
 app.set("trust proxy", 1);
 
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-.split(",")
-.map((o) => o.trim())
-.filter(Boolean);
+  .split(",")
+  .map((o) => o.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 
-// (Express 5: cors() answers preflight itself - no app.options("*") needed)
 app.use(
-    cors({
-        origin: allowedOrigins,
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"]
-    })
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn("CORS blocked:", origin, "| allowed:", allowedOrigins.join(","));
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
 );
 
 // Camera frames are sent as base64 JPEGs, so the body limit must be generous.
