@@ -1,53 +1,51 @@
 
 import { useNavigate } from "react-router-dom";
 import "./PortalSelect.css";
+import { useTranslation } from "react-i18next";
 
 const portals = [
-    {
-        id: "voter",
-        number: "01",
-        title: "Voter",
-        description:
-            "Register, sign in with your EPIC number, verify your identity, and check electoral records.",
-        icon: "👤",
-    },
-    {
-        id: "blo",
-        number: "02",
-        title: "Booth Level Officer",
-        description:
-            "Approve voter registration requests and review verification cases for your assigned area.",
-        icon: "📋",
-    },
-    {
-        id: "eci",
-        number: "03",
-        title: "ECI Official",
-        description:
-            "Access the election-official portal and polling-station verification workflow.",
-        icon: "🏛️",
-    },
+  {
+    id: "voter",
+    number: "01",
+    titleKey: "portal.roles.voter",
+    descriptionKey: "portal.descriptions.voter",
+    icon: "👤"
+  },
+  {
+    id: "blo",
+    number: "02",
+    titleKey: "portal.roles.blo",
+    descriptionKey: "portal.descriptions.blo",
+    icon: "📋"
+  },
+  {
+    id: "eci",
+    number: "03",
+    titleKey: "portal.roles.eci",
+    descriptionKey: "portal.descriptions.eci",
+    icon: "🏛️"
+  }
 ];
 
 function PortalSelect() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     return (
         <main className="portal-page">
             <header className="portal-header">
                 <div className="brand-mark">EC</div>
                 <div>
-                    <strong>Election Management System</strong>
-                    <p>Digital Electoral Services</p>
+                    <strong>{t("portal.title")}</strong>
+                    <p>{t("portal.subtitle")}</p>
                 </div>
             </header>
 
             <section className="portal-content">
-                <p className="portal-eyebrow">WELCOME TO ELECTOR SERVICES</p>
-                <h1>How would you like to sign in?</h1>
+                <p className="portal-eyebrow">{t("portal.welcome")}</p>
+                <h1>{t("portal.chooseAction")}</h1>
                 <p className="portal-subtitle">
-                    Select your portal to continue to the services available
-                    for your role.
+                    {t("portal.selectPrompt")}
                 </p>
 
                 <div className="portal-grid">
@@ -68,20 +66,17 @@ function PortalSelect() {
                                 </span>
                             </div>
 
-                            <h2>{portal.title}</h2>
-                            <p>{portal.description}</p>
+                            <h2>{t(portal.titleKey)}</h2>
+                            <p>{t(portal.descriptionKey)}</p>
 
                             <span className="portal-continue">
-                                Continue <span aria-hidden="true">→</span>
+                                {t("common.continue")} <span aria-hidden="true">→</span>
                             </span>
                         </button>
                     ))}
                 </div>
 
-                <p className="portal-footer">
-                    Prototype environment · Official identity integrations
-                    are not enabled
-                </p>
+                <p className="portal-footer">{t("portal.footer")}</p>
             </section>
         </main>
     );

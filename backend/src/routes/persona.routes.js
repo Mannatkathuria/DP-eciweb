@@ -1,7 +1,7 @@
 
 import { Router } from "express";
 import axios from "axios";
-import { verifyJWT } from "../middleware/verifyJWT.middleware.js";
+import { verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import {
   connectRedis,
   jsonGet,
@@ -41,11 +41,19 @@ async function saveInquiry(userId, inquiryId, status) {
 }
 
 function getPersonaConfig() {
-  if (
-    !process.env.PERSONA_API_KEY ||
-    !process.env.PERSONA_TEMPLATE_ID
-  ) {
-    const error = new Error("Persona is not configured");
+  const requiredValues = {
+    PERSONA_API_KEY: process.env.PERSONA_API_KEY,
+    PERSONA_TEMPLATE_ID: process.env.PERSONA_TEMPLATE_ID,
+    PERSONA_ENVIRONMENT_ID: process.env.PERSONA_ENVIRONMENT_ID,
+  };
+  const missingValues = Object.entries(requiredValues)
+    .filter(([, value]) => !value || value.includes("YOUR_"))
+    .map(([name]) => name);
+
+  if (missingValues.length) {
+    const error = new Error(
+      `Persona configuration is missing or still uses example values: ${missingValues.join(", ")}`
+    );
     error.statusCode = 500;
     throw error;
   }
@@ -62,6 +70,7 @@ router.post("/start", verifyJWT, async (req, res) => {
 
     const userId = String(req.user._id);
     const headers = getPersonaConfig();
+    const environmentId = process.env.PERSONA_ENVIRONMENT_ID;
 
     const existing = await jsonGet(userKey(userId));
 
@@ -71,6 +80,7 @@ router.post("/start", verifyJWT, async (req, res) => {
         : null;
 
     let status = existing?.status;
+    let sessionToken;
 
     if (!inquiryId) {
       const response = await persona.post(
@@ -92,14 +102,29 @@ router.post("/start", verifyJWT, async (req, res) => {
         response.data.data.attributes.status || "created";
 
       await saveInquiry(userId, inquiryId, status);
+    } else if (status === "pending") {
+      // Pending inquiries need a session token to resume the embedded flow.
+      const resumeResponse = await persona.post(
+        `/inquiries/${encodeURIComponent(inquiryId)}/resume`,
+        undefined,
+        { headers }
+      );
+      sessionToken = resumeResponse.data.meta?.["session-token"];
+      if (!sessionToken) {
+        throw new Error("Persona did not return a session token for the pending inquiry.");
+      }
     }
 
     return res.json({
       success: true,
-      inquiryId,
-      status,
-      verificationUrl:
-        `https://inquiry.withpersona.com/verify?inquiry-id=${encodeURIComponent(inquiryId)}`,
+      data: {
+        inquiryId,
+        status,
+        environmentId,
+        ...(sessionToken ? { sessionToken } : {}),
+        verificationUrl:
+          `https://inquiry.withpersona.com/verify?inquiry-id=${encodeURIComponent(inquiryId)}`,
+      },
     });
   } catch (error) {
     console.error(
@@ -109,10 +134,7 @@ router.post("/start", verifyJWT, async (req, res) => {
 
     return res.status(error.statusCode || 502).json({
       success: false,
-      message:
-        error.statusCode === 500
-          ? "Persona is not configured"
-          : "Could not start identity verification",
+      message: "Could not start identity verification",
     });
   }
 });

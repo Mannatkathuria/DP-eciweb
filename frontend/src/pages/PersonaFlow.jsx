@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const PERSONA_SDK = "https://cdn.withpersona.com/dist/persona-v5.8.0.js";
 
@@ -21,8 +22,9 @@ function loadPersonaSdk() {
 }
 
 export default function PersonaFlow({ config, onComplete }) {
+    const { t } = useTranslation();
     const [error, setError] = useState("");
-    const [notice, setNotice] = useState("Loading Persona verification…");
+    const [notice, setNotice] = useState(t("persona.loading"));
 
     useEffect(() => {
         if (!config?.inquiryId || !config?.environmentId) return undefined;
@@ -40,29 +42,32 @@ export default function PersonaFlow({ config, onComplete }) {
                     client?.open();
                 },
                 onComplete: async (result) => {
-                    setNotice("Persona flow completed. Refreshing your verification status…");
+                    setNotice(t("persona.completed"));
                     await onComplete?.(result);
                 },
-                onCancel: () => setNotice("Verification was closed. You can continue or resume it here."),
-                onError: () => setError("Persona could not complete this flow. Please retry or contact support.")
+                onCancel: () => setNotice(t("persona.cancelled")),
+                onError: (personaError) => {
+                    console.error("Persona embedded flow error:", personaError);
+                    setError(t("persona.flowError"));
+                }
             });
-        }).catch((loadError) => {
-            if (!disposed) setError(loadError.message || "Could not start Persona verification.");
+        }).catch(() => {
+            if (!disposed) setError(t("persona.startError"));
         });
 
         return () => {
             disposed = true;
             try { client?.destroy(); } catch {}
         };
-    }, [config?.inquiryId, config?.environmentId, config?.sessionToken, onComplete]);
+    }, [config?.inquiryId, config?.environmentId, config?.sessionToken, onComplete, t]);
 
     return (
         <section className="persona-flow-card" aria-live="polite">
-            <h2>Persona identity check</h2>
-            <p>Persona securely collects your identity document and completes its configured face checks inside this page.</p>
+            <h2>{t("persona.title")}</h2>
+            <p>{t("persona.description")}</p>
             {notice && <p className="persona-flow-notice" role="status">{notice}</p>}
             {error && <p className="persona-flow-error" role="alert">{error}</p>}
-            {error && <button type="button" className="secondary-btn" onClick={() => window.location.reload()}>Retry verification</button>}
+            {error && <button type="button" className="secondary-btn" onClick={() => window.location.reload()}>{t("persona.retry")}</button>}
         </section>
     );
 }

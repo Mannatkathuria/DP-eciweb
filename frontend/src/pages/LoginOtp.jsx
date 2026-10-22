@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
@@ -10,6 +11,7 @@ function LoginOtp() {
     const epic = String(params.get("epic") || "").trim().toUpperCase();
     const portal = params.get("portal") || "voter";
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const { logged, userData, login } = useContext(AuthContext);
     const [otp, setOtp] = useState("");
     const [error, setError] = useState("");
@@ -30,7 +32,7 @@ function LoginOtp() {
         setError("");
         setNotice("");
         if (!/^\d{6}$/.test(otp)) {
-            setError("Enter the six-digit OTP.");
+            setError(t("otp.invalid"));
             return;
         }
         try {
@@ -41,7 +43,7 @@ function LoginOtp() {
                 : data.user.role === "blo" || data.user.role === "admin" ? "/admin" : "/dashboard";
             navigate(destination, { replace: true });
         } catch (err) {
-            setError(err.response?.data?.message || "OTP verification failed.");
+            setError(t("otp.verifyFailed"));
         } finally {
             setBusy(false);
         }
@@ -54,9 +56,9 @@ function LoginOtp() {
             setBusy(true);
             await api.post("/verification/otp/send", { electorId: epic });
             setOtp("");
-            setNotice("A new demo OTP was generated. Check the backend terminal.");
+            setNotice(t("otp.newGenerated"));
         } catch (err) {
-            setError(err.response?.data?.message || "Could not generate a new OTP.");
+            setError(t("otp.newFailed"));
         } finally {
             setBusy(false);
         }
@@ -67,24 +69,24 @@ function LoginOtp() {
         <main className="login-page">
             <section className="login-card">
                 <div className="login-header">
-                    <p className="eyebrow">SECURE SIGN IN</p>
-                    <h1>Enter your OTP</h1>
-                    <p>Confirm sign-in for EPIC <strong>{epic}</strong>. You will continue to your dashboard after this step.</p>
+                    <p className="eyebrow">{t("otp.secureSignIn")}</p>
+                    <h1>{t("otp.title")}</h1>
+                    <p>{t("otp.confirmSignIn")} <strong>{epic}</strong>. {t("otp.dashboardNext")}</p>
                 </div>
                 {error && <div className="login-error" role="alert">{error}</div>}
                 {notice && <div className="otp-notice" role="status">{notice}</div>}
                 <form onSubmit={verify}>
                     <div className="form-group">
-                        <label htmlFor="login-otp">Six-digit OTP</label>
+                        <label htmlFor="login-otp">{t("otp.label")}</label>
                         <input id="login-otp" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                            inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter OTP" autoFocus required />
+                            inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder={t("otp.placeholder")} autoFocus required />
                     </div>
-                    <button className="login-button" disabled={busy || otp.length !== 6}>{busy ? "Checking…" : "Verify and continue"}</button>
+                    <button className="login-button" disabled={busy || otp.length !== 6}>{busy ? t("common.checking") : t("otp.verify")}</button>
                 </form>
-                <p className="login-demo">Demo OTPs are printed by the backend. No SMS is sent.</p>
+                <p className="login-demo">{t("otp.demoHint")}</p>
                 <div className="otp-actions">
-                    <button type="button" className="back-button" onClick={resend} disabled={busy}>Generate a new OTP</button>
-                    <Link to={signInPath}>Back to sign in</Link>
+                    <button type="button" className="back-button" onClick={resend} disabled={busy}>{t("otp.generateNew")}</button>
+                    <Link to={signInPath}>{t("otp.backToSignIn")}</Link>
                 </div>
             </section>
         </main>

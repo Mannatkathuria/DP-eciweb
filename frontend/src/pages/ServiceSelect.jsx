@@ -1,51 +1,52 @@
 
 import { Link, useSearchParams, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import "./PortalSelect.css";
 
 const roleInfo = {
     voter: {
-        title: "Voter Services",
-        description: "Choose what you want to do.",
+        titleKey: "service.voter.title",
+        descriptionKey: "service.voter.description",
         actions: [
             {
-                title: "Sign in",
-                description: "Sign in with your EPIC number and a one-time code (OTP).",
+                titleKey: "service.voter.signInTitle",
+                descriptionKey: "service.voter.signInDescription",
                 link: "/login?role=voter",
                 icon: "🔐",
             },
             {
-                title: "Register",
-                description: "Send a registration request to your BLO. You can sign in once it is approved.",
+                titleKey: "service.voter.registerTitle",
+                descriptionKey: "service.voter.registerDescription",
                 link: "/register",
                 icon: "✍️",
             },
             {
-                title: "Electoral Roll",
-                description: "Search and check electoral-roll records.",
+                titleKey: "service.voter.rollTitle",
+                descriptionKey: "service.voter.rollDescription",
                 link: "/electoral-roll",
                 icon: "📑",
             },
         ],
     },
     blo: {
-        title: "BLO Portal",
-        description: "Sign in to access your assigned area and voter requests.",
+        titleKey: "service.blo.title",
+        descriptionKey: "service.blo.description",
         actions: [
             {
-                title: "BLO Sign in",
-                description: "Sign in with your EPIC number and a one-time code (OTP).",
+                titleKey: "service.blo.signInTitle",
+                descriptionKey: "service.blo.signInDescription",
                 link: "/login?role=blo",
                 icon: "🔐",
             },
         ],
     },
     eci: {
-        title: "ECI Official Portal",
-        description: "Sign in to access authorised election-day operations.",
+        titleKey: "service.eci.title",
+        descriptionKey: "service.eci.description",
         actions: [
             {
-                title: "Official Sign in",
-                description: "Continue to polling-station verification services.",
+                titleKey: "service.eci.signInTitle",
+                descriptionKey: "service.eci.signInDescription",
                 link: "/eci/login",
                 icon: "🏛️",
             },
@@ -55,6 +56,7 @@ const roleInfo = {
 
 function ServiceSelect() {
     const [params] = useSearchParams();
+    const { t } = useTranslation();
     const role = params.get("role");
     const info = roleInfo[role];
 
@@ -65,25 +67,25 @@ function ServiceSelect() {
             <header className="portal-header">
                 <Link to="/" className="brand-mark">EC</Link>
                 <div>
-                    <strong>Election Management System</strong>
-                    <p>Digital Electoral Services</p>
+                    <strong>{t("portal.title")}</strong>
+                    <p>{t("portal.subtitle")}</p>
                 </div>
-                <Link to="/" className="back-link">Change portal</Link>
+                <Link to="/" className="back-link">{t("portal.changePortal")}</Link>
             </header>
 
             <section className="portal-content service-content">
                 <p className="portal-eyebrow">
-                    {role.toUpperCase()} PORTAL
+                    {t(`service.${role}.eyebrow`)}
                 </p>
-                <h1>{info.title}</h1>
-                <p className="portal-subtitle">{info.description}</p>
+                <h1>{t(info.titleKey)}</h1>
+                <p className="portal-subtitle">{t(info.descriptionKey)}</p>
 
                 <div className="service-grid">
                     {info.actions.map((action, index) => (
                         <Link
                             to={action.link}
                             className="service-card"
-                            key={action.title}
+                            key={action.titleKey}
                         >
                             <div className="portal-card-top">
                                 <span className="portal-icon">
@@ -94,19 +96,16 @@ function ServiceSelect() {
                                 </span>
                             </div>
 
-                            <h2>{action.title}</h2>
-                            <p>{action.description}</p>
+                            <h2>{t(action.titleKey)}</h2>
+                            <p>{t(action.descriptionKey)}</p>
                             <span className="portal-continue">
-                                Continue <span aria-hidden="true">→</span>
+                                {t("common.continue")} <span aria-hidden="true">→</span>
                             </span>
                         </Link>
                     ))}
                 </div>
 
-                <p className="portal-footer">
-                    Choose an option to proceed. Protected services may require
-                    authentication.
-                </p>
+                <p className="portal-footer">{t("service.footer")}</p>
             </section>
         </main>
     );

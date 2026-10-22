@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import "./ElectoralRoll.css";
 import api from "../api/axios";
 
 function ElectoralRoll() {
+    const { t } = useTranslation();
     const [searchMethod, setSearchMethod] = useState("epic");
 
     const [formData, setFormData] = useState({
@@ -35,19 +37,19 @@ function ElectoralRoll() {
 
         // Basic validation
         if (searchMethod === "epic" && !formData.epic.trim()) {
-            setError("Please enter your EPIC number.");
+            setError(t("electoral.enterEpic"));
             return;
         }
 
         if (searchMethod === "details") {
             if (!formData.name.trim() || !formData.state) {
-                setError("Please enter the required personal details.");
+                setError(t("electoral.enterDetails"));
                 return;
             }
         }
 
         if (searchMethod === "mobile" && !formData.mobile.trim()) {
-            setError("Please enter your registered mobile number.");
+            setError(t("electoral.enterMobile"));
             return;
         }
 
@@ -77,8 +79,7 @@ function ElectoralRoll() {
             console.error("Electoral search failed:", error);
 
             setError(
-                error.response?.data?.message ||
-                "Unable to search the electoral record."
+                t("electoral.searchFailed")
             );
 
         } finally {
@@ -94,16 +95,15 @@ function ElectoralRoll() {
                 <header className="electoral-header">
 
                     <p className="eyebrow">
-                        ELECTOR SERVICES
+                        {t("portal.voterServices")}
                     </p>
 
                     <h1>
-                        Search Electoral Roll
+                        {t("electoral.title")}
                     </h1>
 
                     <p>
-                        Search for your electoral record using an
-                        available identification method.
+                        {t("electoral.intro")}
                     </p>
 
                 </header>
@@ -125,7 +125,7 @@ function ElectoralRoll() {
                                 setElector(null);
                             }}
                         >
-                            EPIC Number
+                            {t("electoral.epicNumber")}
                         </button>
 
                         <button
@@ -141,7 +141,7 @@ function ElectoralRoll() {
                                 setElector(null);
                             }}
                         >
-                            Personal Details
+                            {t("electoral.personalDetails")}
                         </button>
 
                         <button
@@ -157,7 +157,7 @@ function ElectoralRoll() {
                                 setElector(null);
                             }}
                         >
-                            Mobile Number
+                            {t("electoral.mobileNumber")}
                         </button>
 
                     </div>
@@ -181,7 +181,7 @@ function ElectoralRoll() {
                                 <div className="form-group">
 
                                     <label htmlFor="epic">
-                                        EPIC Number
+                                        {t("electoral.epicNumber")}
                                     </label>
 
                                     <input
@@ -195,14 +195,13 @@ function ElectoralRoll() {
                                                 epic: e.target.value.toUpperCase()
                                             }))
                                         }
-                                        placeholder="Enter EPIC number"
+                                        placeholder={t("electoral.epicPlaceholder")}
                                         autoComplete="off"
                                         disabled={loading}
                                     />
 
                                     <span>
-                                        Enter the EPIC number printed on
-                                        your Elector Photo Identity Card.
+                                        {t("electoral.epicHelp")}
                                     </span>
 
                                 </div>
@@ -227,7 +226,7 @@ function ElectoralRoll() {
                                         type="text"
                                         value={formData.name}
                                         onChange={handleChange}
-                                        placeholder="Enter name"
+                                        placeholder={t("electoral.namePlaceholder")}
                                         disabled={loading}
                                     />
 
@@ -238,7 +237,7 @@ function ElectoralRoll() {
                                     <div className="form-group">
 
                                         <label htmlFor="state">
-                                            State / UT
+                                            {t("register.state")}
                                         </label>
 
                                         <select
@@ -249,23 +248,23 @@ function ElectoralRoll() {
                                             disabled={loading}
                                         >
                                             <option value="">
-                                                Select State / UT
+                                                {t("electoral.selectState")}
                                             </option>
 
                                             <option value="Himachal Pradesh">
-                                                Himachal Pradesh
+                                                {t("electoral.states.himachal")}
                                             </option>
 
                                             <option value="Punjab">
-                                                Punjab
+                                                {t("electoral.states.punjab")}
                                             </option>
 
                                             <option value="Haryana">
-                                                Haryana
+                                                {t("electoral.states.haryana")}
                                             </option>
 
                                             <option value="Delhi">
-                                                Delhi
+                                                {t("electoral.states.delhi")}
                                             </option>
 
                                         </select>
@@ -275,7 +274,7 @@ function ElectoralRoll() {
                                     <div className="form-group">
 
                                         <label htmlFor="district">
-                                            District
+                                            {t("register.district")}
                                         </label>
 
                                         <input
@@ -284,7 +283,7 @@ function ElectoralRoll() {
                                             type="text"
                                             value={formData.district}
                                             onChange={handleChange}
-                                            placeholder="Enter district"
+                                            placeholder={t("electoral.districtPlaceholder")}
                                             disabled={loading}
                                         />
 
@@ -295,7 +294,7 @@ function ElectoralRoll() {
                                 <div className="form-group">
 
                                     <label htmlFor="constituency">
-                                        Assembly Constituency
+                                        {t("electoral.constituency")}
                                     </label>
 
                                     <input
@@ -304,7 +303,7 @@ function ElectoralRoll() {
                                         type="text"
                                         value={formData.constituency}
                                         onChange={handleChange}
-                                        placeholder="Enter constituency"
+                                        placeholder={t("electoral.constituencyPlaceholder")}
                                         disabled={loading}
                                     />
 
@@ -321,7 +320,7 @@ function ElectoralRoll() {
                                 <div className="form-group">
 
                                     <label htmlFor="mobile">
-                                        Registered Mobile Number
+                                        {t("electoral.registeredMobile")}
                                     </label>
 
                                     <input
@@ -330,15 +329,13 @@ function ElectoralRoll() {
                                         type="tel"
                                         value={formData.mobile}
                                         onChange={handleChange}
-                                        placeholder="Enter registered mobile number"
+                                        placeholder={t("electoral.mobilePlaceholder")}
                                         autoComplete="tel"
                                         disabled={loading}
                                     />
 
                                     <span>
-                                        This method will be available only
-                                        where supported by the authorised
-                                        electoral service.
+                                        {t("electoral.mobileHelp")}
                                     </span>
 
                                 </div>
@@ -352,8 +349,8 @@ function ElectoralRoll() {
                             disabled={loading}
                         >
                             {loading
-                                ? "Searching..."
-                                : "Search Electoral Roll"}
+                                ? t("electoral.searching")
+                                : t("electoral.searchButton")}
                         </button>
 
                     </form>
@@ -366,27 +363,27 @@ function ElectoralRoll() {
                     <section className="electoral-card">
 
                         <h2>
-                            Electoral Record Found
+                            {t("electoral.recordFound")}
                         </h2>
 
                         <div className="record-box">
 
                             <div className="record-row">
-                                <span>Name</span>
+                                <span>{t("register.fullName")}</span>
                                 <strong>
                                     {elector.name || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>EPIC Number</span>
+                                <span>{t("electoral.epicNumber")}</span>
                                 <strong>
                                     {elector.epic || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>Date of Birth</span>
+                                <span>{t("register.dateOfBirth")}</span>
                                 <strong>
                                     {elector.dateOfBirth
                                         ? new Date(
@@ -397,42 +394,42 @@ function ElectoralRoll() {
                             </div>
 
                             <div className="record-row">
-                                <span>Gender</span>
+                                <span>{t("register.gender")}</span>
                                 <strong>
-                                    {elector.gender || "—"}
+                                    {elector.gender ? t(`register.${elector.gender.toLowerCase()}`, { defaultValue: elector.gender }) : "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>State</span>
+                                <span>{t("register.state")}</span>
                                 <strong>
                                     {elector.state || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>District</span>
+                                <span>{t("register.district")}</span>
                                 <strong>
                                     {elector.district || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>Assembly Constituency</span>
+                                <span>{t("electoral.constituency")}</span>
                                 <strong>
                                     {elector.assemblyConstituency || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>Part Number</span>
+                                <span>{t("register.partNumber")}</span>
                                 <strong>
                                     {elector.partNumber || "—"}
                                 </strong>
                             </div>
 
                             <div className="record-row">
-                                <span>Polling Station</span>
+                                <span>{t("register.pollingStation")}</span>
                                 <strong>
                                     {elector.pollingStation || "—"}
                                 </strong>
@@ -446,23 +443,20 @@ function ElectoralRoll() {
                 <section className="electoral-information">
 
                     <h2>
-                        Before you search
+                        {t("electoral.beforeSearch")}
                     </h2>
 
                     <ul>
                         <li>
-                            Keep your EPIC number available if possible.
+                            {t("electoral.tipEpic")}
                         </li>
 
                         <li>
-                            Ensure that the information entered matches
-                            your electoral record.
+                            {t("electoral.tipMatch")}
                         </li>
 
                         <li>
-                            If your record cannot be located, seek
-                            assistance through the appropriate electoral
-                            authority.
+                            {t("electoral.tipHelp")}
                         </li>
                     </ul>
 
