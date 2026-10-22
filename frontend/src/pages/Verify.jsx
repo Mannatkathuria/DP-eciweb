@@ -38,29 +38,68 @@ function Verify() {
         loadStatus().catch((err) => setError(err.response?.data?.message || "Could not load verification status."));
     }, [logged, userData?.role, loadStatus]);
 
+    
     const startVerification = async () => {
         setError("");
         setNotice("");
         setLoading(true);
+
+        console.log("Verification started");
+
         try {
-            const { data } = await api.post("/persona/start");
-            const inquiry = data.data;
+            const { data: inquiry } = await api.post("/persona/start");
+
+            console.log("Persona start response:", inquiry);
+
             setInquiryId(inquiry.inquiryId);
             setStatus(inquiry.status);
+
             if (["verified", "pending_review", "review_required"].includes(inquiry.status)) {
-                setNotice(`Current Persona status: ${statusText[inquiry.status] || inquiry.status}.`);
+                setNotice(
+                    `Current Persona status: ${statusText[inquiry.status] || inquiry.status}.`
+                );
+                setConfig(null);
                 return;
             }
-            setConfig(inquiry);
+
+            // setConfig(inquiry);
+            // window.location.assign(inquiry.verificationUrl);
+            if (["verified", "pending_review", "review_required"].includes(inquiry.status)) {
+                setNotice(
+                    `Current Persona status: ${statusText[inquiry.status] || inquiry.status}.`
+                );
+                setConfig(null);
+                return;
+            }
+
+            if (!inquiry.verificationUrl) {
+                throw new Error("Persona verification URL was not returned.");
+            }
+
+            window.location.assign(inquiry.verificationUrl);
+
         } catch (err) {
-            setError(err.response?.data?.message || "Could not start Persona verification.");
+            console.error(
+                "Persona start failed:",
+                err.response?.status,
+                err.response?.data || err.message
+            );
+
+            setError(
+                err.response?.data?.message ||
+                "Could not start Persona verification."
+            );
         } finally {
             setLoading(false);
         }
     };
 
+
     const refreshStatus = useCallback(async (completedInquiryId = inquiryId) => {
         setError("");
+
+        console.log("refreshing", inquiryId);
+
         try {
             if (completedInquiryId) {
                 const { data } = await api.post("/persona/sync", { inquiryId: completedInquiryId });
@@ -77,6 +116,9 @@ function Verify() {
     }, [inquiryId, loadStatus]);
 
     const handleComplete = useCallback(async (result) => {
+
+        console.log("completed");
+
         await refreshStatus(result?.inquiryId || inquiryId);
         setConfig(null);
     }, [inquiryId, refreshStatus]);

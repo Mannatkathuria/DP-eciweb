@@ -1,7 +1,7 @@
 
 import { Router } from "express";
 import axios from "axios";
-import { verifyJWT } from "../middleware/verifyJWT.middleware.js";
+import { verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import {
   connectRedis,
   jsonGet,
