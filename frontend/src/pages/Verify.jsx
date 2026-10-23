@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
-import PersonaFlow from "./PersonaFlow";
 import "./PersonaVerification.css";
 
 const statusText = {
@@ -32,7 +31,6 @@ function Verify() {
     const navigate = useNavigate();
     const [status, setStatus] = useState("unverified");
     const [inquiryId, setInquiryId] = useState(null);
-    const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
@@ -55,10 +53,10 @@ function Verify() {
         setLoading(true);
         try {
             const { data } = await api.post("/persona/start");
-            // The backend returns { success, data: {...} }; accept the older flat shape too.
+            // Support the current wrapped response and the older flat response shape.
             const inquiry = data.data || data;
-            if (!inquiry?.inquiryId || !inquiry?.environmentId) {
-                throw new Error("Persona response is missing its inquiry or environment ID.");
+            if (!inquiry?.inquiryId) {
+                throw new Error("Persona response is missing its inquiry ID.");
             }
             setInquiryId(inquiry.inquiryId);
             const uiStatus = normalizePersonaStatus(inquiry.status);
@@ -67,9 +65,16 @@ function Verify() {
                 setNotice(t("verification.currentStatus", { status: t(statusText[uiStatus] || "verification.notStarted") }));
                 return;
             }
-            setConfig(inquiry);
+            if (!inquiry.verificationUrl) {
+                throw new Error("Persona did not return a verification URL.");
+            }
+            window.location.assign(inquiry.verificationUrl);
         } catch (err) {
-            console.error("Failed to start Persona verification:", err.response?.data || err.message);
+            console.error(
+                "Persona start failed:",
+                err.response?.status,
+                err.response?.data || err.message
+            );
             setError(t("verification.startError"));
         } finally {
             setLoading(false);
@@ -94,11 +99,6 @@ function Verify() {
             setError(t("verification.refreshError"));
         }
     }, [inquiryId, loadStatus, t]);
-
-    const handleComplete = useCallback(async (result) => {
-        await refreshStatus(result?.inquiryId || inquiryId);
-        setConfig(null);
-    }, [inquiryId, refreshStatus]);
 
     if (!logged) return <Navigate to="/login?role=voter" replace />;
     if (userData?.role !== "voter") {
@@ -133,7 +133,6 @@ function Verify() {
 
             {error && <p className="persona-flow-error" role="alert">{error}</p>}
             {notice && <p className="persona-flow-notice" role="status">{notice}</p>}
-            {config && <PersonaFlow config={config} onComplete={handleComplete} />}
             <p className="persona-footnote">{t("verification.footnote")}</p>
         </main>
     );

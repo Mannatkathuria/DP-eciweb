@@ -115,6 +115,12 @@ router.post("/start", verifyJWT, async (req, res) => {
       }
     }
 
+    const verificationUrl = new URL("https://inquiry.withpersona.com/verify");
+    verificationUrl.searchParams.set("inquiry-id", inquiryId);
+    if (sessionToken) {
+      verificationUrl.searchParams.set("session-token", sessionToken);
+    }
+
     return res.json({
       success: true,
       data: {
@@ -122,8 +128,7 @@ router.post("/start", verifyJWT, async (req, res) => {
         status,
         environmentId,
         ...(sessionToken ? { sessionToken } : {}),
-        verificationUrl:
-          `https://inquiry.withpersona.com/verify?inquiry-id=${encodeURIComponent(inquiryId)}`,
+        verificationUrl: verificationUrl.toString(),
       },
     });
   } catch (error) {
