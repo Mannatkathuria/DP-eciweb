@@ -14,10 +14,12 @@ import Admin from "./pages/Admin";
 import EciLogin from "./pages/EciLogin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
+import LanguageSelector from "./LanguageSelector";
 
 function App() {
     return (
         <BrowserRouter>
+            <LanguageSelector />
             <Routes>
                 <Route path="/" element={<PortalSelect />} />
                 <Route path="/services" element={<ServiceSelect />} />
