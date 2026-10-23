@@ -15,6 +15,7 @@ import EciLogin from "./pages/EciLogin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
 import LanguageSelector from "./LanguageSelector";
+import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
     return (
@@ -38,6 +39,7 @@ function App() {
                     path="/eci/voting-verification"
                     element={<VotingVerification />}
                 />
+                <Route path="/phone" element={<PhoneScreen />} />
             </Routes>
         </BrowserRouter>
     );

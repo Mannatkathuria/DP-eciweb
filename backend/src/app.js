@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import votingVerificationRoutes from "./routes/votingVerification.routes.js";
 import personaRoutes from "./routes/persona.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/voting-verification", votingVerificationRoutes);
 app.use("/api/v1/persona", personaRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

@@ -24,12 +24,20 @@ function EciLogin() {
         }
 
         setLoading(true);
+
         try {
+            setLoading(true);
+
+            localStorage.setItem("epic", value); // Save before request
+
             await api.post("/auth/login", { epic: value, portal: "eci" });
+
             navigate(`/login/otp?epic=${encodeURIComponent(value)}&portal=eci`);
         } catch (err) {
             setError(t("login.loginFailed"));
-        } finally { setLoading(false); }
+        } finally {
+            setLoading(false);
+        }{ setLoading(false); }
     };
 
     return (

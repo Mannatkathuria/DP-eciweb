@@ -25,15 +25,21 @@ function Login() {
             return;
         }
 
+        
         try {
             setLoading(true);
+
+            localStorage.setItem("epic", value); // Save before request
+
             await api.post("/auth/login", { epic: value, portal });
+
             navigate(`/login/otp?epic=${encodeURIComponent(value)}&portal=${portal}`);
         } catch (err) {
             setError(t("login.loginFailed"));
         } finally {
             setLoading(false);
         }
+
     };
 
     return (
