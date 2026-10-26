@@ -77,10 +77,21 @@ Run `npm run seed` to create these accounts:
 | Role | EPIC |
 | --- | --- |
 | Voter | `ABC1234567` |
-| BLO | `BLO1234567` |
 | ECI official | `ECI1234567` |
 
-Sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. The sign-in flow requires the OTP for every role, then routes voters to `/dashboard`, BLOs to `/admin`, and ECI officials to `/eci/dashboard`.
+Voters and ECI officials sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. Voters go to `/dashboard` and ECI officials to `/eci/dashboard`.
+
+### BLO accounts
+
+BLOs sign in with a **BLO ID and password**, followed by an OTP sent to their registered mobile number that is valid for **2 minutes** (in this prototype the OTP is printed in the backend terminal). Create a BLO from the `backend` folder:
+
+```bash
+npm run create-blo -- --name "Ravi Kumar" --mobile 9876543210 --state UP
+```
+
+The command prints the BLO ID (for example `BLO-UP-000001`) and a one-time temporary password. On first sign-in the BLO must set their own password before reaching `/admin`. Five wrong passwords lock the account for 15 minutes.
+
+A BLO who forgets their password uses **Forgot password?** on the sign-in page: an OTP (valid 2 minutes) is sent to the mobile number registered for that BLO ID, and after entering it plus the new password twice, the stored password is replaced. A reset also clears a lockout and signs out existing sessions.
 
 During the ECI polling-station flow, the demonstration scanner token is `FP-<EPIC>` (for example, `FP-ABC1234567`). This token is a demo adapter, not a real fingerprint scan.
 
@@ -88,7 +99,10 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 
 ```text
 /                 Portal selection
-/login            Voter or BLO sign-in
+/login            Voter sign-in
+/blo/login        BLO sign-in (BLO ID, password, mobile OTP)
+/blo/password     BLO password change (required on first sign-in)
+/blo/forgot       BLO forgot password (mobile OTP, then new password)
 /login/otp        OTP confirmation
 /dashboard        Voter dashboard and Persona status
 /verify           Embedded Persona document and face verification

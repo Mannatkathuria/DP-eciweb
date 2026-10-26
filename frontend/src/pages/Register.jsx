@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
@@ -6,8 +6,11 @@ import "./Portal.css";
 
 const emptyForm = {
     name: "", dateOfBirth: "", gender: "Other",
-    state: "", district: "", assemblyConstituency: "", partNumber: "", pollingStation: ""
+    state: "", district: "", assemblyConstituency: "", address: "", pinCode: ""
 };
+
+// Changing a parent selection clears the selections that depend on it.
+const DEPENDENTS = { state: ["district", "assemblyConstituency"], district: ["assemblyConstituency"] };
 
 // Voters submit a registration REQUEST here. No account exists until a BLO approves it.
 function Register() {
@@ -22,10 +25,32 @@ function Register() {
     const [statusError, setStatusError] = useState("");
     const [checking, setChecking] = useState(false);
 
-    const update = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    const [geography, setGeography] = useState(null);
+    const [geographyError, setGeographyError] = useState("");
+
+    useEffect(() => {
+        api.get("/auth/geography")
+            .then(({ data }) => setGeography(data.data))
+            .catch(() => setGeographyError(t("register.geographyLoadFailed")));
+    }, [t]);
+
+    const stateEntry = useMemo(() => geography?.states.find(s => s.name === form.state) || null, [geography, form.state]);
+    const districtEntry = stateEntry?.districts.find(d => d.name === form.district) || null;
+    const constituencyOptions = stateEntry?.constituencies === "available" ? districtEntry?.constituencies || [] : [];
+    const geographyValid = Boolean(districtEntry && constituencyOptions.includes(form.assemblyConstituency));
+
+    const update = e => {
+        const { name, value } = e.target;
+        setForm(f => {
+            const next = { ...f, [name]: value };
+            for (const dependent of DEPENDENTS[name] || []) next[dependent] = "";
+            return next;
+        });
+    };
 
     const submit = async e => {
         e.preventDefault();
+        if (!geographyValid) return;
         setError(""); setLoading(true);
         try {
             const { data } = await api.post("/auth/register", form);
@@ -60,6 +85,7 @@ function Register() {
                 </p>
 
                 {error && <div className="portal-error">{error}</div>}
+                {geographyError && <div className="portal-error">{geographyError}</div>}
 
                 {submitted && (
                     <div className="portal-success">
@@ -71,13 +97,30 @@ function Register() {
                     <label>{t("register.fullName")}<input name="name" value={form.name} onChange={update} required /></label>
                     <label>{t("register.dateOfBirth")}<input name="dateOfBirth" type="date" value={form.dateOfBirth} onChange={update} required /></label>
                     <label>{t("register.gender")}<select name="gender" value={form.gender} onChange={update}><option value="Male">{t("register.male")}</option><option value="Female">{t("register.female")}</option><option value="Other">{t("register.other")}</option></select></label>
-                    <label>{t("register.state")}<input name="state" value={form.state} onChange={update} required /></label>
-                    <label>{t("register.district")}<input name="district" value={form.district} onChange={update} required /></label>
-                    <label>{t("register.constituency")}<input name="assemblyConstituency" value={form.assemblyConstituency} onChange={update} required /></label>
-                    <label>{t("register.partNumber")}<input name="partNumber" value={form.partNumber} onChange={update} required /></label>
-                    <label>{t("register.pollingStation")}<input name="pollingStation" value={form.pollingStation} onChange={update} required /></label>
+                    <label>{t("register.state")}
+                        <select name="state" value={form.state} onChange={update} disabled={!geography} required>
+                            <option value="">{t("register.selectState")}</option>
+                            {geography?.states.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                        </select>
+                    </label>
+                    <label>{t("register.district")}
+                        <select name="district" value={form.district} onChange={update} disabled={!stateEntry} required>
+                            <option value="">{t("register.selectDistrict")}</option>
+                            {stateEntry?.districts.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                        </select>
+                    </label>
+                    <label>{t("register.constituency")}
+                        <select name="assemblyConstituency" value={form.assemblyConstituency} onChange={update} disabled={!districtEntry || constituencyOptions.length === 0} required>
+                            <option value="">{t("register.selectConstituency")}</option>
+                            {constituencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        {stateEntry?.constituencies === "none" && <small className="portal-muted">{t("register.noAssembly")}</small>}
+                        {stateEntry?.constituencies === "unavailable" && <small className="portal-muted">{t("register.constituenciesUnavailable")}</small>}
+                    </label>
+                    <label>{t("register.address")}<input name="address" value={form.address} onChange={update} minLength={10} maxLength={300} autoComplete="street-address" required /></label>
+                    <label>{t("register.pinCode")}<input name="pinCode" value={form.pinCode} onChange={update} inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6} title={t("register.pinCodeInvalid")} autoComplete="postal-code" required /></label>
 
-                    <button disabled={loading}>{loading ? t("common.submitting") : t("register.submitToBlo")}</button>
+                    <button disabled={loading || !geographyValid}>{loading ? t("common.submitting") : t("register.submitToBlo")}</button>
                 </form>
 
                 <hr />

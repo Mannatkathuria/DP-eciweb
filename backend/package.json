@@ -6,8 +6,9 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed": "node src/seed.js",
+    "create-blo": "node scripts/create-blo.js",
     "check-db": "node src/checkDb.js",
-    "test": "node --test tests/backend.test.js"
+    "test": "node --test tests/backend.test.js tests/registration.test.js tests/blo-auth.test.js"
   },
   "dependencies": {
     "axios": "^1.20.0",

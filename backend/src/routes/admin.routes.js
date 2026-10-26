@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyJWT, requireRole } from "../middlewares/verifyJWT.middleware.js";
+import { verifyJWT, requireRole, requirePasswordChanged } from "../middlewares/verifyJWT.middleware.js";
 import {
     listVerifications,
     resolveVerification,
@@ -11,7 +11,7 @@ import {
 
 const router = express.Router();
 
-router.use(verifyJWT, requireRole("admin", "blo"));
+router.use(verifyJWT, requireRole("admin", "blo"), requirePasswordChanged);
 
 router.get("/verifications", listVerifications);
 router.patch("/verifications/:id/resolve", resolveVerification);

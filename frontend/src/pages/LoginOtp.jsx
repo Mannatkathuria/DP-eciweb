@@ -18,7 +18,10 @@ function LoginOtp() {
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState("");
 
-    if (logged && userData?.role) {
+    // Skip the OTP step only if this same account is already signed in. Signing in with a
+    // different EPIC (e.g. a BLO while a voter session is open) must go through the OTP step,
+    // which replaces the old session.
+    if (logged && userData?.role && userData.epic === epic) {
         const destination = userData.role === "eci" ? "/eci/dashboard"
             : userData.role === "blo" || userData.role === "admin" ? "/admin" : "/dashboard";
         return <Navigate to={destination} replace />;

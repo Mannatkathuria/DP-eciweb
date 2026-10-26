@@ -13,10 +13,22 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
 
     const user = await getUserById(decoded?._id);
     if (!user) throw new ApiError(401, "Invalid access token: user not found.");
+    // A password change or reset signs out sessions that were started before it.
+    if (user.passwordChangedAt && decoded.iat * 1000 < Date.parse(user.passwordChangedAt) - 1000) {
+        throw new ApiError(401, "Your password was changed. Please sign in again.");
+    }
 
     req.user = user;
     next();
 });
+
+// BLOs still on their temporary password may only change it.
+export const requirePasswordChanged = (req, res, next) => {
+    if (req.user?.role === "blo" && req.user.mustChangePassword) {
+        return next(new ApiError(403, "Set a new password before using the BLO portal."));
+    }
+    next();
+};
 
 export const requireRole = (...roles) => (req, res, next) => {
     if (!roles.includes(req.user?.role)) {

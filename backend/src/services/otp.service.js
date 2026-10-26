@@ -8,21 +8,25 @@ const MAX_ATTEMPTS = 5;
 const store = new Map();
 const notificationStore = new Map();
 
-export const issueOtp = (epic) => {
+/**
+ * Issues a one-time code for `epic` (or any sign-in key). Options let a caller use a
+ * shorter lifetime and a different log label, e.g. BLO sign-in (2 minutes, sent to a mobile).
+ */
+export const issueOtp = (epic, { ttlMs = OTP_TTL_MS, logLabel = `EPIC ${epic}` } = {}) => {
     const otp = String(crypto.randomInt(100000, 1000000));
-    const expiresAt = Date.now() + OTP_TTL_MS;
+    const expiresAt = Date.now() + ttlMs;
 
     store.set(epic, { otp, expiresAt, attempts: 0 });
 
     // Demo only: never expose OTPs through notifications in production.
-    console.log(`[DEMO OTP] EPIC ${epic}: ${otp}`);
+    console.log(`[DEMO OTP] ${logLabel}: ${otp}`);
 
     notificationStore.set(epic, [{
         id: crypto.randomUUID(),
         app: "ECI Verification",
         icon: "🗳️",
         title: "Your verification OTP",
-        body: `Your OTP is ${otp}. It expires in 5 minutes.`,
+        body: `Your OTP is ${otp}. It expires in ${Math.round(ttlMs / 60000)} minutes.`,
         createdAt: new Date().toISOString(),
         expiresAt
     }]);

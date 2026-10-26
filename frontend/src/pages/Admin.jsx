@@ -5,6 +5,11 @@ import api from "../api/axios";
 import { Link, Navigate } from "react-router-dom";
 import "./Admin.css";
 
+// Mirrors the backend checks in parseBoothAssignment (admin.controllers.js).
+const validAssignment = ({ partNumber, pollingStation }) =>
+    /^[1-9]\d{0,3}$/.test(partNumber.trim()) && pollingStation.trim().replace(/\s+/g, " ").length >= 3 &&
+    pollingStation.trim().length <= 200;
+
 const fmt = (n, unit = "") => (n === null || n === undefined ? "—" : `${n}${unit}`);
 
 function Admin() {
@@ -18,6 +23,8 @@ function Admin() {
     const [error, setError] = useState("");
     const [registrations, setRegistrations] = useState([]);
     const [notice, setNotice] = useState("");
+    // Part number and polling station the BLO is assigning, per pending request.
+    const [assignments, setAssignments] = useState({});
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -54,9 +61,24 @@ function Admin() {
         }
     };
 
-    const decideRegistration = async (id, decision) => {
+    // Older requests may carry values typed by the applicant; they only pre-fill the BLO's inputs.
+    const assignmentFor = (r) => ({
+        partNumber: assignments[r._id]?.partNumber ?? r.partNumber ?? "",
+        pollingStation: assignments[r._id]?.pollingStation ?? r.pollingStation ?? ""
+    });
+
+    const updateAssignment = (r, field, value) =>
+        setAssignments(a => ({ ...a, [r._id]: { ...assignmentFor(r), [field]: value } }));
+
+    const decideRegistration = async (r, decision) => {
+        const id = r._id;
         setError(""); setNotice("");
         let body = {};
+        if (decision === "approve") {
+            const assignment = assignmentFor(r);
+            if (!validAssignment(assignment)) { setError(t("admin.assignmentInvalid")); return; }
+            body = { partNumber: assignment.partNumber.trim(), pollingStation: assignment.pollingStation.trim() };
+        }
         if (decision === "reject") {
             const note = window.prompt(t("admin.rejectPrompt"));
             if (note === null) return;
@@ -69,11 +91,14 @@ function Admin() {
                 : t("admin.rejectedNotice"));
             load();
         } catch (err) {
-            setError(t("admin.requestUpdateFailed"));
+            setError(decision === "approve" && err.response?.status === 400
+                ? t("admin.assignmentInvalid")
+                : t("admin.requestUpdateFailed"));
         }
     };
 
-    if (!logged) return <Navigate to="/login?role=blo" replace />;
+    if (!logged) return <Navigate to="/blo/login" replace />;
+    if (userData?.role === "blo" && userData.mustChangePassword) return <Navigate to="/blo/password" replace />;
     if (userData?.role !== "blo" && userData?.role !== "admin") {
         return <Navigate to={userData?.role === "eci" ? "/eci/dashboard" : "/dashboard"} replace />;
     }
@@ -109,7 +134,7 @@ function Admin() {
                                 <thead>
                                     <tr>
                                         <th>{t("admin.submitted")}</th><th>{t("admin.applicant")}</th><th>{t("register.dateOfBirth")}</th>
-                                        <th>{t("admin.constituencyPart")}</th><th>{t("register.pollingStation")}</th><th>{t("admin.action")}</th>
+                                        <th>{t("admin.constituencyAddress")}</th><th>{t("admin.boothAssignment")}</th><th>{t("admin.action")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -118,12 +143,21 @@ function Admin() {
                                             <td>{new Date(r.submittedAt).toLocaleString()}</td>
                                             <td>{r.name}<br /><small>{r.gender ? t(`register.${r.gender.toLowerCase()}`, { defaultValue: r.gender }) : "—"}</small></td>
                                             <td>{new Date(r.dateOfBirth).toLocaleDateString()}</td>
-                                            <td>{r.assemblyConstituency}, {r.district}, {r.state}<br /><small>{t("register.partNumber")} {r.partNumber}</small></td>
-                                            <td>{r.pollingStation}</td>
+                                            <td>{r.assemblyConstituency}, {r.district}, {r.state}<br /><small>{r.address ? `${r.address}${r.pinCode ? ` – ${r.pinCode}` : ""}` : "—"}</small></td>
+                                            <td>
+                                                <div className="booth-assignment">
+                                                    <label>{t("register.partNumber")}
+                                                        <input value={assignmentFor(r).partNumber} onChange={e => updateAssignment(r, "partNumber", e.target.value)} inputMode="numeric" maxLength={4} required />
+                                                    </label>
+                                                    <label>{t("register.pollingStation")}
+                                                        <input value={assignmentFor(r).pollingStation} onChange={e => updateAssignment(r, "pollingStation", e.target.value)} maxLength={200} required />
+                                                    </label>
+                                                </div>
+                                            </td>
                                             <td>
                                                 <div className="row-actions">
-                                                    <button onClick={() => decideRegistration(r._id, "approve")}>{t("admin.approve")}</button>
-                                                    <button onClick={() => decideRegistration(r._id, "reject")}>{t("admin.reject")}</button>
+                                                    <button onClick={() => decideRegistration(r, "approve")} disabled={!validAssignment(assignmentFor(r))}>{t("admin.approve")}</button>
+                                                    <button onClick={() => decideRegistration(r, "reject")}>{t("admin.reject")}</button>
                                                 </div>
                                             </td>
                                         </tr>

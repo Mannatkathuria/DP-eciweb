@@ -11,6 +11,8 @@ function Dashboard() {
     const navigate = useNavigate();
     const [verification, setVerification] = useState(null);
     const [verificationError, setVerificationError] = useState("");
+    // The voter's own electoral-roll record, which holds the booth assigned by the BLO on approval.
+    const [elector, setElector] = useState(null);
 
     useEffect(() => {
         if (!logged || userData?.role !== "voter") return;
@@ -18,6 +20,13 @@ function Dashboard() {
             .then(({ data }) => setVerification(data.data))
             .catch((error) => setVerificationError(t("dashboard.statusUnavailable")));
     }, [logged, userData?.role, t]);
+
+    useEffect(() => {
+        if (!logged || userData?.role !== "voter" || !userData?.epic) return;
+        api.post("/electors/search", { method: "epic", epic: userData.epic })
+            .then(({ data }) => setElector(data.data))
+            .catch(() => setElector(null));
+    }, [logged, userData?.role, userData?.epic]);
 
     if (!logged) return <Navigate to="/login?role=voter" replace />;
     if (userData?.role === "eci") return <Navigate to="/eci/dashboard" replace />;
@@ -47,6 +56,13 @@ function Dashboard() {
                     </div>
                 )}
                 {verified && <div className="voter-verification-success"><strong>{t("dashboard.verificationApproved")}</strong></div>}
+                {elector?.partNumber && elector?.pollingStation && (
+                    <div className="notice" role="status">
+                        <strong>{t("dashboard.boothDetails")}</strong>
+                        <p>{t("register.partNumber")}: {elector.partNumber}</p>
+                        <p>{t("register.pollingStation")}: {elector.pollingStation}</p>
+                    </div>
+                )}
                 <div className="hero-actions">
                     <Link to="/verify" className="secondary-btn">{verified ? t("dashboard.viewVerification") : t("dashboard.openPersona")}</Link>
                     <Link to="/electoral-roll" className="secondary-btn">{t("dashboard.checkElectoralRoll")}</Link>

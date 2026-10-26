@@ -12,7 +12,9 @@ export const cookieOptions = {
 };
 
 export const publicUser = (user) => ({
-  _id: user._id, epic: user.epic, role: user.role, name: user.name || null
+  _id: user._id, epic: user.epic, role: user.role, name: user.name || null,
+  // BLOs signing in with a temporary password must set their own before using the portal.
+  ...(user.role === "blo" ? { mustChangePassword: Boolean(user.mustChangePassword) } : {})
 });
 
 // Signs a JWT, sets the httpOnly cookie, and returns the token.

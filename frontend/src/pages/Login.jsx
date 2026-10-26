@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import "./Login.css";
 
@@ -15,6 +15,9 @@ function Login() {
     const [epic, setEpic] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // BLOs sign in with a BLO ID, password and mobile OTP on their own page.
+    if (params.get("role") === "blo") return <Navigate to="/blo/login" replace />;
 
     const handleSubmit = async (event) => {
         event.preventDefault();

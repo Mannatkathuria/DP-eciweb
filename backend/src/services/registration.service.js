@@ -15,9 +15,10 @@ const generateUniqueEpic = async () => {
 /**
  * Turns an approved registration application into an electoral-roll record plus a
  * sign-in account. This is the ONLY place voter accounts are created, and it is
- * only reachable from the BLO approval endpoint.
+ * only reachable from the BLO approval endpoint. The part number and polling station come
+ * from the approving BLO's assignment, not from the applicant.
  */
-export const createVoterFromApplication = async (application, approver) => {
+export const createVoterFromApplication = async (application, approver, assignment) => {
     const epic = await generateUniqueEpic();
     const now = new Date().toISOString();
     const dob = new Date(application.dateOfBirth);
@@ -28,7 +29,7 @@ export const createVoterFromApplication = async (application, approver) => {
         age: Math.max(0, new Date().getFullYear() - dob.getFullYear()),
         gender: application.gender || "Other", state: application.state, district: application.district,
         assemblyConstituency: application.assemblyConstituency,
-        partNumber: application.partNumber, pollingStation: application.pollingStation,
+        partNumber: assignment.partNumber, pollingStation: assignment.pollingStation,
         photoUrl: null, isActive: true, registeredAt: now,
         registrationId: application._id, approvedBy: approver.epic
     };

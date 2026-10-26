@@ -35,7 +35,7 @@ const roleInfo = {
             {
                 titleKey: "service.blo.signInTitle",
                 descriptionKey: "service.blo.signInDescription",
-                link: "/login?role=blo",
+                link: "/blo/login",
                 icon: "🔐",
             },
         ],

@@ -76,18 +76,43 @@ export const listRegistrationRequests = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { items, total: items.length } });
 });
 
+// Part numbers are positive integers within an assembly constituency.
+const PART_NUMBER_PATTERN = /^[1-9]\d{0,3}$/;
+const POLLING_STATION_MIN = 3;
+const POLLING_STATION_MAX = 200;
+
+/** Validates the part number and polling station a BLO assigns on approval. */
+export const parseBoothAssignment = (body) => {
+    const partNumber = String(body?.partNumber ?? "").trim();
+    const pollingStation = String(body?.pollingStation ?? "").trim().replace(/\s+/g, " ");
+    if (!partNumber || !pollingStation) {
+        throw new ApiError(400, "Assign both a part number and a polling station before approving.");
+    }
+    if (!PART_NUMBER_PATTERN.test(partNumber)) {
+        throw new ApiError(400, "Part number must be a whole number between 1 and 9999.");
+    }
+    if (pollingStation.length < POLLING_STATION_MIN || pollingStation.length > POLLING_STATION_MAX) {
+        throw new ApiError(400, `Polling station must be between ${POLLING_STATION_MIN} and ${POLLING_STATION_MAX} characters.`);
+    }
+    return { partNumber, pollingStation };
+};
+
 export const approveRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
+    // Validate the BLO's booth assignment before taking the lock, so a correction can be resubmitted at once.
+    const assignment = parseBoothAssignment(req.body);
     if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
 
     const application = await getRegistration(id);
     if (!application) throw new ApiError(404, "Registration request not found.");
     if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
 
-    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user);
+    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user, assignment);
 
     application.status = "approved";
     application.epic = epic;
+    application.partNumber = assignment.partNumber;
+    application.pollingStation = assignment.pollingStation;
     application.decidedBy = req.user.epic;
     application.decidedAt = new Date().toISOString();
     application.referenceImage = null;

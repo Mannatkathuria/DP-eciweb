@@ -52,24 +52,6 @@ const ensureDemoVoter = async () => {
     console.log(`Created approved demo voter: ${epic}`);
 };
 
-const ensureBlo = async () => {
-    const epic = "BLO1234567";
-
-    if (await getUserByEpic(epic)) return;
-
-    await saveUser({
-        _id: crypto.randomUUID(),
-        epic,
-        name: "BLO",
-        role: "blo",
-        approvedBy: process.env.BLO_EPIC || "BLO0000001",
-        createdAt: new Date().toISOString(),
-        demoAccount: true
-    });
-
-    console.log(`Created approved demo voter: ${epic}`);
-};
-
 const ensureEci = async () => {
     const epic = "ECI1234567";
 
@@ -94,11 +76,10 @@ await connectRedis();
 // Demo electoral-roll records only. They have no sign-in account: a BLO must register a voter first.
 for (const row of electors) await saveElector(makeElector(row));
 await ensureStaff(process.env.ADMIN_EPIC || "ADM0000001", "Administrator", "admin");
-await ensureStaff(process.env.BLO_EPIC || "BLO0000001", "Booth Level Officer", "blo");
 await ensureStaff(process.env.ECI_EPIC || "ECI0000001", "ECI Official", "eci");
 await ensureDemoVoter();
-await ensureBlo();
 await ensureEci();
 
 console.log("Redis seed complete.");
+console.log('BLO accounts use a BLO ID and password. Create one with: npm run create-blo -- --name "Ravi Kumar" --mobile 9876543210 --state UP');
 await redis().quit();

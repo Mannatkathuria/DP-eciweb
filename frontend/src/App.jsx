@@ -8,6 +8,9 @@ import Dashboard from "./pages/Dashboard";
 import Verify from "./pages/Verify";
 import Login from "./pages/Login";
 import LoginOtp from "./pages/LoginOtp";
+import BloLogin from "./pages/BloLogin";
+import BloChangePassword from "./pages/BloChangePassword";
+import BloForgotPassword from "./pages/BloForgotPassword";
 import Register from "./pages/Register";
 import ElectoralRoll from "./pages/ElectoralRoll";
 import Admin from "./pages/Admin";
@@ -28,6 +31,9 @@ function App() {
 
                 <Route path="/login" element={<Login />} />
                 <Route path="/login/otp" element={<LoginOtp />} />
+                <Route path="/blo/login" element={<BloLogin />} />
+                <Route path="/blo/password" element={<BloChangePassword />} />
+                <Route path="/blo/forgot" element={<BloForgotPassword />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/electoral-roll" element={<ElectoralRoll />} />
