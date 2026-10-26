@@ -50,6 +50,10 @@ export const submitIdentity = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Unsupported identity method.");
     }
 
+    if (!/^[A-Z]{3}\d{7}$/.test(electorId.trim().toUpperCase())) {
+        throw new ApiError(400, "Enter a valid EPIC number (three letters followed by seven digits).");
+    }
+
     const elector = await getElectorByEpic(electorId.trim());
 
     if (!elector || !elector.isActive) {

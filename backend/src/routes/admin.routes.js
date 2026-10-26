@@ -8,6 +8,11 @@ import {
     approveRegistration,
     rejectRegistration
 } from "../controllers/admin.controllers.js";
+import {
+    listAllChangeRequests,
+    approveChangeRequest,
+    rejectChangeRequest
+} from "../controllers/changeRequest.controller.js";
 
 const router = express.Router();
 
@@ -21,5 +26,10 @@ router.get("/stats", getStats);
 router.get("/registrations", listRegistrationRequests);
 router.post("/registrations/:id/approve", approveRegistration);
 router.post("/registrations/:id/reject", rejectRegistration);
+
+// Voter change/correction requests: BLO reviews and updates electoral roll.
+router.get("/changes", listAllChangeRequests);
+router.post("/changes/:id/approve", approveChangeRequest);
+router.post("/changes/:id/reject", rejectChangeRequest);
 
 export default router;

@@ -11,17 +11,24 @@ const percentile = (sorted, p) => {
     return sorted[Math.max(0, idx)];
 };
 
+import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
+
 export const listVerifications = asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const all = await getAllVerifications();
     let items = all.filter((v) => !req.query.status || v.status === req.query.status);
     if (req.query.unresolved === "true") items = items.filter((v) => !v.resolution?.decision);
-    items.sort((a, b) => new Date(b.createdAt || b.startedAt) - new Date(a.createdAt || a.startedAt));
+    items.sort((a, b) => new Date(b.createdAt || b.startedAt || 0) - new Date(a.createdAt || a.startedAt || 0));
     const total = items.length;
     items = items.slice((page - 1) * limit, page * limit);
     const electors = Object.fromEntries((await listElectors()).map(e => [e.epic, e]));
-    items = items.map(v => ({ ...v, elector: electors[v.epic] || null }));
+    items = items.map(v => ({
+        ...v,
+        createdAt: v.createdAt || v.startedAt || new Date().toISOString(),
+        elector: electors[v.epic] || null,
+        aiReview: v.aiReview || v.identity?.aiReview || null
+    }));
     res.json({ success: true, data: { items, total, page, limit } });
 });
 
@@ -36,6 +43,15 @@ export const resolveVerification = asyncHandler(async (req, res) => {
     verification.resolution = {
         by: req.user._id, byEpic: req.user.epic, decision, note: String(note ?? "").slice(0, 500), at: new Date().toISOString()
     };
+    if (decision === "cleared") {
+        verification.status = "verified";
+        if (verification.epic) {
+            const user = await getUserByEpic(verification.epic);
+            if (user) {
+                await saveUser({ ...user, verified: true });
+            }
+        }
+    }
     await saveVerification(verification);
     res.json({ success: true, message: "Case updated.", data: verification });
 });
@@ -65,7 +81,12 @@ export const getStats = asyncHandler(async (req, res) => {
 
 // ---- Voter registration requests (BLO / admin) ----
 
-const summarise = ({ referenceImage, ...rest }) => ({ ...rest, hasReferenceImage: Boolean(referenceImage) });
+const summarise = (r) => ({
+    ...r,
+    hasReferenceImage: Boolean(r.referenceImage),
+    referenceImage: r.referenceImage || null,
+    aiReview: r.aiReview || null
+});
 
 export const listRegistrationRequests = asyncHandler(async (req, res) => {
     const status = req.query.status || "pending";

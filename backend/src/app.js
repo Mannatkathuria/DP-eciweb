@@ -11,6 +11,8 @@ import adminRoutes from "./routes/admin.routes.js";
 import votingVerificationRoutes from "./routes/votingVerification.routes.js";
 import personaRoutes from "./routes/persona.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import changeRequestRoutes from "./routes/changeRequest.routes.js";
+import eciRoutes from "./routes/eci.routes.js";
 
 
 const app = express();
@@ -60,6 +62,8 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/voting-verification", votingVerificationRoutes);
 app.use("/api/v1/persona", personaRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/changes", changeRequestRoutes);
+app.use("/api/v1/eci", eciRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

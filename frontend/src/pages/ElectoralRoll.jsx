@@ -435,6 +435,17 @@ function ElectoralRoll() {
                                 </strong>
                             </div>
 
+                            <div className="record-row">
+                                <span>Election Day Status</span>
+                                <strong>
+                                    {elector.hasVoted ? (
+                                        <span style={{ color: "#2e7d32", fontWeight: "700" }}>✓ Voted ({new Date(elector.votedAt).toLocaleDateString()})</span>
+                                    ) : (
+                                        <span style={{ color: "var(--accent, #ff9933)", fontWeight: "700" }}>Eligible to Vote</span>
+                                    )}
+                                </strong>
+                            </div>
+
                         </div>
 
                     </section>

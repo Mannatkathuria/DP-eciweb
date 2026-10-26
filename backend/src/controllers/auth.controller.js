@@ -87,6 +87,8 @@ export const getGeography = (req, res) => {
  * it only stores a pending application that a BLO must approve. The applicant can
  * sign in only after approval.
  */
+import { performDocumentSanityCheck } from "../services/gemini.service.js";
+
 export const submitRegistration = asyncHandler(async (req, res) => {
     const {
         name, dateOfBirth, gender, state, district,
@@ -123,6 +125,22 @@ export const submitRegistration = asyncHandler(async (req, res) => {
         }
     }
 
+    // Run AI sanity check on new registration
+    const aiReview = await performDocumentSanityCheck({
+        type: "registration",
+        requestedData: {
+            name: clean(name),
+            dateOfBirth: dob.toISOString(),
+            gender,
+            state: clean(state),
+            district: clean(district),
+            assemblyConstituency: clean(assemblyConstituency),
+            address: fullAddress,
+            pinCode: clean(pinCode)
+        },
+        documentImage: referenceImage || null
+    });
+
     const application = {
         _id: crypto.randomUUID(), status: "pending",
         name: clean(name), dateOfBirth: dob.toISOString(),
@@ -130,9 +148,8 @@ export const submitRegistration = asyncHandler(async (req, res) => {
         state: clean(state), district: clean(district),
         assemblyConstituency: clean(assemblyConstituency),
         address: fullAddress, pinCode: clean(pinCode),
-        // Part number and polling station are assigned by the BLO on approval.
-        // Kept only until the BLO decides; removed on approval or rejection.
         referenceImage: referenceImage || null,
+        aiReview,
         submittedAt: new Date().toISOString()
     };
     await saveRegistration(application);
@@ -140,7 +157,7 @@ export const submitRegistration = asyncHandler(async (req, res) => {
     res.status(201).json({
         success: true,
         message: "Registration request submitted. A Booth Level Officer will review it.",
-        data: { referenceId: application._id, status: application.status }
+        data: { referenceId: application._id, status: application.status, aiReview }
     });
 });
 
