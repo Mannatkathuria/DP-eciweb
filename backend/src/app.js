@@ -38,7 +38,18 @@ app.use(
 );
 
 // Camera frames are sent as base64 JPEGs, so the body limit must be generous.
-app.use(express.json({ limit: "8mb" }));
+// The raw body is kept only for the Persona webhook, whose signature covers the exact bytes sent.
+const jsonOptions = {
+    verify: (req, res, buf) => {
+        if (req.originalUrl.startsWith("/api/v1/persona/webhook")) req.rawBody = buf.toString("utf8");
+    }
+};
+const defaultJson = express.json({ ...jsonOptions, limit: "8mb" });
+// A Form 6 application carries three images of up to 4 MB each (about 16 MB once base64-encoded),
+// so only that one route accepts a larger body.
+const registrationJson = express.json({ ...jsonOptions, limit: "18mb" });
+app.use((req, res, next) =>
+    (req.method === "POST" && req.path === "/api/v1/auth/register" ? registrationJson : defaultJson)(req, res, next));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 

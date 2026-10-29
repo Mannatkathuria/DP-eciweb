@@ -1,7 +1,10 @@
-import { listVerifications as getAllVerifications, saveVerification, getVerification } from "../repositories/verification.repository.js";
+import { listVerifications as getAllVerifications, saveVerification, getVerification, lockVerification } from "../repositories/verification.repository.js";
 import { listElectors } from "../repositories/elector.repository.js";
-import { listRegistrations as getAllRegistrations, getRegistration, saveRegistration, lockRegistration } from "../repositories/registration.repository.js";
-import { createVoterFromApplication } from "../services/registration.service.js";
+import { listRegistrations as getAllRegistrations, getRegistration, saveRegistration, lockRegistration, pendingDuplicateKey, registrationDocumentKey, getRegistrationDocument } from "../repositories/registration.repository.js";
+import { DOCUMENT_CATEGORIES, SEPARATE_DOCUMENTS, purgedDocumentMeta, withoutSecrets } from "../utils/form6.js";
+import { createVoterFromApplication, enrollReferenceFace } from "../services/registration.service.js";
+import { transaction } from "../config/redis.js";
+import { requireReason, REASON_MAX_LENGTH } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -36,24 +39,32 @@ export const resolveVerification = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { decision, note } = req.body ?? {};
     if (!["cleared", "escalated"].includes(decision)) throw new ApiError(400, "decision must be 'cleared' or 'escalated'.");
-    const verification = await getVerification(id);
-    if (!verification) throw new ApiError(404, "Verification not found.");
-    if (verification.status !== "review_required") throw new ApiError(409, "Only cases awaiting manual review can be resolved.");
-
-    verification.resolution = {
-        by: req.user._id, byEpic: req.user.epic, decision, note: String(note ?? "").slice(0, 500), at: new Date().toISOString()
-    };
-    if (decision === "cleared") {
-        verification.status = "verified";
-        if (verification.epic) {
-            const user = await getUserByEpic(verification.epic);
-            if (user) {
-                await saveUser({ ...user, verified: true });
-            }
+    const release = await lockVerification(id);
+    if (!release) throw new ApiError(409, "This case is already being resolved. Refresh in a moment.");
+    try {
+        const verification = await getVerification(id);
+        if (!verification) throw new ApiError(404, "Verification not found.");
+        if (verification.status !== "review_required" || verification.resolution?.decision) {
+            throw new ApiError(409, "Only cases awaiting manual review can be resolved.");
         }
+
+        verification.resolution = {
+            by: req.user._id, byEpic: req.user.epic, decision,
+            note: String(note ?? "").trim().slice(0, REASON_MAX_LENGTH), at: new Date().toISOString()
+        };
+        // The case and the voter's verified flag are saved together.
+        const tx = transaction();
+        if (decision === "cleared") {
+            verification.status = "verified";
+            const user = verification.epic ? await getUserByEpic(verification.epic) : null;
+            if (user) saveUser({ ...user, verified: true }, tx);
+        }
+        saveVerification(verification, tx);
+        await tx.exec();
+        res.json({ success: true, message: "Case updated.", data: verification });
+    } finally {
+        await release();
     }
-    await saveVerification(verification);
-    res.json({ success: true, message: "Case updated.", data: verification });
 });
 
 export const getStats = asyncHandler(async (req, res) => {
@@ -82,7 +93,7 @@ export const getStats = asyncHandler(async (req, res) => {
 // ---- Voter registration requests (BLO / admin) ----
 
 const summarise = (r) => ({
-    ...r,
+    ...withoutSecrets(r), // never send the encrypted Aadhaar to a client
     hasReferenceImage: Boolean(r.referenceImage),
     referenceImage: r.referenceImage || null,
     aiReview: r.aiReview || null
@@ -118,44 +129,95 @@ export const parseBoothAssignment = (body) => {
     return { partNumber, pollingStation };
 };
 
+// Loads an application that is still awaiting a decision, or explains why it cannot be decided.
+const getPendingApplication = async (id) => {
+    const application = await getRegistration(id);
+    if (!application) throw new ApiError(404, "Registration request not found.");
+    if (application.status !== "pending") {
+        throw new ApiError(409, `This application has already been ${application.status}.`);
+    }
+    return application;
+};
+
+const alreadyProcessing = () =>
+    new ApiError(409, "This application is already being processed. Refresh the list in a moment.");
+
 export const approveRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
     // Validate the BLO's booth assignment before taking the lock, so a correction can be resubmitted at once.
     const assignment = parseBoothAssignment(req.body);
-    if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
+    const release = await lockRegistration(id);
+    if (!release) throw alreadyProcessing();
 
-    const application = await getRegistration(id);
-    if (!application) throw new ApiError(404, "Registration request not found.");
-    if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
+    let result;
+    try {
+        const application = await getPendingApplication(id);
+        result = await createVoterFromApplication(application, req.user, assignment);
+    } finally {
+        await release();
+    }
 
-    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user, assignment);
-
-    application.status = "approved";
-    application.epic = epic;
-    application.partNumber = assignment.partNumber;
-    application.pollingStation = assignment.pollingStation;
-    application.decidedBy = req.user.epic;
-    application.decidedAt = new Date().toISOString();
-    application.referenceImage = null;
-    await saveRegistration(application);
-
-    res.json({ success: true, message: "Voter approved. They can now sign in.", data: { epic, biometricEnrolled } });
+    // The approval is saved; enrolling the reference photo is optional and cannot undo it.
+    const biometricEnrolled = await enrollReferenceFace(result.epic, result.referenceImage);
+    res.json({
+        success: true,
+        message: "Voter approved. They can now sign in.",
+        data: { epic: result.epic, biometricEnrolled, application: summarise(result.application) }
+    });
 });
 
 export const rejectRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
+    // A rejection without a reason is refused before anything is locked or changed.
+    const reason = requireReason(req.body?.note);
+    const release = await lockRegistration(id);
+    if (!release) throw alreadyProcessing();
 
+    try {
+        const application = await getPendingApplication(id);
+        const rejected = {
+            ...application,
+            status: "rejected",
+            decisionNote: reason,
+            decidedBy: req.user.epic,
+            decidedAt: new Date().toISOString(),
+            referenceImage: null
+        };
+        // Like referenceImage, the other Form 6 documents are deleted once the BLO has decided.
+        if (application.documents) rejected.documents = purgedDocumentMeta(application.documents, rejected.decidedAt);
+        const tx = transaction();
+        for (const category of SEPARATE_DOCUMENTS) tx.del(registrationDocumentKey(application._id, category));
+        saveRegistration(rejected, tx);
+        if (application.duplicateFingerprint) tx.del(pendingDuplicateKey(application.duplicateFingerprint));
+        await tx.exec();
+        res.json({ success: true, message: "Request rejected.", data: summarise(rejected) });
+    } finally {
+        await release();
+    }
+});
+
+/**
+ * BLO / admin only (see admin.routes.js). Streams one Form 6 document of an application that is
+ * still held: "photo", "ageProof" or "addressProof". Documents are deleted once the BLO decides.
+ */
+export const getRegistrationDocumentFile = asyncHandler(async (req, res) => {
+    const { id, category } = req.params;
+    if (!DOCUMENT_CATEGORIES.includes(category)) throw new ApiError(404, "Unknown document category.");
     const application = await getRegistration(id);
     if (!application) throw new ApiError(404, "Registration request not found.");
-    if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
 
-    application.status = "rejected";
-    application.decisionNote = String(req.body?.note ?? "").slice(0, 500);
-    application.decidedBy = req.user.epic;
-    application.decidedAt = new Date().toISOString();
-    application.referenceImage = null;
-    await saveRegistration(application);
+    let mimeType, data;
+    if (category === "addressProof") {
+        const match = /^data:([^;]+);base64,(.+)$/.exec(application.referenceImage || "");
+        if (match) [, mimeType, data] = match;
+    } else {
+        const doc = await getRegistrationDocument(id, category);
+        if (doc) ({ mimeType, data } = doc);
+    }
+    if (!data) throw new ApiError(404, "This document is not stored (it was not supplied, or it was deleted after the BLO decision).");
 
-    res.json({ success: true, message: "Request rejected.", data: summarise(application) });
+    res.set("Cache-Control", "private, no-store");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.type(mimeType);
+    res.send(Buffer.from(data, "base64"));
 });

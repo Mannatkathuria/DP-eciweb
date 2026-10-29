@@ -30,14 +30,18 @@ function VotingVerification() {
             setSession((current) => current ? {
                 ...current,
                 status: data.data.status,
-                personaStatus: data.data.personaStatus
+                personaStatus: data.data.personaStatus,
+                simulated: Boolean(data.data.simulated)
             } : current);
-            setNotice(`Verification status: ${data.data.personaStatus.toUpperCase()}`);
+            setNotice(data.data.simulated
+                ? "Demonstration mode: the identity step was SIMULATED. No real Persona document or face check was run."
+                : `Verification status: ${data.data.personaStatus.toUpperCase()}`);
             if (data.data.status === "fingerprint_pending" || data.data.status === "review_required") {
                 setConfig(null);
             }
         } catch (err) {
             console.error("Sync error:", err);
+            setError(err.response?.data?.message || "Could not update the identity check status.");
         }
     }, []);
 

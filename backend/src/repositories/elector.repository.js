@@ -4,7 +4,12 @@ const key = (epic) => `elector:${String(epic).trim().toUpperCase()}`;
 
 export const getElectorByEpic = async (epic) => jsonGet(key(epic));
 
-export const saveElector = async (elector) => {
+export const saveElector = async (elector, tx = null) => {
+    if (tx) {
+        tx.set(key(elector.epic), JSON.stringify(elector));
+        tx.sAdd("electors:all", elector.epic);
+        return elector;
+    }
     await jsonSet(key(elector.epic), elector);
     await redis().sAdd("electors:all", elector.epic);
     return elector;

@@ -9,6 +9,12 @@ import { getElectorByEpic, saveElector, updateElector } from "../src/repositorie
 import { getUserByEpic, saveUser } from "../src/repositories/user.repository.js";
 import { getVerification, saveVerification, listVerifications } from "../src/repositories/verification.repository.js";
 
+// These tests write test records, so they need their own, disposable Redis. They never use
+// REDIS_URL or the default local Redis, which may hold your development data.
+const TEST_REDIS_URL = process.env.TEST_REDIS_URL;
+if (TEST_REDIS_URL) process.env.REDIS_URL = TEST_REDIS_URL;
+const needsRedis = { skip: TEST_REDIS_URL ? false : "set TEST_REDIS_URL to a disposable Redis to run this test" };
+
 test("Gemini Service: performs document sanity checks and flags anomalies", async () => {
     // 1. Underage check
     const underage = await performDocumentSanityCheck({
@@ -31,7 +37,7 @@ test("Gemini Service: performs document sanity checks and flags anomalies", asyn
     assert.ok(valid.shortAiReview.length > 0);
 });
 
-test("Change Request Workflow: Form 8 submission and BLO approval reflects in Electoral Roll", async () => {
+test("Change Request Workflow: Form 8 submission and BLO approval reflects in Electoral Roll", needsRedis, async () => {
     await connectRedis();
 
     const testEpic = "TEST7778881";
@@ -87,7 +93,7 @@ test("Change Request Workflow: Form 8 submission and BLO approval reflects in El
     assert.equal(updatedElector.pinCode, "152026");
 });
 
-test("Verification Cases: Persona inquiry maps to BLO cases with proper status and AI review", async () => {
+test("Verification Cases: Persona inquiry maps to BLO cases with proper status and AI review", needsRedis, async () => {
     await connectRedis();
 
     const caseId = "test-inq-case-999";
@@ -115,7 +121,7 @@ test("Verification Cases: Persona inquiry maps to BLO cases with proper status a
     assert.equal(found.aiReview.riskLevel, "LOW");
 });
 
-test("ECI Workflow: On-day voting verification marks elector as voted and prevents duplicate voting", async () => {
+test("ECI Workflow: On-day voting verification marks elector as voted and prevents duplicate voting", needsRedis, async () => {
     await connectRedis();
 
     const testVoterEpic = "VOTE1234567";

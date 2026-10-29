@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getElectorByEpic, updateElector } from "../repositories/elector.repository.js";
+import { getElectorByEpic, saveElector } from "../repositories/elector.repository.js";
 import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
 import {
     saveChangeRequest, getChangeRequest, listChangeRequests,
@@ -7,6 +7,8 @@ import {
 } from "../repositories/changeRequest.repository.js";
 import { performDocumentSanityCheck } from "../services/gemini.service.js";
 import { validateGeography } from "../data/geography.js";
+import { transaction } from "../config/redis.js";
+import { validateDocumentProof, requireReason, REASON_MAX_LENGTH } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -91,16 +93,14 @@ export const submitChangeRequest = asyncHandler(async (req, res) => {
         throw new ApiError(400, "No changes detected. Update at least one field to submit a request.");
     }
 
-    if (!documentProof || typeof documentProof !== "string") {
-        throw new ApiError(400, "Supporting document proof (e.g. Aadhaar, Passport, Utility bill) is required.");
-    }
+    const proofDocument = validateDocumentProof(documentProof, "Supporting document proof (e.g. Aadhaar, Passport, Utility bill)");
 
     // Run Gemini AI sanity check
     const aiReview = await performDocumentSanityCheck({
         type: "change_request",
         currentRecord: elector,
         requestedData: { ...elector, ...requestedChanges },
-        documentImage: documentProof
+        documentImage: proofDocument
     });
 
     const changeRequest = {
@@ -120,7 +120,7 @@ export const submitChangeRequest = asyncHandler(async (req, res) => {
             pollingStation: elector.pollingStation
         },
         requestedChanges,
-        documentProof,
+        documentProof: proofDocument,
         aiReview,
         status: "pending",
         submittedAt: new Date().toISOString()
@@ -162,75 +162,84 @@ export const listAllChangeRequests = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { items, total: items.length } });
 });
 
+// Loads a change request that is still awaiting a decision, or explains why it cannot be decided.
+const getPendingChangeRequest = async (id) => {
+    const request = await getChangeRequest(id);
+    if (!request) throw new ApiError(404, "Change request not found.");
+    if (request.status !== "pending") {
+        throw new ApiError(409, `This change request has already been ${request.status}.`);
+    }
+    return request;
+};
+
+const alreadyProcessing = () =>
+    new ApiError(409, "This change request is currently being processed. Refresh the list in a moment.");
+
 /**
  * BLO approves change request:
- * Immediately updates the electoral roll (elector.repository.js) and user record!
+ * Updates the electoral roll record, the voter account (for a name change) and the request
+ * together in one transaction, so a failure cannot leave the roll half-updated.
  */
 export const approveChangeRequest = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    if (!(await lockChangeRequest(id))) {
-        throw new ApiError(409, "This change request is currently being processed.");
-    }
+    const release = await lockChangeRequest(id);
+    if (!release) throw alreadyProcessing();
 
-    const request = await getChangeRequest(id);
-    if (!request) throw new ApiError(404, "Change request not found.");
-    if (request.status !== "pending") throw new ApiError(409, "This request has already been decided.");
+    try {
+        const request = await getPendingChangeRequest(id);
+        const elector = await getElectorByEpic(request.epic);
+        if (!elector) throw new ApiError(404, "Voter electoral record could not be updated.");
 
-    // Update electoral roll
-    const updatedElector = await updateElector(request.epic, request.requestedChanges);
-    if (!updatedElector) {
-        throw new ApiError(404, "Voter electoral record could not be updated.");
-    }
+        const now = new Date().toISOString();
+        const updatedElector = { ...elector, ...request.requestedChanges, updatedAt: now };
+        const decided = {
+            ...request,
+            status: "approved",
+            decidedBy: req.user.epic || req.user.bloId || req.user.name,
+            decidedAt: now,
+            decisionNote: String(req.body?.note ?? "").trim().slice(0, REASON_MAX_LENGTH)
+        };
 
-    // Update user account if name changed
-    if (request.requestedChanges.name) {
-        const user = await getUserByEpic(request.epic);
-        if (user) {
-            await saveUser({ ...user, name: request.requestedChanges.name });
+        const tx = transaction();
+        saveElector(updatedElector, tx);
+        if (request.requestedChanges.name) {
+            const user = await getUserByEpic(request.epic);
+            if (user) saveUser({ ...user, name: request.requestedChanges.name }, tx);
         }
+        saveChangeRequest(decided, tx);
+        await tx.exec();
+
+        res.json({
+            success: true,
+            message: "Change request approved. Electoral roll updated successfully.",
+            data: { requestId: decided._id, epic: decided.epic, updatedElector }
+        });
+    } finally {
+        await release();
     }
-
-    request.status = "approved";
-    request.decidedBy = req.user.epic || req.user.bloId || req.user.name;
-    request.decidedAt = new Date().toISOString();
-    request.decisionNote = String(req.body?.note ?? "").slice(0, 500);
-
-    await saveChangeRequest(request);
-
-    res.json({
-        success: true,
-        message: "Change request approved. Electoral roll updated successfully.",
-        data: {
-            requestId: request._id,
-            epic: request.epic,
-            updatedElector
-        }
-    });
 });
 
 /**
- * BLO rejects change request with a note.
+ * BLO rejects change request. The reason is required because it is shown to the voter.
  */
 export const rejectChangeRequest = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    if (!(await lockChangeRequest(id))) {
-        throw new ApiError(409, "This change request is currently being processed.");
+    const reason = requireReason(req.body?.note);
+    const release = await lockChangeRequest(id);
+    if (!release) throw alreadyProcessing();
+
+    try {
+        const request = await getPendingChangeRequest(id);
+        const decided = {
+            ...request,
+            status: "rejected",
+            decidedBy: req.user.epic || req.user.bloId || req.user.name,
+            decidedAt: new Date().toISOString(),
+            decisionNote: reason
+        };
+        await saveChangeRequest(decided);
+        res.json({ success: true, message: "Change request rejected.", data: decided });
+    } finally {
+        await release();
     }
-
-    const request = await getChangeRequest(id);
-    if (!request) throw new ApiError(404, "Change request not found.");
-    if (request.status !== "pending") throw new ApiError(409, "This request has already been decided.");
-
-    request.status = "rejected";
-    request.decidedBy = req.user.epic || req.user.bloId || req.user.name;
-    request.decidedAt = new Date().toISOString();
-    request.decisionNote = String(req.body?.note ?? "").slice(0, 500);
-
-    await saveChangeRequest(request);
-
-    res.json({
-        success: true,
-        message: "Change request rejected.",
-        data: request
-    });
 });

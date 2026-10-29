@@ -1,6 +1,9 @@
 import crypto from "crypto";
 import { getUserByEpic } from "../repositories/user.repository.js";
-import { getRegistration, saveRegistration } from "../repositories/registration.repository.js";
+import { getRegistration, saveRegistration, pendingDuplicateKey, registrationDocumentKey } from "../repositories/registration.repository.js";
+import { redis, transaction } from "../config/redis.js";
+import { FORM6_VERSION, SEPARATE_DOCUMENTS, buildAadhaarRecord, parseForm6, publicApplicationView } from "../utils/form6.js";
+import { validateDocumentProof } from "../utils/documentProof.js";
 import { geography, validateGeography } from "../data/geography.js";
 import { issueOtp } from "../services/otp.service.js";
 import { publicUser } from "../services/session.service.js";
@@ -78,7 +81,9 @@ const ADDRESS_MAX = 300;
 
 /** Public. State/UT -> district -> assembly constituency options for the registration form. */
 export const getGeography = (req, res) => {
-    res.set("Cache-Control", "public, max-age=86400");
+    // Browsers re-check on every load (Express adds an ETag, so an unchanged list costs a 304),
+    // so an updated constituency dataset reaches everyone at once instead of after a day.
+    res.set("Cache-Control", "no-cache");
     res.json({ success: true, data: geography });
 };
 
@@ -90,10 +95,13 @@ export const getGeography = (req, res) => {
 import { performDocumentSanityCheck } from "../services/gemini.service.js";
 
 export const submitRegistration = asyncHandler(async (req, res) => {
+    // The Form 6 page sends { form6, documents }; every field is validated in utils/form6.js and the
+    // flat fields below are derived from it. Older clients still send the flat fields directly.
+    const form6 = req.body?.form6 !== undefined ? parseForm6(req.body.form6, req.body.documents) : null;
     const {
         name, dateOfBirth, gender, state, district,
         assemblyConstituency, address, pinCode, referenceImage
-    } = req.body ?? {};
+    } = form6 ? form6.legacy : (req.body ?? {});
 
     if (![name, dateOfBirth, state, district, assemblyConstituency, address, pinCode]
         .every((v) => clean(v))) {
@@ -118,41 +126,76 @@ export const submitRegistration = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Date of birth is not valid.");
     }
 
-    if (referenceImage !== undefined && referenceImage !== null && referenceImage !== "") {
-        if (typeof referenceImage !== "string" || !referenceImage.startsWith("data:image/") ||
-            referenceImage.length > 6_000_000) {
-            throw new ApiError(400, "Reference image must be an image under about 4 MB.");
-        }
+    // Form 6 asks for an identity / address proof document; an application without one is refused.
+    const proofDocument = validateDocumentProof(referenceImage, "An identity / address proof document");
+
+    // The same applicant details cannot be queued twice while the first application awaits review.
+    const applicationId = crypto.randomUUID();
+    const duplicateFingerprint = crypto.createHash("sha256").update([
+        clean(name).toLowerCase().replace(/\s+/g, " "), dob.toISOString().slice(0, 10),
+        clean(pinCode), fullAddress.toLowerCase()
+    ].join("|")).digest("hex");
+    const duplicateKey = pendingDuplicateKey(duplicateFingerprint);
+    if (!(await claimDuplicateKey(duplicateKey, applicationId))) {
+        throw new ApiError(409, "An application with these details is already awaiting BLO review. Use your reference ID to check its status.");
     }
 
-    // Run AI sanity check on new registration
-    const aiReview = await performDocumentSanityCheck({
-        type: "registration",
-        requestedData: {
-            name: clean(name),
-            dateOfBirth: dob.toISOString(),
-            gender,
-            state: clean(state),
-            district: clean(district),
-            assemblyConstituency: clean(assemblyConstituency),
-            address: fullAddress,
-            pinCode: clean(pinCode)
-        },
-        documentImage: referenceImage || null
-    });
+    let application;
+    try {
+        // Run AI sanity check on new registration
+        const aiReview = await performDocumentSanityCheck({
+            type: "registration",
+            requestedData: {
+                name: clean(name),
+                dateOfBirth: dob.toISOString(),
+                gender,
+                state: clean(state),
+                district: clean(district),
+                assemblyConstituency: clean(assemblyConstituency),
+                address: fullAddress,
+                pinCode: clean(pinCode)
+            },
+            documentImage: proofDocument
+        });
 
-    const application = {
-        _id: crypto.randomUUID(), status: "pending",
-        name: clean(name), dateOfBirth: dob.toISOString(),
-        gender: ["Male", "Female", "Other"].includes(gender) ? gender : "Other",
-        state: clean(state), district: clean(district),
-        assemblyConstituency: clean(assemblyConstituency),
-        address: fullAddress, pinCode: clean(pinCode),
-        referenceImage: referenceImage || null,
-        aiReview,
-        submittedAt: new Date().toISOString()
-    };
-    await saveRegistration(application);
+        application = {
+            _id: applicationId, status: "pending",
+            name: clean(name), dateOfBirth: dob.toISOString(),
+            gender: ["Male", "Female", "Other"].includes(gender) ? gender : "Other",
+            state: clean(state), district: clean(district),
+            assemblyConstituency: clean(assemblyConstituency),
+            address: fullAddress, pinCode: clean(pinCode),
+            referenceImage: proofDocument,
+            aiReview,
+            duplicateFingerprint,
+            submittedAt: new Date().toISOString()
+        };
+        if (form6) {
+            // The application and its documents are written in one transaction: either all of
+            // them are stored or none is, so a record never points to a missing file.
+            application.formVersion = FORM6_VERSION;
+            application.form6 = { ...form6.record, aadhaar: buildAadhaarRecord(form6.aadhaar, applicationId) };
+            application.documents = form6.documentMeta;
+            application.updatedAt = application.submittedAt;
+            const tx = transaction();
+            for (const category of SEPARATE_DOCUMENTS) {
+                const file = form6.files[category];
+                tx.set(registrationDocumentKey(applicationId, category), JSON.stringify({
+                    mimeType: file.mimeType, size: file.size, fileName: file.fileName,
+                    uploadedAt: form6.documentMeta[category].uploadedAt, data: file.base64
+                }));
+            }
+            saveRegistration(application, tx);
+            await tx.exec();
+        } else {
+            await saveRegistration(application);
+        }
+    } catch (error) {
+        // Nothing was stored, so the applicant must be able to try again.
+        await redis().del(duplicateKey).catch(() => {});
+        throw error;
+    }
+    const { aiReview } = application;
 
     res.status(201).json({
         success: true,
@@ -160,6 +203,19 @@ export const submitRegistration = asyncHandler(async (req, res) => {
         data: { referenceId: application._id, status: application.status, aiReview }
     });
 });
+
+/**
+ * Claims the "already pending" marker for these applicant details. A marker left by an
+ * application that has since been decided (or no longer exists) is taken over.
+ */
+const claimDuplicateKey = async (duplicateKey, applicationId) => {
+    if ((await redis().set(duplicateKey, applicationId, { NX: true })) === "OK") return true;
+    const existingId = await redis().get(duplicateKey);
+    const existing = existingId ? await getRegistration(existingId) : null;
+    if (existing?.status === "pending") return false;
+    await redis().set(duplicateKey, applicationId);
+    return true;
+};
 
 /** Public. Lets an applicant check their request using the reference ID they were given. */
 export const getRegistrationStatus = asyncHandler(async (req, res) => {
@@ -174,7 +230,9 @@ export const getRegistrationStatus = asyncHandler(async (req, res) => {
             name: application.name,
             submittedAt: application.submittedAt,
             epic: application.status === "approved" ? application.epic : null,
-            note: application.status === "rejected" ? application.decisionNote || null : null
+            note: application.status === "rejected" ? application.decisionNote || null : null,
+            // The saved application, with contact details and Aadhaar masked and no files.
+            application: publicApplicationView(application)
         }
     });
 });

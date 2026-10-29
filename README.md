@@ -56,6 +56,8 @@ PERSONA_API_VERSION=2026-09-29
 PERSONA_WEBHOOK_SECRET=wbhsec_your_webhook_secret
 ```
 
+`PERSONA_DEMO_MODE` (default `false`) controls the ECI polling-station identity step, which is not connected to a real Persona inquiry yet. While it is `false` that step reports that it cannot run; set it to `true` only for a demonstration, and every result is then labelled "simulated".
+
 Keep Persona credentials on the backend. Do not add them to frontend environment variables or commit `backend/.env`.
 
 ### Persona webhook
@@ -87,7 +89,7 @@ Set `VITE_API_URL` in `frontend/.env` only if the API is not at `http://localhos
 
 ## Sandbox demo accounts
 
-Run `npm run seed` to create these accounts:
+Run `npm run seed` to create these accounts. It is safe to run again: existing accounts, electoral-roll records and demo applications are left unchanged.
 
 | Role | EPIC |
 | --- | --- |
@@ -110,24 +112,13 @@ A BLO who forgets their password uses **Forgot password?** on the sign-in page: 
 
 ## Voter registration and booth assignment
 
-1. **Voter applies** at `/register` with name, date of birth, gender, **State/UT -> District -> Assembly constituency** (dependent dropdowns: choosing a state lists only its districts, choosing a district lists only its constituencies, and changing a choice clears the ones below it), **full address** and a **six-digit PIN code**. The voter does not enter a part number or polling station. The request gets a reference ID for checking its status.
-2. **BLO reviews** the request on `/admin`, which shows the address and PIN code, and enters the **part number** (1-9999) and **polling station** for that address. **Approve** stays disabled until both are filled in, and the API refuses an approval without them. Rejection works as before.
+1. **Voter applies** at `/register` with name, date of birth, gender, **State/UT -> District -> Assembly constituency** (dependent dropdowns: choosing a state lists only its districts, choosing a district lists only its constituencies, and changing a choice clears the ones below it), **full address**, a **six-digit PIN code** and an **identity / address proof document** (required; a JPEG, PNG or WebP image up to 4 MB, checked again by the backend). The voter does not enter a part number or polling station. The request gets a reference ID for checking its status. An identical application cannot be submitted again while the first one is still pending.
+2. **BLO reviews** the request on `/admin`, which shows the address and PIN code, and enters the **part number** (1-9999) and **polling station** for that address. If either is missing or invalid, **Approve** explains what to fix on that row, and the API refuses the approval. **Reject** opens a dialog for the reason, which is required and shown to the applicant; **Cancel** sends nothing. An application leaves the pending list only after the backend has saved the decision, and each application can be decided only once.
 3. **On approval** the voter receives an EPIC number. The assigned part number and polling station are saved on the request and the electoral-roll record, shown on the voter's dashboard ("Your polling booth"), and returned by the electoral-roll search.
 
 ### State, district and constituency data
 
-The dropdowns use `backend/src/data/geography.json`, built from the official [Local Government Directory](https://lgdirectory.gov.in) (LGD) exports retrieved on 25 October 2026 (via the daily mirror at https://github.com/ramSeraph/opendata, release `lgd-latest`). It covers all 36 States/UTs and their districts; a constituency is listed under a district only where LGD's own constituency coverage records link them. Gaps, which the form shows instead of guessing:
-
-- **Delhi**: LGD does not map its constituencies to districts, so its constituency list is unavailable.
-- **Jammu and Kashmir, Assam**: LGD still lists constituencies from before the 2022 and 2023 delimitations, so they are withheld.
-- **Andaman and Nicobar Islands, Chandigarh, Dadra and Nagar Haveli and Daman and Diu, Ladakh, Lakshadweep**: no legislative assembly.
-- A few urban constituencies without LGD coverage records are not listed; they are named under `unmappedConstituencies` in the JSON file.
-
-Polling stations and part numbers are not in LGD, so the BLO types them in. To refresh the data, download the LGD CSV exports (`states`, `districts`, `subdistricts`, `villages`, `statewise_ulbs_coverage`, `urban_local_body_wards`, `assembly_constituencies`, `constituency_coverage`) into one folder and run, from `backend`:
-
-```bash
-node scripts/build-geography.js <folder-with-the-csv-files> <retrieved-date YYYY-MM-DD>
-```
+The State/UT → District → Assembly Constituency dropdowns use the Election Commission of India's own master lists (Voters' Services Portal), stored in `backend/src/data/geography.json`. They cover all 36 States/UTs, 787 districts and 4,123 assembly constituencies, each with its official number (shown as `31 – VIKASPURI`). UTs without a Legislative Assembly offer their Parliamentary Constituency. Sources, checks, limitations and how to refresh the data are in [docs/CONSTITUENCY_DATA.md](docs/CONSTITUENCY_DATA.md).
 
 ## Running the tests
 
@@ -137,14 +128,14 @@ From `backend`:
 npm test
 ```
 
-The end-to-end tests for registration and BLO sign-in need their own **disposable** Redis, never your development database, and are skipped otherwise:
+The end-to-end and integration tests (registration, BLO sign-in, BLO decisions, Form 8, verification and polling day) need their own **disposable** Redis, never your development database, and are skipped otherwise:
 
 ```bash
 docker run -d --name eci-redis-test -p 6390:6379 redis
 TEST_REDIS_URL=redis://127.0.0.1:6390 npm test
 ```
 
-On Windows Command Prompt use `set TEST_REDIS_URL=redis://127.0.0.1:6390&& npm test`; in PowerShell use `$env:TEST_REDIS_URL="redis://127.0.0.1:6390"; npm test`. The test "HTTP: health, 404, validation" in `tests/backend.test.js` currently fails because `POST /verification/identity` returns 500 when Redis is not connected; this predates the registration and BLO changes.
+On Windows Command Prompt use `set TEST_REDIS_URL=redis://127.0.0.1:6390&& npm test`; in PowerShell use `$env:TEST_REDIS_URL="redis://127.0.0.1:6390"; npm test`. Without `TEST_REDIS_URL` those tests are skipped and the remaining tests need no Redis.
 
 ## ECI polling-station demo
 

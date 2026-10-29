@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
+import { PROOF_TYPES, PROOF_HELP, readProofDocument } from "../proofDocument";
 import "./Dashboard.css";
 
 function Dashboard() {
@@ -76,24 +77,26 @@ function Dashboard() {
     useEffect(() => {
         loadElector();
         loadChangeRequests();
-        api.get("/auth/geography")
+        api.get("/auth/geography", { params: { v: "eci-2026-10-29" } })
             .then(({ data }) => setGeography(data.data))
             .catch(() => {});
     }, [logged, userData?.role, userData?.epic]);
 
     // Handle document proof image upload
-    const handleDocumentUpload = (e) => {
-        const file = e.target.files?.[0];
+    // An unacceptable file is cleared, so it can never be sent with the request.
+    const handleDocumentUpload = async (e) => {
+        const input = e.target;
+        const file = input.files?.[0];
+        setChangeError("");
+        setChangeForm(prev => ({ ...prev, documentProof: "" }));
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            setChangeError("Document image must be under 5 MB.");
-            return;
+        try {
+            const dataUrl = await readProofDocument(file);
+            setChangeForm(prev => ({ ...prev, documentProof: dataUrl }));
+        } catch (err) {
+            setChangeError(err.message);
+            input.value = "";
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setChangeForm(prev => ({ ...prev, documentProof: reader.result }));
-        };
-        reader.readAsDataURL(file);
     };
 
     const submitCorrection = async (e) => {
@@ -129,11 +132,18 @@ function Dashboard() {
     if (userData?.role === "eci") return <Navigate to="/eci/dashboard" replace />;
     if (userData?.role === "blo" || userData?.role === "admin") return <Navigate to="/admin" replace />;
 
-    const verified = verification?.status === "verified" || userData?.verified;
+    // Persona reports a passed check as "approved" (the backend also sets verified: true).
+    // The sign-in copy of userData can be older than the check, so the live status decides.
+    const justVerified = Boolean(location.state?.verifiedSuccess);
+    const verified = justVerified || verification?.verified === true
+        || ["approved", "verified"].includes(verification?.status) || Boolean(userData?.verified);
 
-    // Dependent geography options
-    const districts = geography?.states?.[changeForm.state]?.districts || {};
-    const constituencies = districts[changeForm.district]?.assemblyConstituencies || [];
+    // Dependent geography options. /auth/geography returns a list of states, each with a list of
+    // districts (same data the registration form uses).
+    const stateEntry = geography?.states?.find(s => s.name === changeForm.state) || null;
+    const districts = stateEntry?.districts || [];
+    const districtEntry = districts.find(d => d.name === changeForm.district) || null;
+    const constituencies = stateEntry?.constituencies === "available" ? districtEntry?.constituencies || [] : [];
 
     return (
         <main className="dashboard">
@@ -152,7 +162,7 @@ function Dashboard() {
                 <h1>{t("dashboard.welcome") || "Welcome"}{userData?.name ? `, ${userData.name}` : ""}</h1>
                 <p className="hero-description">{t("dashboard.manageRecord") || "Manage your electoral roll profile, verify your identity, and view your assigned polling booth."}</p>
 
-                {location.state?.verifiedSuccess && (
+                {justVerified && (
                     <div className="voter-verification-success" style={{ animation: "fadeIn 0.5s ease" }} role="status">
                         <strong>✓ Identity Verification Successfully Completed!</strong>
                         <p>Your biometric and document check has been authenticated and linked with your EPIC record.</p>
@@ -177,7 +187,7 @@ function Dashboard() {
                     </div>
                 )}
 
-                {verified && (
+                {verified && !justVerified && (
                     <div className="voter-verification-success">
                         <strong>✓ Verified Voter Profile</strong>
                         <p>Your identity has been authenticated against the Election Commission of India databases.</p>
@@ -376,8 +386,8 @@ function Dashboard() {
                                         style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #ccc" }}
                                     >
                                         <option value="">Select State</option>
-                                        {geography?.states && Object.keys(geography.states).map(s => (
-                                            <option key={s} value={s}>{s}</option>
+                                        {geography?.states?.map(s => (
+                                            <option key={s.name} value={s.name}>{s.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -390,8 +400,8 @@ function Dashboard() {
                                         style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #ccc" }}
                                     >
                                         <option value="">Select District</option>
-                                        {Object.keys(districts).map(d => (
-                                            <option key={d} value={d}>{d}</option>
+                                        {districts.map(d => (
+                                            <option key={d.name} value={d.name}>{d.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -430,11 +440,12 @@ function Dashboard() {
                                 </label>
                                 <input
                                     type="file"
-                                    accept="image/*,.pdf"
+                                    accept={PROOF_TYPES.join(",")}
                                     onChange={handleDocumentUpload}
                                     style={{ width: "100%", padding: "8px" }}
                                     required
                                 />
+                                <small style={{ color: "var(--text-secondary)" }}>{PROOF_HELP}</small>
                                 {changeForm.documentProof && (
                                     <div style={{ marginTop: "8px" }}>
                                         <img src={changeForm.documentProof} alt="Proof preview" style={{ maxHeight: "120px", borderRadius: "8px" }} />

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { createClient } from "redis";
 
 let client;
@@ -75,6 +76,34 @@ export const redis = () => {
   if (!client?.isReady) throw new Error("Redis is not connected.");
   return client;
 };
+
+// Deletes the lock only if this caller still owns it (it may have expired and been re-taken).
+const RELEASE_LOCK_SCRIPT = `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) else return 0 end`;
+
+/**
+ * Short-lived lock so two requests cannot process the same record at the same time.
+ * Returns a release function, or null when another request already holds the lock.
+ * Always release in a `finally` block so a failed attempt does not block retries.
+ */
+export const acquireLock = async (lockKey, ttlSeconds = 30) => {
+  const token = crypto.randomUUID();
+  const acquired = await redis().set(lockKey, token, { NX: true, EX: ttlSeconds });
+  if (acquired !== "OK") return null;
+  return async () => {
+    try {
+      await redis().eval(RELEASE_LOCK_SCRIPT, { keys: [lockKey], arguments: [token] });
+    } catch (error) {
+      // The lock still expires on its own after ttlSeconds.
+      console.error(`Could not release lock ${lockKey}:`, error.message);
+    }
+  };
+};
+
+/**
+ * Starts a Redis MULTI transaction. Repository save functions accept it as an optional
+ * argument; nothing is written until `await tx.exec()`, and then all writes apply together.
+ */
+export const transaction = () => redis().multi();
 
 export const jsonSet = async (key, value, ttlSeconds = null) => {
   if (ttlSeconds) {

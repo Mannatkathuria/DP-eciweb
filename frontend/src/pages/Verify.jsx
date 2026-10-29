@@ -81,43 +81,38 @@ function Verify() {
     };
 
     /**
-     * Handle verification completion:
-     * Saves inquiry, triggers Gemini AI sanity check, saves to BLO cases,
-     * and redirects directly to dashboard!
+     * Handle verification completion. The browser only knows the Persona flow ended; the
+     * backend reads the actual result from Persona, so the status shown here comes from it.
      */
     const handleVerificationComplete = async (result = {}) => {
         setLoading(true);
         setError("");
-        setNotice("Processing verification and generating AI document sanity report…");
+        setNotice("Checking your verification result with Persona…");
         try {
             const targetId = result.inquiryId || inquiryId || personaConfig?.inquiryId;
-            const res = await api.post("/persona/complete-verification", {
-                inquiryId: targetId,
-                status: result.status || "completed"
-            });
-
+            const res = await api.post("/persona/complete-verification", { inquiryId: targetId });
             const completedData = res.data?.data;
             if (completedData?.aiReview) {
                 setAiReviewResult(completedData.aiReview);
             }
-
-            setStatus("verified");
             setIsVerifyingInApp(false);
-            setNotice("Verification complete! Redirecting to your voter dashboard…");
+            const uiStatus = normalizePersonaStatus(completedData?.status);
+            setStatus(uiStatus);
 
-            // Redirect to dashboard after brief confirmation
-            setTimeout(() => {
-                navigate("/dashboard", {
-                    state: {
-                        verifiedSuccess: true,
-                        aiReview: completedData?.aiReview
-                    }
-                });
-            }, 1200);
+            if (completedData?.verified) {
+                setNotice("Verification approved! Redirecting to your voter dashboard…");
+                setTimeout(() => {
+                    navigate("/dashboard", {
+                        state: { verifiedSuccess: true, aiReview: completedData?.aiReview }
+                    });
+                }, 1200);
+            } else {
+                setNotice(res.data?.message || "Verification submitted. Your status updates when a decision is made.");
+            }
         } catch (err) {
             console.error("Verification completion error:", err);
-            // Even if network sync has a hiccup, redirect voter to dashboard gracefully
-            navigate("/dashboard");
+            setError(err.response?.data?.message || "Your verification result could not be confirmed. Use Refresh status to try again.");
+            setNotice("");
         } finally {
             setLoading(false);
         }

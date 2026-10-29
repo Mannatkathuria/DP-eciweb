@@ -6,7 +6,8 @@ import {
     getStats,
     listRegistrationRequests,
     approveRegistration,
-    rejectRegistration
+    rejectRegistration,
+    getRegistrationDocumentFile
 } from "../controllers/admin.controllers.js";
 import {
     listAllChangeRequests,
@@ -26,6 +27,7 @@ router.get("/stats", getStats);
 router.get("/registrations", listRegistrationRequests);
 router.post("/registrations/:id/approve", approveRegistration);
 router.post("/registrations/:id/reject", rejectRegistration);
+router.get("/registrations/:id/documents/:category", getRegistrationDocumentFile);
 
 // Voter change/correction requests: BLO reviews and updates electoral roll.
 router.get("/changes", listAllChangeRequests);

@@ -5,7 +5,7 @@ import { verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import { connectRedis, jsonGet, jsonSet } from "../config/redis.js";
 import { getVerification, saveVerification } from "../repositories/verification.repository.js";
 import { getElectorByEpic } from "../repositories/elector.repository.js";
-import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
+import { getUserById, saveUser } from "../repositories/user.repository.js";
 import { performDocumentSanityCheck } from "../services/gemini.service.js";
 
 const router = Router();
@@ -129,6 +129,29 @@ async function syncInquiryToVerificationCase(user, inquiryId, personaStatus, per
   return { verificationCase, aiReview };
 }
 
+/**
+ * Fetches an inquiry from Persona and checks that it was created for this user
+ * (reference-id is set to the user's id in /start). Throws with a statusCode on failure.
+ */
+async function fetchOwnedInquiry(userId, inquiryId) {
+  const headers = getPersonaConfig();
+  let response;
+  try {
+    response = await persona.get(`/inquiries/${encodeURIComponent(inquiryId)}`, { headers });
+  } catch (err) {
+    const error = new Error("Could not reach Persona to confirm the verification result. Try again shortly.");
+    error.statusCode = err.response?.status === 404 ? 404 : 502;
+    throw error;
+  }
+  const attributes = response.data?.data?.attributes || {};
+  if (String(attributes["reference-id"] ?? "") !== String(userId)) {
+    const error = new Error("This verification does not belong to your account.");
+    error.statusCode = 403;
+    throw error;
+  }
+  return attributes;
+}
+
 // POST /api/v1/persona/start
 router.post("/start", verifyJWT, async (req, res) => {
   try {
@@ -250,13 +273,7 @@ router.post("/sync", verifyJWT, async (req, res) => {
       });
     }
 
-    const headers = getPersonaConfig();
-    const response = await persona.get(
-      `/inquiries/${encodeURIComponent(targetInquiryId)}`,
-      { headers }
-    );
-
-    const attributes = response.data.data.attributes;
+    const attributes = await fetchOwnedInquiry(userId, targetInquiryId);
     const status = attributes.status;
 
     await saveInquiry(userId, targetInquiryId, status);
@@ -275,15 +292,16 @@ router.post("/sync", verifyJWT, async (req, res) => {
     console.error("Persona sync failed:", error.response?.data || error.message);
     return res.status(error.statusCode || 502).json({
       success: false,
-      message: "Could not sync verification status",
+      message: error.statusCode ? error.message : "Could not sync verification status",
     });
   }
 });
 
 /**
- * Called when Persona verification completes in the frontend.
- * Retrieves extracted data, triggers Gemini AI sanity check,
- * saves to BLO cases, and marks user as verified!
+ * Called when the embedded Persona flow finishes in the browser. The browser only says the
+ * flow ended; the result itself is always read from Persona. A voter is verified only when
+ * Persona reports "approved". "completed" means Persona is still deciding, so the case goes
+ * to the BLO review queue instead.
  */
 router.post("/complete-verification", verifyJWT, async (req, res) => {
   try {
@@ -296,38 +314,23 @@ router.post("/complete-verification", verifyJWT, async (req, res) => {
       return res.status(400).json({ success: false, message: "Inquiry ID is required." });
     }
 
-    let personaAttributes = {};
-    let status = req.body?.status || "completed";
-
-    try {
-      const headers = getPersonaConfig();
-      const response = await persona.get(
-        `/inquiries/${encodeURIComponent(inquiryId)}`,
-        { headers }
-      );
-      personaAttributes = response.data?.data?.attributes || {};
-      if (personaAttributes.status) {
-        status = personaAttributes.status;
-      }
-    } catch (apiErr) {
-      console.warn("Could not fetch remote inquiry details, using client payload:", apiErr.message);
-    }
-
-    // Default to approved if client reports success or sandbox completed
-    if (status === "completed" || status === "created") {
-      status = "approved"; // In sandbox prototype, completion marks voter verified
-    }
+    const personaAttributes = await fetchOwnedInquiry(userId, inquiryId);
+    const status = personaAttributes.status;
 
     await saveInquiry(userId, inquiryId, status);
     const { verificationCase, aiReview } = await syncInquiryToVerificationCase(req.user, inquiryId, status, personaAttributes);
+    const verified = status === "approved";
 
     return res.json({
       success: true,
-      message: "Identity verification successfully completed.",
+      message: verified
+        ? "Identity verification approved."
+        : "Verification submitted. Your status updates when a decision is made.",
       data: {
         inquiryId,
         status,
-        verified: status === "approved",
+        verified,
+        caseStatus: verificationCase.status,
         aiReview,
         caseId: verificationCase._id,
         redirectTo: "/dashboard"
@@ -335,30 +338,58 @@ router.post("/complete-verification", verifyJWT, async (req, res) => {
     });
   } catch (error) {
     console.error("Persona completion failed:", error.message);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: "Could not record verification completion",
+      message: error.statusCode ? error.message : "Could not record verification completion",
     });
   }
 });
 
 /**
- * Persona Webhook endpoint for server-to-server notifications
+ * Checks the Persona-Signature header ("t=<timestamp>,v1=<hmac>"): an HMAC-SHA256 of
+ * "<timestamp>.<raw body>" with PERSONA_WEBHOOK_SECRET. Several v1 values may be present
+ * while a secret is being rotated.
+ */
+function hasValidPersonaSignature(req, secret) {
+  const header = String(req.get("Persona-Signature") || "");
+  const parts = header.split(",").map((p) => p.trim());
+  const timestamp = parts.find((p) => p.startsWith("t="))?.slice(2);
+  const signatures = parts.filter((p) => p.startsWith("v1=")).flatMap((p) => p.slice(3).split(" "));
+  if (!timestamp || !signatures.length || !req.rawBody) return false;
+  // Reject replays of old events (5 minutes).
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+
+  const expected = crypto.createHmac("sha256", secret).update(`${timestamp}.${req.rawBody}`).digest("hex");
+  return signatures.some((sig) =>
+    sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)));
+}
+
+/**
+ * Persona Webhook endpoint for server-to-server notifications. Only signed events are
+ * accepted; an unsigned request could otherwise mark any voter as verified.
  */
 router.post("/webhook", async (req, res) => {
   try {
-    const event = req.body?.data;
-    if (!event) return res.status(400).json({ success: false });
+    const secret = process.env.PERSONA_WEBHOOK_SECRET;
+    if (!secret || /your_/i.test(secret)) {
+      console.warn("[Persona Webhook] Ignored: PERSONA_WEBHOOK_SECRET is not configured.");
+      return res.status(503).json({ success: false, message: "Webhook secret is not configured." });
+    }
+    if (!hasValidPersonaSignature(req, secret)) {
+      return res.status(401).json({ success: false, message: "Invalid webhook signature." });
+    }
 
-    const inquiryId = event.id;
-    const status = event.attributes?.status;
-    const referenceId = event.attributes?.["reference-id"];
+    // Persona wraps the inquiry in an event: data.attributes.payload.data
+    const inquiry = req.body?.data?.attributes?.payload?.data;
+    const inquiryId = inquiry?.id;
+    const status = inquiry?.attributes?.status;
+    const referenceId = inquiry?.attributes?.["reference-id"];
 
-    if (inquiryId && status) {
+    if (inquiryId && status && referenceId) {
       await connectRedis();
-      if (referenceId) {
-        await saveInquiry(referenceId, inquiryId, status);
-      }
+      await saveInquiry(referenceId, inquiryId, status);
+      const user = await getUserById(referenceId);
+      if (user) await syncInquiryToVerificationCase(user, inquiryId, status, inquiry.attributes);
       console.log(`[Persona Webhook] Inquiry ${inquiryId} updated to status: ${status}`);
     }
 

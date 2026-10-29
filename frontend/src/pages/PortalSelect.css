@@ -25,6 +25,7 @@
 .service-content { max-width:900px; }
 .service-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; margin-top:42px; }
 .service-grid:has(.service-card:only-child) { grid-template-columns:minmax(0,300px); }
+.service-grid:has(.service-card:nth-child(4)) { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .service-card { min-height:250px; }
 @media(max-width:850px) { .portal-page{padding:0 5%;} .portal-content{padding-top:55px;} .portal-grid,.service-grid{grid-template-columns:1fr;gap:16px;} .portal-card,.service-card{min-height:220px;} .service-grid:has(.service-card:only-child){grid-template-columns:1fr;} }
 @media(max-width:480px) { .portal-header{min-height:76px;} .portal-header strong{font-size:14px;} .portal-header p{font-size:12px;} .portal-content h1{font-size:32px;} .portal-card,.service-card{padding:22px;} }

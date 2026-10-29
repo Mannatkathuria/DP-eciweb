@@ -1,11 +1,11 @@
 import "dotenv/config";
 import crypto from "crypto";
 import { connectRedis, redis } from "./config/redis.js";
-import { saveElector } from "./repositories/elector.repository.js";
+import { getElectorByEpic, saveElector } from "./repositories/elector.repository.js";
 import { getUserByEpic, saveUser } from "./repositories/user.repository.js";
-import { saveVerification } from "./repositories/verification.repository.js";
-import { saveRegistration } from "./repositories/registration.repository.js";
-import { saveChangeRequest } from "./repositories/changeRequest.repository.js";
+import { getVerification, saveVerification } from "./repositories/verification.repository.js";
+import { getRegistration, saveRegistration } from "./repositories/registration.repository.js";
+import { getChangeRequest, saveChangeRequest } from "./repositories/changeRequest.repository.js";
 import { hashPassword } from "./services/blo.service.js";
 import { EPIC_PATTERN } from "./controllers/auth.controller.js";
 
@@ -24,6 +24,14 @@ const makeElector = ([epic,name,dob,gender,state,district,assemblyConstituency,p
     hasVoted: false, votedAt: null, votedBooth: null,
     seededAt: new Date().toISOString()
 });
+
+// Seeds a demo record only if it does not exist yet, so the seed never undoes real changes.
+// Returns true when the record was created.
+const seedOnce = async (get, record, save) => {
+    if (await get(record._id)) return false;
+    await save(record);
+    return true;
+};
 
 const ensureStaff = async (epicValue, name, role) => {
     const epic = String(epicValue).trim().toUpperCase();
@@ -75,6 +83,8 @@ const ensureEci = async () => {
 
 const ensureDemoBlo = async () => {
     const bloId = "BLO-PB-000001";
+    // Never reset an existing account (its password may have been changed since).
+    if (await getUserByEpic(bloId)) return;
     const passwordHash = await hashPassword("Password123");
     const bloUser = {
         _id: crypto.randomUUID(),
@@ -121,7 +131,7 @@ const seedVerificationCases = async () => {
         startedAt: new Date(now.getTime() - 3600000).toISOString(),
         createdAt: new Date(now.getTime() - 3600000).toISOString()
     };
-    await saveVerification(case1);
+    await seedOnce(getVerification, case1, saveVerification);
 
     // 2. Verified Case
     const case2 = {
@@ -148,7 +158,7 @@ const seedVerificationCases = async () => {
         createdAt: new Date(now.getTime() - 7200000).toISOString(),
         completedAt: new Date(now.getTime() - 7100000).toISOString()
     };
-    await saveVerification(case2);
+    await seedOnce(getVerification, case2, saveVerification);
 
     // 3. In Progress Case
     const case3 = {
@@ -174,14 +184,14 @@ const seedVerificationCases = async () => {
         startedAt: new Date(now.getTime() - 600000).toISOString(),
         createdAt: new Date(now.getTime() - 600000).toISOString()
     };
-    await saveVerification(case3);
+    await seedOnce(getVerification, case3, saveVerification);
 
     console.log("Seeded demo verification cases (review_required, verified, in_progress).");
 };
 
 const seedChangeRequests = async () => {
     const changeReq = {
-        _id: crypto.randomUUID(),
+        _id: "demo-change-001",
         epic: "ABC1234567",
         currentRecord: {
             name: "Mannat Kathuria",
@@ -212,13 +222,14 @@ const seedChangeRequests = async () => {
         status: "pending",
         submittedAt: new Date().toISOString()
     };
-    await saveChangeRequest(changeReq);
+    if (!(await seedOnce(getChangeRequest, changeReq, saveChangeRequest))) return;
     console.log("Seeded demo change request (Form 8).");
 };
 
 const seedRegistrationRequest = async () => {
     const regReq = {
-        _id: crypto.randomUUID(),
+        // Fixed id, so running the seed again does not queue another copy of this application.
+        _id: "00000000-0000-4000-8000-000000000006",
         name: "Simran Kaur",
         dateOfBirth: "2005-04-15T00:00:00.000Z",
         gender: "Female",
@@ -240,13 +251,16 @@ const seedRegistrationRequest = async () => {
         status: "pending",
         submittedAt: new Date().toISOString()
     };
-    await saveRegistration(regReq);
+    if (!(await seedOnce(getRegistration, regReq, saveRegistration))) return;
     console.log("Seeded demo new registration request (Form 6).");
 };
 
 await connectRedis();
 
-for (const row of electors) await saveElector(makeElector(row));
+// Existing roll records are left alone: they may have been corrected (Form 8) or marked as voted.
+for (const row of electors) {
+    if (!(await getElectorByEpic(row[0]))) await saveElector(makeElector(row));
+}
 await ensureStaff(process.env.ADMIN_EPIC || "ADM0000001", "Administrator", "admin");
 await ensureStaff(process.env.ECI_EPIC || "ECI0000001", "ECI Official", "eci");
 await ensureDemoVoter();

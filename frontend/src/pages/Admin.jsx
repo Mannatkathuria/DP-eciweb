@@ -3,13 +3,45 @@ import { useTranslation } from "react-i18next";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { Link, Navigate } from "react-router-dom";
+import ReasonDialog from "./ReasonDialog";
 import "./Admin.css";
 
 // Mirrors the backend checks in parseBoothAssignment (admin.controllers.js).
-const validAssignment = ({ partNumber, pollingStation }) =>
-    /^[1-9]\d{0,3}$/.test((partNumber || "").trim()) &&
-    (pollingStation || "").trim().replace(/\s+/g, " ").length >= 3 &&
-    (pollingStation || "").trim().length <= 200;
+// Returns what is wrong with the booth assignment, or "" when it can be submitted.
+const assignmentProblem = ({ partNumber, pollingStation }) => {
+    const part = (partNumber || "").trim();
+    const station = (pollingStation || "").trim().replace(/\s+/g, " ");
+    if (!part && !station) return "Enter a part number and a polling station before approving.";
+    if (!part) return "Enter a part number before approving.";
+    if (!/^[1-9]\d{0,3}$/.test(part)) return "Part number must be a whole number from 1 to 9999.";
+    if (!station) return "Enter the polling station before approving.";
+    if (station.length < 3) return "Polling station must be at least 3 characters.";
+    if (station.length > 200) return "Polling station must be 200 characters or fewer.";
+    return "";
+};
+
+const apiMessage = (err, fallback) => err?.response?.data?.message || fallback;
+
+// Text for the reason dialog, per kind of decision.
+const DIALOGS = {
+    rejectRegistration: (r) => ({
+        title: `Reject application: ${r.name}`, label: "Reason for rejection (shown to the applicant)",
+        hint: "The applicant sees this reason when they check their application status.",
+        required: true, confirmLabel: "Reject application"
+    }),
+    rejectChange: (cr) => ({
+        title: `Reject correction request: ${cr.currentRecord?.name || cr.epic}`, label: "Reason for rejection (shown to the voter)",
+        hint: "The voter sees this reason with their correction request.", required: true, confirmLabel: "Reject request"
+    }),
+    clearCase: () => ({
+        title: "Clear and verify this case", label: "Approval note for the voter record",
+        hint: "The voter will be marked as verified.", required: false, confirmLabel: "Clear & verify", confirmClass: "btn-approve"
+    }),
+    escalateCase: () => ({
+        title: "Escalate this case", label: "Reason for escalating",
+        hint: "The case is marked for manual field inspection.", required: false, confirmLabel: "Escalate"
+    })
+};
 
 const fmt = (n, unit = "") => (n === null || n === undefined ? "—" : `${n}${unit}`);
 
@@ -28,6 +60,17 @@ function Admin() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    // A failed section shows its own error instead of looking like an empty list.
+    const [sectionErrors, setSectionErrors] = useState({});
+
+    // Items with a request in flight (their buttons are disabled), and per-row error messages.
+    const [busyIds, setBusyIds] = useState({});
+    const [rowErrors, setRowErrors] = useState({});
+
+    // Reason dialog: { kind, item } while open.
+    const [dialog, setDialog] = useState(null);
+    const [dialogBusy, setDialogBusy] = useState(false);
+    const [dialogError, setDialogError] = useState("");
 
     // Modal state for viewing document / AI review details
     const [selectedItemForModal, setSelectedItemForModal] = useState(null);
@@ -35,51 +78,65 @@ function Admin() {
     // Part number and polling station assignments per pending registration
     const [assignments, setAssignments] = useState({});
 
+    // Every list comes from the server, so the dashboard always shows the saved state.
+    // A section that fails keeps its previous data and shows an error instead of an empty list.
     const loadData = useCallback(async () => {
         setLoading(true);
-        setError("");
-        try {
-            const verificationParams = { limit: 50 };
-            if (caseFilter && caseFilter !== "all") {
-                verificationParams.status = caseFilter;
-            }
-
-            const [sRes, vRes, rRes, cRes] = await Promise.all([
-                api.get("/admin/stats").catch(() => ({ data: { data: null } })),
-                api.get("/admin/verifications", { params: verificationParams }),
-                api.get("/admin/registrations", { params: { status: "pending" } }),
-                api.get("/admin/changes", { params: { status: "pending" } }).catch(() => ({ data: { data: { items: [] } } }))
-            ]);
-
-            setStats(sRes.data.data);
-            setCases(vRes.data.data?.items || []);
-            setRegistrations(rRes.data.data?.items || []);
-            setChangeRequests(cRes.data.data?.items || []);
-        } catch (err) {
-            console.error("Admin data load error:", err);
-            setError(t("admin.loadFailed") || "Could not load administrative data.");
-        } finally {
-            setLoading(false);
+        const verificationParams = { limit: 50 };
+        if (caseFilter && caseFilter !== "all") {
+            verificationParams.status = caseFilter;
         }
-    }, [caseFilter, t]);
+
+        const [sRes, vRes, rRes, cRes] = await Promise.allSettled([
+            api.get("/admin/stats"),
+            api.get("/admin/verifications", { params: verificationParams }),
+            api.get("/admin/registrations", { params: { status: "pending" } }),
+            api.get("/admin/changes", { params: { status: "pending" } })
+        ]);
+
+        const errors = {};
+        if (sRes.status === "fulfilled") setStats(sRes.value.data.data);
+        else errors.stats = apiMessage(sRes.reason, "Could not load statistics.");
+        if (vRes.status === "fulfilled") setCases(vRes.value.data.data?.items || []);
+        else errors.cases = apiMessage(vRes.reason, "Could not load verification cases.");
+        if (rRes.status === "fulfilled") setRegistrations(rRes.value.data.data?.items || []);
+        else errors.registrations = apiMessage(rRes.reason, "Could not load registration applications.");
+        if (cRes.status === "fulfilled") setChangeRequests(cRes.value.data.data?.items || []);
+        else errors.changes = apiMessage(cRes.reason, "Could not load change requests.");
+
+        setSectionErrors(errors);
+        setLoading(false);
+    }, [caseFilter]);
 
     useEffect(() => {
         if (logged) loadData();
     }, [logged, loadData]);
 
-    // Resolve Persona / Identity Verification Case
-    const resolveCase = async (id, decision) => {
-        const note = window.prompt(decision === "cleared"
-            ? "Add optional approval note for the voter record:"
-            : "Reason for escalating / rejecting case:") ?? "";
+    const setBusy = (id, on) => setBusyIds((b) => ({ ...b, [id]: on }));
+    const setRowError = (id, message) => setRowErrors((e) => ({ ...e, [id]: message }));
+    const clearMessages = (id) => { setError(""); setNotice(""); if (id) setRowError(id, ""); };
+
+    // Runs a decision request for one item. The item leaves its list only when the server
+    // confirms, because the list is reloaded from the server afterwards.
+    const runDecision = async (id, request, successMessage) => {
+        setBusy(id, true);
         try {
-            await api.patch(`/admin/verifications/${id}/resolve`, { decision, note });
-            setNotice(decision === "cleared"
-                ? "Case cleared: Voter identity verified successfully."
-                : "Case escalated for manual field inspection.");
-            loadData();
+            const result = await request();
+            setNotice(successMessage(result));
+            await loadData();
+            return true;
         } catch (err) {
-            setError(err.response?.data?.message || t("admin.caseUpdateFailed") || "Failed to update case.");
+            const message = apiMessage(err, "The request failed. Nothing was changed; please try again.");
+            if (err.response?.status === 409) {
+                // Already decided or being decided elsewhere: show the current saved state.
+                setError(message);
+                await loadData();
+            } else {
+                setRowError(id, message);
+            }
+            throw err;
+        } finally {
+            setBusy(id, false);
         }
     };
 
@@ -89,48 +146,72 @@ function Admin() {
         pollingStation: assignments[r._id]?.pollingStation ?? r.pollingStation ?? ""
     });
 
-    const updateAssignment = (r, field, value) =>
+    const updateAssignment = (r, field, value) => {
         setAssignments(a => ({ ...a, [r._id]: { ...assignmentFor(r), [field]: value } }));
+        setRowError(r._id, "");
+    };
 
-    const decideRegistration = async (r, decision) => {
-        const id = r._id;
-        setError(""); setNotice("");
-        let body = {};
-        if (decision === "approve") {
-            const assignment = assignmentFor(r);
-            if (!validAssignment(assignment)) { setError(t("admin.assignmentInvalid") || "Assign both part number (1-9999) and polling station."); return; }
-            body = { partNumber: assignment.partNumber.trim(), pollingStation: assignment.pollingStation.trim() };
-        }
-        if (decision === "reject") {
-            const note = window.prompt(t("admin.rejectPrompt") || "Reason for rejecting this voter registration:") ?? "";
-            body = { note };
-        }
+    const approveRegistration = async (r) => {
+        if (busyIds[r._id]) return;
+        clearMessages(r._id);
+        const assignment = assignmentFor(r);
+        const problem = assignmentProblem(assignment);
+        if (problem) { setRowError(r._id, problem); return; }
+        const body = { partNumber: assignment.partNumber.trim(), pollingStation: assignment.pollingStation.trim() };
         try {
-            const { data } = await api.post(`/admin/registrations/${id}/${decision}`, body);
-            setNotice(decision === "approve"
-                ? `Registration approved! New EPIC allocated: ${data.data?.epic}. Electoral roll updated.`
-                : "Registration request rejected.");
-            loadData();
-        } catch (err) {
-            setError(err.response?.data?.message || "Failed to process registration request.");
+            await runDecision(r._id,
+                () => api.post(`/admin/registrations/${r._id}/approve`, body),
+                ({ data }) => `Approved ${r.name}. EPIC ${data.data?.epic} issued for part ${body.partNumber}, ${body.pollingStation}.`);
+            setAssignments((a) => { const next = { ...a }; delete next[r._id]; return next; });
+        } catch {
+            // The row stays visible with the entered assignment and its error message.
         }
     };
 
-    // Decide Change Request (Form 8)
-    const decideChangeRequest = async (cr, decision) => {
-        setError(""); setNotice("");
-        let note = "";
-        if (decision === "reject") {
-            note = window.prompt("Reason for rejecting this correction request:") ?? "";
-        }
+    const approveChangeRequest = async (cr) => {
+        if (busyIds[cr._id]) return;
+        clearMessages(cr._id);
         try {
-            await api.post(`/admin/changes/${cr._id}/${decision}`, { note });
-            setNotice(decision === "approve"
-                ? `Change request approved! Changes for EPIC ${cr.epic} immediately updated in the live electoral roll.`
-                : "Change request rejected.");
-            loadData();
+            await runDecision(cr._id,
+                () => api.post(`/admin/changes/${cr._id}/approve`, {}),
+                () => `Change request approved. The electoral roll record for EPIC ${cr.epic} has been updated.`);
+        } catch {
+            // Error shown on the row.
+        }
+    };
+
+    // Opens the reason dialog. Nothing is sent until the BLO confirms it.
+    const openDialog = (kind, item) => {
+        if (busyIds[item._id]) return;
+        clearMessages(item._id);
+        setDialogError("");
+        setDialog({ kind, item });
+    };
+
+    const closeDialog = useCallback(() => {
+        setDialog(null);
+        setDialogError("");
+    }, []);
+
+    const confirmDialog = async (reason) => {
+        const { kind, item } = dialog;
+        const requests = {
+            rejectRegistration: [() => api.post(`/admin/registrations/${item._id}/reject`, { note: reason }), () => `Application from ${item.name} rejected.`],
+            rejectChange: [() => api.post(`/admin/changes/${item._id}/reject`, { note: reason }), () => "Change request rejected."],
+            clearCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "cleared", note: reason }), () => "Case cleared: voter identity verified."],
+            escalateCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "escalated", note: reason }), () => "Case escalated for manual field inspection."]
+        };
+        const [request, success] = requests[kind];
+        setDialogBusy(true);
+        setDialogError("");
+        try {
+            await runDecision(item._id, request, success);
+            closeDialog();
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to process change request.");
+            if (err.response?.status === 409) closeDialog();
+            else setDialogError(apiMessage(err, "The request failed. Nothing was changed; please try again."));
+        } finally {
+            setDialogBusy(false);
         }
     };
 
@@ -227,8 +308,9 @@ function Admin() {
                             </div>
                         </div>
 
+                        {sectionErrors.cases && <div className="verification-error" role="alert">{sectionErrors.cases}</div>}
                         {loading && <p>{t("common.loading") || "Loading cases…"}</p>}
-                        {!loading && cases.length === 0 && (
+                        {!loading && !sectionErrors.cases && cases.length === 0 && (
                             <p style={{ padding: "20px", textAlign: "center", color: "var(--text-secondary)" }}>
                                 {t("admin.noCases") || "No verification cases found matching this filter."}
                             </p>
@@ -262,10 +344,12 @@ function Admin() {
                                                     <td>
                                                         <span className={`badge ${
                                                             v.status === "verified" ? "badge-verified" :
-                                                            v.status === "review_required" ? "badge-review" : "badge-progress"
+                                                            v.status === "review_required" ? "badge-review" :
+                                                            v.status === "declined" ? "badge-rejected" : "badge-progress"
                                                         }`}>
                                                             {v.status === "verified" ? "VERIFIED" :
-                                                             v.status === "review_required" ? "NEEDS REVIEW" : "IN PROGRESS"}
+                                                             v.status === "review_required" ? "NEEDS REVIEW" :
+                                                             v.status === "declined" ? "DECLINED" : "IN PROGRESS"}
                                                         </span>
                                                     </td>
                                                     <td>
@@ -290,20 +374,25 @@ function Admin() {
                                                     </td>
                                                     <td>
                                                         {v.status === "review_required" && !v.resolution?.decision ? (
-                                                            <div className="row-actions">
-                                                                <button
-                                                                    className="btn-approve"
-                                                                    onClick={() => resolveCase(v._id, "cleared")}
-                                                                >
-                                                                    ✓ Clear & Verify
-                                                                </button>
-                                                                <button
-                                                                    className="btn-reject"
-                                                                    onClick={() => resolveCase(v._id, "escalated")}
-                                                                >
-                                                                    ⚠ Escalate
-                                                                </button>
-                                                            </div>
+                                                            <>
+                                                                <div className="row-actions">
+                                                                    <button
+                                                                        className="btn-approve"
+                                                                        onClick={() => openDialog("clearCase", v)}
+                                                                        disabled={Boolean(busyIds[v._id])}
+                                                                    >
+                                                                        ✓ Clear & Verify
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn-reject"
+                                                                        onClick={() => openDialog("escalateCase", v)}
+                                                                        disabled={Boolean(busyIds[v._id])}
+                                                                    >
+                                                                        ⚠ Escalate
+                                                                    </button>
+                                                                </div>
+                                                                {rowErrors[v._id] && <p className="row-error" role="alert">{rowErrors[v._id]}</p>}
+                                                            </>
                                                         ) : v.resolution?.decision ? (
                                                             <span style={{ fontSize: "12px" }}>
                                                                 Resolved: <strong>{v.resolution.decision.toUpperCase()}</strong> by {v.resolution.byEpic || v.resolution.by}
@@ -336,7 +425,8 @@ function Admin() {
                             </div>
                         </div>
 
-                        {changeRequests.length === 0 && (
+                        {sectionErrors.changes && <div className="verification-error" role="alert">{sectionErrors.changes}</div>}
+                        {!sectionErrors.changes && changeRequests.length === 0 && (
                             <p style={{ padding: "20px", textAlign: "center", color: "var(--text-secondary)" }}>
                                 No pending change requests to review.
                             </p>
@@ -408,17 +498,20 @@ function Admin() {
                                                     <div className="row-actions">
                                                         <button
                                                             className="btn-approve"
-                                                            onClick={() => decideChangeRequest(cr, "approve")}
+                                                            onClick={() => approveChangeRequest(cr)}
+                                                            disabled={Boolean(busyIds[cr._id])}
                                                         >
-                                                            ✓ Approve Changes
+                                                            {busyIds[cr._id] ? "Saving…" : "✓ Approve Changes"}
                                                         </button>
                                                         <button
                                                             className="btn-reject"
-                                                            onClick={() => decideChangeRequest(cr, "reject")}
+                                                            onClick={() => openDialog("rejectChange", cr)}
+                                                            disabled={Boolean(busyIds[cr._id])}
                                                         >
                                                             ✕ Reject
                                                         </button>
                                                     </div>
+                                                    {rowErrors[cr._id] && <p className="row-error" role="alert">{rowErrors[cr._id]}</p>}
                                                 </td>
                                             </tr>
                                         ))}
@@ -441,7 +534,8 @@ function Admin() {
                             </div>
                         </div>
 
-                        {registrations.length === 0 && (
+                        {sectionErrors.registrations && <div className="verification-error" role="alert">{sectionErrors.registrations}</div>}
+                        {!sectionErrors.registrations && registrations.length === 0 && (
                             <p style={{ padding: "20px", textAlign: "center", color: "var(--text-secondary)" }}>
                                 {t("admin.noRequests") || "No pending registration applications found."}
                             </p>
@@ -504,6 +598,7 @@ function Admin() {
                                                             <input
                                                                 value={assignmentFor(r).partNumber}
                                                                 onChange={e => updateAssignment(r, "partNumber", e.target.value)}
+                                                                disabled={Boolean(busyIds[r._id])}
                                                                 inputMode="numeric"
                                                                 maxLength={4}
                                                                 placeholder="e.g. 42"
@@ -515,6 +610,7 @@ function Admin() {
                                                             <input
                                                                 value={assignmentFor(r).pollingStation}
                                                                 onChange={e => updateAssignment(r, "pollingStation", e.target.value)}
+                                                                disabled={Boolean(busyIds[r._id])}
                                                                 maxLength={200}
                                                                 placeholder="e.g. Govt Senior Secondary School"
                                                                 required
@@ -526,18 +622,20 @@ function Admin() {
                                                     <div className="row-actions">
                                                         <button
                                                             className="btn-approve"
-                                                            onClick={() => decideRegistration(r, "approve")}
-                                                            disabled={!validAssignment(assignmentFor(r))}
+                                                            onClick={() => approveRegistration(r)}
+                                                            disabled={Boolean(busyIds[r._id])}
                                                         >
-                                                            {t("admin.approve") || "Approve & Issue EPIC"}
+                                                            {busyIds[r._id] ? "Saving…" : (t("admin.approve") || "Approve & Issue EPIC")}
                                                         </button>
                                                         <button
                                                             className="btn-reject"
-                                                            onClick={() => decideRegistration(r, "reject")}
+                                                            onClick={() => openDialog("rejectRegistration", r)}
+                                                            disabled={Boolean(busyIds[r._id])}
                                                         >
                                                             {t("admin.reject") || "Reject"}
                                                         </button>
                                                     </div>
+                                                    {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}
                                                 </td>
                                             </tr>
                                         ))}
@@ -549,6 +647,9 @@ function Admin() {
                 )}
 
                 {/* TAB 4: STATISTICS & METRICS */}
+                {activeTab === "stats" && sectionErrors.stats && (
+                    <div className="verification-error" role="alert">{sectionErrors.stats}</div>
+                )}
                 {activeTab === "stats" && stats && (
                     <section className="stat-grid">
                         <div className="stat"><span>{t("admin.total") || "Total Verifications"}</span><strong>{stats.total}</strong></div>
@@ -560,6 +661,16 @@ function Admin() {
                         <div className="stat"><span>Pending Change Requests</span><strong>{changeRequests.length}</strong></div>
                         <div className="stat"><span>Pending New Registrations</span><strong>{registrations.length}</strong></div>
                     </section>
+                )}
+
+                {dialog && (
+                    <ReasonDialog
+                        {...DIALOGS[dialog.kind](dialog.item)}
+                        busy={dialogBusy}
+                        error={dialogError}
+                        onConfirm={confirmDialog}
+                        onCancel={closeDialog}
+                    />
                 )}
 
                 {/* Document Preview Modal */}

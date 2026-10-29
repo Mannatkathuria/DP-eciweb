@@ -26,6 +26,12 @@ const roleInfo = {
                 link: "/electoral-roll",
                 icon: "📑",
             },
+            {
+                titleKey: "register.checkRequest",
+                descriptionKey: "service.voter.checkDescription",
+                link: "/check-request",
+                icon: "🔎",
+            },
         ],
     },
     blo: {

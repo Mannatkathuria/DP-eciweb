@@ -7,7 +7,13 @@ const key = (epic) => `user:${normaliseEpic(epic)}`;
 export const getUserByEpic = async (epic) => jsonGet(key(epic));
 export const getUserById = async (id) => jsonGet(`user:id:${id}`);
 
-export const saveUser = async (user) => {
+export const saveUser = async (user, tx = null) => {
+    if (tx) {
+        tx.set(key(user.epic), JSON.stringify(user));
+        tx.set(`user:id:${user._id}`, JSON.stringify(user));
+        tx.sAdd("users:all", user._id);
+        return user;
+    }
     await jsonSet(key(user.epic), user);
     await jsonSet(`user:id:${user._id}`, user);
     await redis().sAdd("users:all", user._id);

@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { getElectorByEpic, saveElector } from "../repositories/elector.repository.js";
-import { jsonGet, jsonSet } from "../config/redis.js";
+import { jsonGet, jsonSet, redis, transaction } from "../config/redis.js";
 import { performDocumentSanityCheck } from "../services/gemini.service.js";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
@@ -66,11 +66,30 @@ export const startVotingVerification = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Polling-day identity checks through Persona are not connected to a real Persona inquiry yet.
+ * Instead of reporting a check that never ran as passed, this step fails clearly unless the
+ * operator explicitly turns on the demonstration mode, and then every result is labelled
+ * "simulated" so it cannot be mistaken for a real check.
+ */
+const isPersonaDemoMode = () => process.env.PERSONA_DEMO_MODE === "true";
+const requirePersonaDemoMode = () => {
+    if (!isPersonaDemoMode()) {
+        throw new ApiError(503, "The polling-station Persona check is not connected to Persona yet, so no voter can be verified here. " +
+            "For a demonstration, set PERSONA_DEMO_MODE=true in backend/.env; results are then labelled as simulated.");
+    }
+};
+
+/**
  * Starts Persona inquiry or on-site verification session for voting day
  */
 export const startVotingPersona = asyncHandler(async (req, res) => {
+    requirePersonaDemoMode();
     const session = await getSession(req.params.id);
+    if (session.status !== "persona_pending") {
+        throw new ApiError(409, "This voter check is not waiting for the identity step.");
+    }
     const elector = await getElectorByEpic(session.epic);
+    if (!elector) throw new ApiError(404, "Electoral roll record not found.");
 
     // Run AI sanity check on elector record
     const aiReview = await performDocumentSanityCheck({
@@ -85,9 +104,11 @@ export const startVotingPersona = asyncHandler(async (req, res) => {
 
     session.inquiryId = inquiryId;
     session.aiReview = aiReview;
-    session.status = "fingerprint_pending"; // Pre-approves to fingerprint for on-day demo
+    // Demonstration mode only (checked above): the identity step is simulated and labelled as such.
+    session.status = "fingerprint_pending";
     session.personaStatus = "approved";
-    session.personaResult = "verified";
+    session.personaResult = "simulated";
+    session.simulated = true;
 
     await jsonSet(key(session._id), session, 30 * 60);
 
@@ -99,7 +120,8 @@ export const startVotingPersona = asyncHandler(async (req, res) => {
             environmentId,
             templateId,
             status: "approved",
-            personaResult: "verified",
+            personaResult: "simulated",
+            simulated: true,
             aiReview
         }
     });
@@ -109,12 +131,17 @@ export const startVotingPersona = asyncHandler(async (req, res) => {
  * Syncs Persona inquiry status for voting day
  */
 export const syncVotingPersona = asyncHandler(async (req, res) => {
+    requirePersonaDemoMode();
     const session = await getSession(req.params.id);
+    if (session.status !== "persona_pending" && session.status !== "fingerprint_pending") {
+        throw new ApiError(409, "This voter check is not waiting for the identity step.");
+    }
 
-    // If persona not already approved, approve and transition to fingerprint stage
+    // Demonstration mode only (checked above).
     session.status = "fingerprint_pending";
     session.personaStatus = "approved";
-    session.personaResult = "verified";
+    session.personaResult = "simulated";
+    session.simulated = true;
     session.updatedAt = new Date().toISOString();
 
     await jsonSet(key(session._id), session, 30 * 60);
@@ -125,7 +152,8 @@ export const syncVotingPersona = asyncHandler(async (req, res) => {
             sessionId: session._id,
             status: session.status,
             personaStatus: session.personaStatus,
-            personaResult: session.personaResult
+            personaResult: session.personaResult,
+            simulated: true
         }
     });
 });
@@ -136,6 +164,10 @@ export const syncVotingPersona = asyncHandler(async (req, res) => {
  */
 export const verifyFingerprint = asyncHandler(async (req, res) => {
     const session = await getSession(req.params.id);
+    // The fingerprint step comes only after the identity step has passed for this session.
+    if (session.status !== "fingerprint_pending") {
+        throw new ApiError(409, "Complete the identity check for this voter before the fingerprint step.");
+    }
     const elector = await getElectorByEpic(session.epic);
 
     if (!elector) throw new ApiError(404, "Electoral roll record not found.");
@@ -152,17 +184,30 @@ export const verifyFingerprint = asyncHandler(async (req, res) => {
         });
     }
 
+    // Claim the vote atomically: if two booths submit for the same voter at once, only one wins.
+    const voteClaimed = await redis().set(`voted:${elector.epic}`, session._id, { NX: true });
+    if (voteClaimed !== "OK") {
+        throw new ApiError(409, `Duplicate ballot prevented! Voter ${elector.name} has already cast their vote.`);
+    }
+
     const now = new Date().toISOString();
-    session.fingerprint = { verified: true, verifiedAt: now, method: "biometric-scanner-certified" };
+    session.fingerprint = { verified: true, verifiedAt: now, method: "scanner-demo-token" };
     session.status = "verified";
     session.completedAt = now;
-    await jsonSet(key(session._id), session, 30 * 60);
 
-    // Mark elector as voted in the official Electoral Roll
+    // Mark elector as voted in the official Electoral Roll, together with the session.
     elector.hasVoted = true;
     elector.votedAt = now;
     elector.votedBooth = elector.pollingStation;
-    await saveElector(elector);
+    const tx = transaction();
+    tx.set(key(session._id), JSON.stringify(session), { EX: 30 * 60 });
+    saveElector(elector, tx);
+    try {
+        await tx.exec();
+    } catch (error) {
+        await redis().del(`voted:${elector.epic}`).catch(() => {});
+        throw error;
+    }
 
     res.json({
         success: true,
@@ -194,20 +239,18 @@ export const getVotingReferencePhoto = asyncHandler(async (req, res) => {
     fs.createReadStream(file).pipe(res);
 });
 
-export const submitVotingDocument = asyncHandler(async (req, res) => {
-    const session = await getSession(req.params.id);
-    session.status = "fingerprint_pending";
-    await jsonSet(key(session._id), session, 30 * 60);
-    res.json({ success: true, data: { status: session.status } });
+// Retired step from the old in-app camera flow. It used to move the session straight to the
+// fingerprint stage without checking anything, so it now refuses instead.
+export const submitVotingDocument = asyncHandler(async () => {
+    throw new ApiError(410, "This verification step has been replaced by the Persona identity check.");
 });
 
 export const issueVotingChallenge = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { challenge: "blink" } });
 });
 
-export const submitVotingFace = asyncHandler(async (req, res) => {
-    const session = await getSession(req.params.id);
-    session.status = "fingerprint_pending";
-    await jsonSet(key(session._id), session, 30 * 60);
-    res.json({ success: true, data: { status: session.status } });
+// Retired step from the old in-app camera flow. It used to move the session straight to the
+// fingerprint stage without checking anything, so it now refuses instead.
+export const submitVotingFace = asyncHandler(async () => {
+    throw new ApiError(410, "This verification step has been replaced by the Persona identity check.");
 });

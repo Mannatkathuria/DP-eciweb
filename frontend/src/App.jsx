@@ -12,6 +12,7 @@ import BloLogin from "./pages/BloLogin";
 import BloChangePassword from "./pages/BloChangePassword";
 import BloForgotPassword from "./pages/BloForgotPassword";
 import Register from "./pages/Register";
+import CheckRequest from "./pages/CheckRequest";
 import ElectoralRoll from "./pages/ElectoralRoll";
 import Admin from "./pages/Admin";
 import EciLogin from "./pages/EciLogin";
@@ -35,6 +36,7 @@ function App() {
                 <Route path="/blo/password" element={<BloChangePassword />} />
                 <Route path="/blo/forgot" element={<BloForgotPassword />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/check-request" element={<CheckRequest />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/electoral-roll" element={<ElectoralRoll />} />
                 <Route path="/admin" element={<Admin />} />

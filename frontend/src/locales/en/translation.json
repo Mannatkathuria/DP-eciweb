@@ -283,7 +283,8 @@
       "registerTitle": "Register",
       "registerDescription": "Send a registration request to your BLO. You can sign in once it is approved.",
       "rollTitle": "Electoral Roll",
-      "rollDescription": "Search and check electoral-roll records."
+      "rollDescription": "Search and check electoral-roll records.",
+      "checkDescription": "Enter your Form 6 reference ID to see whether your application has been approved."
     },
     "blo": {
       "eyebrow": "BLO PORTAL",
