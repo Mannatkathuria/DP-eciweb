@@ -104,14 +104,26 @@ body::before {
   z-index: -1;
   inset: 0;
   background:
-    radial-gradient(ellipse at 8% 12%, rgba(232, 145, 69, .14), transparent 34rem),
-    radial-gradient(ellipse at 96% 34%, rgba(42, 126, 91, .11), transparent 32rem),
-    radial-gradient(ellipse at 55% 100%, rgba(35, 91, 131, .09), transparent 42rem),
-    linear-gradient(rgba(23, 74, 120, .025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(23, 74, 120, .025) 1px, transparent 1px);
+    radial-gradient(ellipse at 8% 12%, rgba(232, 145, 69, .19), transparent 34rem),
+    radial-gradient(ellipse at 96% 34%, rgba(42, 126, 91, .16), transparent 32rem),
+    radial-gradient(ellipse at 55% 100%, rgba(35, 91, 131, .13), transparent 42rem),
+    linear-gradient(rgba(23, 74, 120, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 74, 120, .035) 1px, transparent 1px);
   background-size: auto, auto, auto, 64px 64px, 64px 64px;
+  animation: eci-ambient-drift 26s ease-in-out infinite alternate;
+  transition: filter .55s ease, opacity .55s ease;
   content: "";
   pointer-events: none;
+}
+
+@keyframes eci-ambient-drift {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.04) translate3d(-1%, .5%, 0); }
+}
+
+body:has(.portal-card:hover, .portal-card:focus-visible, .service-card:hover, .service-card:focus-visible)::before {
+  filter: saturate(1.2);
+  opacity: 1;
 }
 
 .portal-page:not(:has(> .portal-header)),
@@ -199,5 +211,5 @@ body::before {
   .portal-page { padding-top: 50px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .portal-content, .login-card, .electoral-container, .dashboard > *, .portal-grid > * { animation: none; }
+  body::before, .portal-content, .login-card, .electoral-container, .dashboard > *, .portal-grid > * { animation: none; }
 }
