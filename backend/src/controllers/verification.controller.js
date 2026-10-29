@@ -50,6 +50,10 @@ export const submitIdentity = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Unsupported identity method.");
     }
 
+    if (!/^[A-Z]{3}\d{7}$/.test(electorId.trim().toUpperCase())) {
+        throw new ApiError(400, "Enter a valid EPIC number (three letters followed by seven digits).");
+    }
+
     const elector = await getElectorByEpic(electorId.trim());
 
     if (!elector || !elector.isActive) {
@@ -347,6 +351,10 @@ export const sendDemoOtp = asyncHandler(async (req, res) => {
     if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
     }
+    // BLOs must use their BLO ID, password and mobile OTP; this EPIC-only path is not for them.
+    if (user?.role === "blo") {
+        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
+    }
 
     issueOtp(epic);
 
@@ -373,6 +381,10 @@ export const verifyDemoOtp = asyncHandler(async (req, res) => {
 
     if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
+    }
+    // BLOs must use their BLO ID, password and mobile OTP; this EPIC-only path is not for them.
+    if (user?.role === "blo") {
+        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
     checkOtp(epic, otp);

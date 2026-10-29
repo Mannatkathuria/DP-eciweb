@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { getUserByEpic } from "../repositories/user.repository.js";
 import { getRegistration, saveRegistration } from "../repositories/registration.repository.js";
+import { geography, validateGeography } from "../data/geography.js";
 import { issueOtp } from "../services/otp.service.js";
 import { publicUser } from "../services/session.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
@@ -41,6 +42,11 @@ export const login = asyncHandler(async (req, res) => {
         throw new ApiError(404, "This EPIC number is not registered. Apply for registration first; you can sign in once a Booth Level Officer approves it.");
     }
 
+    // BLO accounts sign in with their BLO ID, password and a mobile OTP (see blo.controller.js).
+    if (user.role === "blo") {
+        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
+    }
+
     if (PORTAL_ROLES[portal] && !PORTAL_ROLES[portal].includes(user.role)) {
         throw new ApiError(403, "This EPIC number is not authorised for this portal.");
     }
@@ -65,22 +71,47 @@ export const logout = asyncHandler(async (req, res) => {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const clean = (value) => String(value ?? "").trim();
+// Indian PIN code: six digits, the first of which is not zero.
+export const PIN_CODE_PATTERN = /^[1-9]\d{5}$/;
+const ADDRESS_MIN = 10;
+const ADDRESS_MAX = 300;
+
+/** Public. State/UT -> district -> assembly constituency options for the registration form. */
+export const getGeography = (req, res) => {
+    res.set("Cache-Control", "public, max-age=86400");
+    res.json({ success: true, data: geography });
+};
 
 /**
  * Public. A voter submits a registration request. This does NOT create an account:
  * it only stores a pending application that a BLO must approve. The applicant can
  * sign in only after approval.
  */
+import { performDocumentSanityCheck } from "../services/gemini.service.js";
+
 export const submitRegistration = asyncHandler(async (req, res) => {
     const {
         name, dateOfBirth, gender, state, district,
-        assemblyConstituency, partNumber, pollingStation, referenceImage
+        assemblyConstituency, address, pinCode, referenceImage
     } = req.body ?? {};
 
-    if (![name, dateOfBirth, state, district, assemblyConstituency, partNumber, pollingStation]
+    if (![name, dateOfBirth, state, district, assemblyConstituency, address, pinCode]
         .every((v) => clean(v))) {
         throw new ApiError(400, "All required registration fields must be provided.");
     }
+
+    const fullAddress = clean(address).replace(/\s+/g, " ");
+    if (fullAddress.length < ADDRESS_MIN || fullAddress.length > ADDRESS_MAX) {
+        throw new ApiError(400, `Full address must be between ${ADDRESS_MIN} and ${ADDRESS_MAX} characters.`);
+    }
+    if (!PIN_CODE_PATTERN.test(clean(pinCode))) {
+        throw new ApiError(400, "Enter a valid six-digit PIN code.");
+    }
+
+    const geographyError = validateGeography({
+        state: clean(state), district: clean(district), assemblyConstituency: clean(assemblyConstituency)
+    });
+    if (geographyError) throw new ApiError(400, geographyError);
 
     const dob = new Date(dateOfBirth);
     if (Number.isNaN(dob.getTime()) || dob > new Date()) {
@@ -94,15 +125,31 @@ export const submitRegistration = asyncHandler(async (req, res) => {
         }
     }
 
+    // Run AI sanity check on new registration
+    const aiReview = await performDocumentSanityCheck({
+        type: "registration",
+        requestedData: {
+            name: clean(name),
+            dateOfBirth: dob.toISOString(),
+            gender,
+            state: clean(state),
+            district: clean(district),
+            assemblyConstituency: clean(assemblyConstituency),
+            address: fullAddress,
+            pinCode: clean(pinCode)
+        },
+        documentImage: referenceImage || null
+    });
+
     const application = {
         _id: crypto.randomUUID(), status: "pending",
         name: clean(name), dateOfBirth: dob.toISOString(),
         gender: ["Male", "Female", "Other"].includes(gender) ? gender : "Other",
         state: clean(state), district: clean(district),
         assemblyConstituency: clean(assemblyConstituency),
-        partNumber: clean(partNumber), pollingStation: clean(pollingStation),
-        // Kept only until the BLO decides; removed on approval or rejection.
+        address: fullAddress, pinCode: clean(pinCode),
         referenceImage: referenceImage || null,
+        aiReview,
         submittedAt: new Date().toISOString()
     };
     await saveRegistration(application);
@@ -110,7 +157,7 @@ export const submitRegistration = asyncHandler(async (req, res) => {
     res.status(201).json({
         success: true,
         message: "Registration request submitted. A Booth Level Officer will review it.",
-        data: { referenceId: application._id, status: application.status }
+        data: { referenceId: application._id, status: application.status, aiReview }
     });
 });
 

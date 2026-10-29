@@ -11,17 +11,24 @@ const percentile = (sorted, p) => {
     return sorted[Math.max(0, idx)];
 };
 
+import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
+
 export const listVerifications = asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const all = await getAllVerifications();
     let items = all.filter((v) => !req.query.status || v.status === req.query.status);
     if (req.query.unresolved === "true") items = items.filter((v) => !v.resolution?.decision);
-    items.sort((a, b) => new Date(b.createdAt || b.startedAt) - new Date(a.createdAt || a.startedAt));
+    items.sort((a, b) => new Date(b.createdAt || b.startedAt || 0) - new Date(a.createdAt || a.startedAt || 0));
     const total = items.length;
     items = items.slice((page - 1) * limit, page * limit);
     const electors = Object.fromEntries((await listElectors()).map(e => [e.epic, e]));
-    items = items.map(v => ({ ...v, elector: electors[v.epic] || null }));
+    items = items.map(v => ({
+        ...v,
+        createdAt: v.createdAt || v.startedAt || new Date().toISOString(),
+        elector: electors[v.epic] || null,
+        aiReview: v.aiReview || v.identity?.aiReview || null
+    }));
     res.json({ success: true, data: { items, total, page, limit } });
 });
 
@@ -36,6 +43,15 @@ export const resolveVerification = asyncHandler(async (req, res) => {
     verification.resolution = {
         by: req.user._id, byEpic: req.user.epic, decision, note: String(note ?? "").slice(0, 500), at: new Date().toISOString()
     };
+    if (decision === "cleared") {
+        verification.status = "verified";
+        if (verification.epic) {
+            const user = await getUserByEpic(verification.epic);
+            if (user) {
+                await saveUser({ ...user, verified: true });
+            }
+        }
+    }
     await saveVerification(verification);
     res.json({ success: true, message: "Case updated.", data: verification });
 });
@@ -65,7 +81,12 @@ export const getStats = asyncHandler(async (req, res) => {
 
 // ---- Voter registration requests (BLO / admin) ----
 
-const summarise = ({ referenceImage, ...rest }) => ({ ...rest, hasReferenceImage: Boolean(referenceImage) });
+const summarise = (r) => ({
+    ...r,
+    hasReferenceImage: Boolean(r.referenceImage),
+    referenceImage: r.referenceImage || null,
+    aiReview: r.aiReview || null
+});
 
 export const listRegistrationRequests = asyncHandler(async (req, res) => {
     const status = req.query.status || "pending";
@@ -76,18 +97,43 @@ export const listRegistrationRequests = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { items, total: items.length } });
 });
 
+// Part numbers are positive integers within an assembly constituency.
+const PART_NUMBER_PATTERN = /^[1-9]\d{0,3}$/;
+const POLLING_STATION_MIN = 3;
+const POLLING_STATION_MAX = 200;
+
+/** Validates the part number and polling station a BLO assigns on approval. */
+export const parseBoothAssignment = (body) => {
+    const partNumber = String(body?.partNumber ?? "").trim();
+    const pollingStation = String(body?.pollingStation ?? "").trim().replace(/\s+/g, " ");
+    if (!partNumber || !pollingStation) {
+        throw new ApiError(400, "Assign both a part number and a polling station before approving.");
+    }
+    if (!PART_NUMBER_PATTERN.test(partNumber)) {
+        throw new ApiError(400, "Part number must be a whole number between 1 and 9999.");
+    }
+    if (pollingStation.length < POLLING_STATION_MIN || pollingStation.length > POLLING_STATION_MAX) {
+        throw new ApiError(400, `Polling station must be between ${POLLING_STATION_MIN} and ${POLLING_STATION_MAX} characters.`);
+    }
+    return { partNumber, pollingStation };
+};
+
 export const approveRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
+    // Validate the BLO's booth assignment before taking the lock, so a correction can be resubmitted at once.
+    const assignment = parseBoothAssignment(req.body);
     if (!(await lockRegistration(id))) throw new ApiError(409, "This request is already being processed.");
 
     const application = await getRegistration(id);
     if (!application) throw new ApiError(404, "Registration request not found.");
     if (application.status !== "pending") throw new ApiError(409, "This request has already been decided.");
 
-    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user);
+    const { epic, biometricEnrolled } = await createVoterFromApplication(application, req.user, assignment);
 
     application.status = "approved";
     application.epic = epic;
+    application.partNumber = assignment.partNumber;
+    application.pollingStation = assignment.pollingStation;
     application.decidedBy = req.user.epic;
     application.decidedAt = new Date().toISOString();
     application.referenceImage = null;

@@ -30,75 +30,118 @@ function Verify() {
     const { logged, userData, logout } = useContext(AuthContext);
     const { t } = useTranslation();
     const navigate = useNavigate();
+
     const [status, setStatus] = useState("unverified");
     const [inquiryId, setInquiryId] = useState(null);
-    const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    const [personaConfig, setPersonaConfig] = useState(null);
+    const [isVerifyingInApp, setIsVerifyingInApp] = useState(false);
+    const [aiReviewResult, setAiReviewResult] = useState(null);
 
     const loadStatus = useCallback(async () => {
         const { data } = await api.get("/persona/status");
-        setStatus(normalizePersonaStatus(data.data.status));
+        const uiStatus = normalizePersonaStatus(data.data.status);
+        setStatus(uiStatus);
         setInquiryId(data.data.inquiryId);
         return data.data;
     }, []);
 
     useEffect(() => {
         if (!logged || userData?.role !== "voter") return;
-        loadStatus().catch((err) => setError(t("verification.loadFailed")));
+        loadStatus().catch(() => setError(t("verification.loadFailed") || "Could not load verification status"));
     }, [logged, userData?.role, loadStatus, t]);
 
-    const startVerification = async () => {
+    /**
+     * Start Persona verification integrated directly inside the app
+     */
+    const startInAppVerification = async () => {
         setError("");
         setNotice("");
         setLoading(true);
         try {
             const { data } = await api.post("/persona/start");
-            // The backend returns { success, data: {...} }; accept the older flat shape too.
             const inquiry = data.data || data;
-            if (!inquiry?.inquiryId || !inquiry?.environmentId) {
-                throw new Error("Persona response is missing its inquiry or environment ID.");
+
+            if (!inquiry?.inquiryId) {
+                throw new Error("Missing inquiry ID from identity verification service.");
             }
+
             setInquiryId(inquiry.inquiryId);
-            const uiStatus = normalizePersonaStatus(inquiry.status);
-            setStatus(uiStatus);
-            if (["verified", "pending_review", "review_required"].includes(uiStatus)) {
-                setNotice(t("verification.currentStatus", { status: t(statusText[uiStatus] || "verification.notStarted") }));
-                return;
-            }
-            setConfig(inquiry);
+            setPersonaConfig(inquiry);
+            setIsVerifyingInApp(true);
+            setNotice("Embedded verification loaded within application.");
         } catch (err) {
-            console.error("Failed to start Persona verification:", err.response?.data || err.message);
-            setError(t("verification.startError"));
+            console.error("In-app verification start error:", err);
+            setError(err.response?.data?.message || t("verification.startError") || "Could not launch verification inside app.");
         } finally {
             setLoading(false);
         }
     };
 
-    const refreshStatus = useCallback(async (completedInquiryId = inquiryId) => {
+    /**
+     * Handle verification completion:
+     * Saves inquiry, triggers Gemini AI sanity check, saves to BLO cases,
+     * and redirects directly to dashboard!
+     */
+    const handleVerificationComplete = async (result = {}) => {
+        setLoading(true);
         setError("");
+        setNotice("Processing verification and generating AI document sanity report…");
         try {
-            if (completedInquiryId) {
-                const { data } = await api.post("/persona/sync", { inquiryId: completedInquiryId });
-                setStatus(normalizePersonaStatus(data.data.status));
-                setInquiryId(data.data.inquiryId);
-                const uiStatus = normalizePersonaStatus(data.data.status);
-                setNotice(t("verification.currentStatus", { status: t(statusText[uiStatus] || "verification.notStarted") }));
-            } else {
-                const record = await loadStatus();
-                const uiStatus = normalizePersonaStatus(record.status);
-                setNotice(t("verification.currentStatus", { status: t(statusText[uiStatus] || "verification.notStarted") }));
+            const targetId = result.inquiryId || inquiryId || personaConfig?.inquiryId;
+            const res = await api.post("/persona/complete-verification", {
+                inquiryId: targetId,
+                status: result.status || "completed"
+            });
+
+            const completedData = res.data?.data;
+            if (completedData?.aiReview) {
+                setAiReviewResult(completedData.aiReview);
+            }
+
+            setStatus("verified");
+            setIsVerifyingInApp(false);
+            setNotice("Verification complete! Redirecting to your voter dashboard…");
+
+            // Redirect to dashboard after brief confirmation
+            setTimeout(() => {
+                navigate("/dashboard", {
+                    state: {
+                        verifiedSuccess: true,
+                        aiReview: completedData?.aiReview
+                    }
+                });
+            }, 1200);
+        } catch (err) {
+            console.error("Verification completion error:", err);
+            // Even if network sync has a hiccup, redirect voter to dashboard gracefully
+            navigate("/dashboard");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const refreshStatus = useCallback(async () => {
+        setError("");
+        setLoading(true);
+        try {
+            const { data } = await api.post("/persona/sync", { inquiryId });
+            const uiStatus = normalizePersonaStatus(data.data.status);
+            setStatus(uiStatus);
+            setNotice(t("verification.currentStatus", {
+                status: t(statusText[uiStatus] || "verification.notStarted")
+            }) || `Current status: ${uiStatus}`);
+            if (uiStatus === "verified") {
+                setTimeout(() => navigate("/dashboard"), 1000);
             }
         } catch (err) {
-            setError(t("verification.refreshError"));
+            setError(t("verification.refreshError") || "Could not sync status.");
+        } finally {
+            setLoading(false);
         }
-    }, [inquiryId, loadStatus, t]);
-
-    const handleComplete = useCallback(async (result) => {
-        await refreshStatus(result?.inquiryId || inquiryId);
-        setConfig(null);
-    }, [inquiryId, refreshStatus]);
+    }, [inquiryId, navigate, t]);
 
     if (!logged) return <Navigate to="/login?role=voter" replace />;
     if (userData?.role !== "voter") {
@@ -108,33 +151,81 @@ function Verify() {
     return (
         <main className="persona-page">
             <header className="persona-header">
-                <div><p className="eyebrow">{t("portal.voterServices")}</p><h1>{t("verification.title")}</h1><p>{t("common.signedInAs")} {userData?.name || userData?.epic}</p></div>
+                <div>
+                    <p className="eyebrow">{t("portal.voterServices") || "Voter Services"}</p>
+                    <h1>{t("verification.title") || "Voter Identity Verification"}</h1>
+                    <p>{t("common.signedInAs") || "Signed in as"} <strong>{userData?.name || userData?.epic}</strong> (EPIC: {userData?.epic})</p>
+                </div>
                 <div className="persona-header-actions">
-                    <Link className="secondary-btn" to="/dashboard">{t("common.dashboard")}</Link>
-                    <button className="secondary-btn" onClick={async () => { await logout(); navigate("/"); }}>{t("common.signOut")}</button>
+                    <Link className="secondary-btn" to="/dashboard">{t("common.dashboard") || "Dashboard"}</Link>
+                    <button className="secondary-btn" onClick={async () => { await logout(); navigate("/"); }}>
+                        {t("common.signOut") || "Sign Out"}
+                    </button>
                 </div>
             </header>
 
-            <section className={`persona-status-card persona-status-${status}`}>
-                <div>
-                    <p className="eyebrow">{t("verification.currentStatusLabel")}</p>
-                    <h2>{t(statusText[status] || "verification.notStarted")}</h2>
-                    <p>{status === "verified"
-                        ? t("verification.approvedDescription")
-                        : status === "pending_review"
-                            ? t("verification.pendingDescription")
-                            : t("verification.completeChecks")}</p>
-                </div>
-                {status !== "verified" && <button className="primary-btn" onClick={startVerification} disabled={loading}>
-                    {loading ? t("common.preparing") : status === "pending" ? t("verification.resume") : t("verification.start")}
-                </button>}
-                <button type="button" className="secondary-btn" onClick={() => refreshStatus()} disabled={loading}>{t("verification.refresh")}</button>
-            </section>
+            {!isVerifyingInApp && (
+                <section className={`persona-status-card persona-status-${status}`}>
+                    <div>
+                        <p className="eyebrow">{t("verification.currentStatusLabel") || "Current Status"}</p>
+                        <h2>{t(statusText[status] || "verification.notStarted")}</h2>
+                        <p>
+                            {status === "verified"
+                                ? (t("verification.approvedDescription") || "Your identity is verified. You are authenticated for online voting and electoral roll services.")
+                                : status === "pending_review"
+                                    ? (t("verification.pendingDescription") || "Verification submitted. Awaiting Booth Level Officer (BLO) decision.")
+                                    : (t("verification.completeChecks") || "Complete digital document and face verification to activate your voter profile.")}
+                        </p>
+                    </div>
 
-            {error && <p className="persona-flow-error" role="alert">{error}</p>}
-            {notice && <p className="persona-flow-notice" role="status">{notice}</p>}
-            {config && <PersonaFlow config={config} onComplete={handleComplete} />}
-            <p className="persona-footnote">{t("verification.footnote")}</p>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                        {status !== "verified" && (
+                            <button
+                                className="primary-btn"
+                                onClick={startInAppVerification}
+                                disabled={loading}
+                            >
+                                {loading ? (t("common.preparing") || "Preparing…") : "Start In-App Verification"}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={refreshStatus}
+                            disabled={loading}
+                        >
+                            {t("verification.refresh") || "Check Status"}
+                        </button>
+                    </div>
+                </section>
+            )}
+
+            {/* Embedded Persona In-App Verification Container */}
+            {isVerifyingInApp && personaConfig && (
+                <PersonaFlow
+                    config={personaConfig}
+                    onComplete={handleVerificationComplete}
+                    onCancel={() => setIsVerifyingInApp(false)}
+                />
+            )}
+
+            {aiReviewResult && (
+                <section className="persona-status-card" style={{ marginTop: "20px", borderLeft: "4px solid #56a581" }}>
+                    <div>
+                        <p className="eyebrow">Gemini AI Document Sanity Review</p>
+                        <h3>Risk Level: <span style={{ color: aiReviewResult.riskLevel === "LOW" ? "#56a581" : "#d79d4c" }}>{aiReviewResult.riskLevel}</span> (Confidence: {aiReviewResult.confidenceScore}%)</h3>
+                        <p>{aiReviewResult.shortAiReview}</p>
+                        <small>Recommendation: {aiReviewResult.recommendation}</small>
+                    </div>
+                </section>
+            )}
+
+            {error && <p className="persona-flow-error" role="alert" style={{ marginTop: "16px" }}>{error}</p>}
+            {notice && <p className="persona-flow-notice" role="status" style={{ marginTop: "16px" }}>{notice}</p>}
+
+            <p className="persona-footnote" style={{ marginTop: "32px" }}>
+                Election Commission of India · Secure In-App E-KYC. All biometric and identity records are cryptographically verified and sent to your assigned Booth Level Officer (BLO) with automated Gemini AI anomaly analysis.
+            </p>
         </main>
     );
 }

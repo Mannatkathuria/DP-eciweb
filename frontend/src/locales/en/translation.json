@@ -100,7 +100,16 @@
     "rejected": "Rejected",
     "resubmit": "You can submit a new request with corrected details.",
     "approvedEpic": "Approved. Your EPIC number is",
-    "alreadyApproved": "Already approved? Sign in"
+    "alreadyApproved": "Already approved? Sign in",
+    "address": "Full address",
+    "pinCode": "PIN code",
+    "pinCodeInvalid": "Enter a valid six-digit PIN code.",
+    "selectState": "Select State / UT",
+    "selectDistrict": "Select district",
+    "selectConstituency": "Select assembly constituency",
+    "noAssembly": "This State/UT has no legislative assembly constituencies, so this form cannot be used for it.",
+    "constituenciesUnavailable": "Assembly constituency data for this State/UT is not available yet.",
+    "geographyLoadFailed": "Could not load the list of states, districts and constituencies. Refresh the page to try again."
   },
   "dashboard": {
     "voterTitle": "Voter Dashboard",
@@ -122,7 +131,8 @@
     "faceCheck": "Face verification",
     "faceCheckDescription": "Persona runs the face checks configured for this Sandbox inquiry template.",
     "trackStatus": "Track your status",
-    "trackStatusDescription": "Your status updates when Persona sends a decision or you refresh it from the verification page."
+    "trackStatusDescription": "Your status updates when Persona sends a decision or you refresh it from the verification page.",
+    "boothDetails": "Your polling booth"
   },
   "verification": {
     "title": "Identity verification",
@@ -215,7 +225,10 @@
       "escalated": "Escalated",
       "approved": "Approved",
       "rejected": "Rejected"
-    }
+    },
+    "constituencyAddress": "Constituency / Address",
+    "boothAssignment": "Booth assignment",
+    "assignmentInvalid": "Enter a part number (1–9999) and a polling station (at least 3 characters) before approving."
   },
   "eci": {
     "title": "Voter verification",
@@ -331,5 +344,49 @@
       "haryana": "Haryana",
       "delhi": "Delhi"
     }
+  },
+  "blo": {
+    "instructions": "Enter your BLO ID and password. We will send a one-time code (OTP) to your registered mobile number.",
+    "idLabel": "BLO ID",
+    "idPlaceholder": "e.g. BLO-UP-000001",
+    "passwordLabel": "Password",
+    "checking": "Checking…",
+    "invalid": "Incorrect BLO ID or password.",
+    "locked": "Too many incorrect passwords. This account is locked for 15 minutes.",
+    "tooMany": "Too many attempts. Please wait and try again.",
+    "failed": "Could not sign in. Please try again.",
+    "otpTitle": "Enter the OTP",
+    "otpSent": "We sent a six-digit OTP to your registered mobile number {{mobile}}.",
+    "otpDemo": "Prototype: the OTP is printed in the backend terminal instead of being sent by SMS.",
+    "expiresIn": "OTP expires in {{time}}",
+    "expired": "This OTP has expired. Send a new one.",
+    "resend": "Send a new OTP",
+    "resendIn": "Send a new OTP in {{seconds}}s",
+    "resent": "A new OTP was sent to {{mobile}}.",
+    "otpIncorrect": "Incorrect or expired OTP. Check the code and try again.",
+    "otpTooMany": "Too many incorrect OTPs. Send a new OTP.",
+    "sessionExpired": "Your sign-in has expired. Enter your BLO ID and password again.",
+    "useDifferent": "Use a different BLO ID",
+    "changeTitle": "Set a new password",
+    "changeIntro": "For security, replace your temporary password before using the BLO portal.",
+    "currentPassword": "Current (temporary) password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordRule": "At least 8 characters, including a letter and a number.",
+    "mismatch": "The new passwords do not match.",
+    "ruleFailed": "The new password must be at least 8 characters and include a letter and a number.",
+    "savePassword": "Save password",
+    "changeFailed": "Could not change the password. Check your current password and try again.",
+    "forgotLink": "Forgot password?",
+    "forgotTitle": "Reset your password",
+    "forgotIntro": "Enter your BLO ID. We will send an OTP to the mobile number registered with it.",
+    "sendOtp": "Send OTP",
+    "resetSent": "A new OTP has been sent to {{mobile}}, the mobile number registered with {{bloId}}.",
+    "unknownId": "No BLO account was found with that ID.",
+    "resetExpired": "This password reset has expired. Start again.",
+    "resetSave": "Reset password",
+    "resetDone": "Your password was changed. Sign in with your new password.",
+    "resetFailed": "Could not reset the password. Please try again.",
+    "backToSignIn": "Back to sign in"
   }
 }

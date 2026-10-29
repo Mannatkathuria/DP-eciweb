@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import "./Login.css";
 
@@ -16,6 +16,9 @@ function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // BLOs sign in with a BLO ID, password and mobile OTP on their own page.
+    if (params.get("role") === "blo") return <Navigate to="/blo/login" replace />;
+
     const handleSubmit = async (event) => {
         event.preventDefault();
         setError("");
@@ -25,15 +28,21 @@ function Login() {
             return;
         }
 
+        
         try {
             setLoading(true);
+
+            localStorage.setItem("epic", value); // Save before request
+
             await api.post("/auth/login", { epic: value, portal });
+
             navigate(`/login/otp?epic=${encodeURIComponent(value)}&portal=${portal}`);
         } catch (err) {
             setError(t("login.loginFailed"));
         } finally {
             setLoading(false);
         }
+
     };
 
     return (
