@@ -65,3 +65,139 @@ a:focus-visible { outline: 3px solid rgba(36,79,125,.45); outline-offset: 3px; }
   padding: 5px;
   font: inherit;
 }
+/* ECI civic-services visual refresh */
+:root {
+  --bg-primary: #f4f7fb;
+  --bg-secondary: #edf2f8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-inset: #f5f7fa;
+  --text-primary: #162b45;
+  --text-secondary: #61738a;
+  --border: #dce5ef;
+  --accent: #174a78;
+  --accent-dark: #10395f;
+  --accent-bg: #eaf2f8;
+  --saffron: #e98532;
+  --success: #237c56;
+  --warning: #986b16;
+  --danger: #b42332;
+  --shadow: 0 18px 48px rgba(23, 52, 82, .10), 0 2px 8px rgba(23, 52, 82, .04);
+  --shadow-soft: 0 8px 24px rgba(23, 52, 82, .08);
+  --shadow-inset: inset 0 0 0 1px #dce5ef;
+  --shadow-hover: 0 24px 56px rgba(23, 52, 82, .16), 0 4px 12px rgba(23, 52, 82, .06);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+}
+
+body {
+  position: relative;
+  isolation: isolate;
+  background: #f4f7fb;
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 8% 12%, rgba(232, 145, 69, .14), transparent 34rem),
+    radial-gradient(ellipse at 96% 34%, rgba(42, 126, 91, .11), transparent 32rem),
+    radial-gradient(ellipse at 55% 100%, rgba(35, 91, 131, .09), transparent 42rem),
+    linear-gradient(rgba(23, 74, 120, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 74, 120, .025) 1px, transparent 1px);
+  background-size: auto, auto, auto, 64px 64px, 64px 64px;
+  content: "";
+  pointer-events: none;
+}
+
+.portal-page:not(:has(> .portal-header)),
+.dashboard,
+.login-page,
+.electoral-page,
+.admin-page,
+.persona-page {
+  background: transparent;
+}
+
+:where(.portal-card:not(.portal-content .portal-card), .login-card, .electoral-card, .admin-card, .info-card, .persona-status-card, .verification-stage) {
+  background: var(--surface);
+  border: 1px solid rgba(210, 222, 235, .8);
+  box-shadow: var(--shadow);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  background: #fbfcfe;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: none;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #6d96b8;
+  box-shadow: 0 0 0 4px rgba(23, 74, 120, .12);
+}
+:where(button, .primary-btn, .secondary-btn, .login-button, .search-button, .portal-form button, .verification-stage button) {
+  border-radius: 12px;
+}
+:where(.primary-btn, .login-button, .search-button, .portal-form button, .verification-stage button) {
+  background: linear-gradient(135deg, #1d5b8c, #174a78);
+  box-shadow: 0 8px 18px rgba(23, 74, 120, .2);
+}
+:where(.primary-btn, .login-button, .search-button, .portal-form button, .verification-stage button):hover:not(:disabled) {
+  background: linear-gradient(135deg, #174a78, #10395f);
+  box-shadow: 0 12px 22px rgba(23, 74, 120, .24);
+  transform: translateY(-2px);
+}
+:where(.secondary-btn, .ghost-button) {
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 3px 10px rgba(23, 52, 82, .05);
+}
+:where(.secondary-btn, .ghost-button):hover { background: #f5f8fb; box-shadow: 0 6px 16px rgba(23, 52, 82, .09); }
+.eyebrow { color: var(--saffron); }
+
+.language-selector {
+  top: 18px;
+  right: max(20px, calc((100vw - 1320px) / 2));
+  gap: 9px;
+  padding: 7px 11px 7px 14px;
+  border: 1px solid rgba(210, 222, 235, .9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 8px 24px rgba(23, 52, 82, .10);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+}
+.language-selector select {
+  min-height: 30px;
+  padding: 3px 24px 3px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+@keyframes eci-rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.portal-content, .login-card, .electoral-container, .dashboard > * { animation: eci-rise-in .45s ease both; }
+.portal-grid > * { animation: eci-rise-in .5s ease both; }
+.portal-grid > *:nth-child(2) { animation-delay: .06s; }
+.portal-grid > *:nth-child(3) { animation-delay: .12s; }
+
+@media (max-width: 600px) {
+  .language-selector { top: 10px; right: 10px; padding: 5px 8px; }
+  .portal-page { padding-top: 50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-content, .login-card, .electoral-container, .dashboard > *, .portal-grid > * { animation: none; }
+}
