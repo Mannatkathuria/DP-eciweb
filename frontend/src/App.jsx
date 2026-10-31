@@ -2,6 +2,15 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 
+import EciHome from "./pages/EciHome";
+import CitizenPortal from "./pages/CitizenPortal";
+import CvigilPortal from "./pages/CvigilPortal";
+import SuvidhaPortal from "./pages/SuvidhaPortal";
+import EncorePortal from "./pages/EncorePortal";
+import CeoHimachalPortal from "./pages/CeoHimachalPortal";
+import WorkflowPortal from "./pages/WorkflowPortal";
+import MediaPublicationsPortal from "./pages/MediaPublicationsPortal";
+
 import PortalSelect from "./pages/PortalSelect";
 import ServiceSelect from "./pages/ServiceSelect";
 import Dashboard from "./pages/Dashboard";
@@ -18,18 +27,28 @@ import Admin from "./pages/Admin";
 import EciLogin from "./pages/EciLogin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
-import LanguageSelector from "./LanguageSelector";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
     return (
         <BrowserRouter>
-            <LanguageSelector />
             <Routes>
-                <Route path="/" element={<PortalSelect />} />
+                {/* Flagship National Portal & Integrated Systems */}
+                <Route path="/" element={<EciHome />} />
+                <Route path="/voters" element={<CitizenPortal />} />
+                <Route path="/cvigil" element={<CvigilPortal />} />
+                <Route path="/suvidha" element={<SuvidhaPortal />} />
+                <Route path="/encore" element={<EncorePortal />} />
+                <Route path="/ceo-himachal" element={<CeoHimachalPortal />} />
+                <Route path="/workflows" element={<WorkflowPortal />} />
+                <Route path="/media-publications" element={<MediaPublicationsPortal />} />
+
+                {/* Role Switcher & Services */}
+                <Route path="/portals" element={<PortalSelect />} />
                 <Route path="/services" element={<ServiceSelect />} />
                 <Route path="/dashboard" element={<Dashboard />} />
 
+                {/* Authentication & Operations */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/login/otp" element={<LoginOtp />} />
                 <Route path="/blo/login" element={<BloLogin />} />

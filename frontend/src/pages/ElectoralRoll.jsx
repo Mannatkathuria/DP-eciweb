@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import "./ElectoralRoll.css";
 import api from "../api/axios";
+import GovHeader from "../components/GovHeader";
+import GovFooter from "../components/GovFooter";
 
 function ElectoralRoll() {
     const { t } = useTranslation();
@@ -88,9 +91,15 @@ function ElectoralRoll() {
     };
 
     return (
-        <main className="electoral-page">
-
-            <div className="electoral-container">
+        <div className="gov-page-root">
+            <GovHeader />
+            <div className="gov-breadcrumb-strip">
+                <div className="gov-breadcrumb-container">
+                    <Link to="/">Home</Link> &gt; <Link to="/voters">Citizen Services</Link> &gt; <span>Electoral Roll Search</span>
+                </div>
+            </div>
+            <main className="electoral-page">
+                <div className="electoral-container">
 
                 <header className="electoral-header">
 
@@ -472,10 +481,10 @@ function ElectoralRoll() {
                     </ul>
 
                 </section>
-
             </div>
-
         </main>
+        <GovFooter />
+    </div>
     );
 }
 

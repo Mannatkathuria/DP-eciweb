@@ -1,0 +1,405 @@
+/* Suvidha 2.0 Candidate Portal Styles */
+.gov-suvidha-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.gov-suvidha-hero {
+  background: linear-gradient(135deg, #1c1917 0%, #292524 100%);
+  color: #ffffff;
+  padding: 36px 0;
+  border-bottom: 4px solid var(--gov-saffron);
+}
+
+.gov-suvidha-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.gov-suvidha-content {
+  max-width: 720px;
+}
+
+.gov-suvidha-badge {
+  display: inline-block;
+  background: rgba(255, 133, 27, 0.25);
+  border: 1px solid var(--gov-saffron);
+  color: #fed7aa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.gov-suvidha-title {
+  font-size: 2.2rem;
+  font-weight: 850;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+}
+
+.gov-suvidha-desc {
+  font-size: 0.95rem;
+  color: #e7e5e4;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.gov-suvidha-fifo-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+.fifo-icon {
+  font-size: 2rem;
+}
+
+.gov-suvidha-fifo-badge strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #fde047;
+}
+
+.gov-suvidha-fifo-badge span {
+  font-size: 0.75rem;
+  color: #e7e5e4;
+}
+
+/* Tabs Bar */
+.gov-suvidha-tabs-bar {
+  background: #ffffff;
+  border-bottom: 1px solid var(--gov-border);
+}
+
+.gov-suvidha-tabs-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  overflow-x: auto;
+}
+
+.gov-s-tab {
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gov-text-muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.gov-s-tab.active {
+  color: var(--gov-navy);
+  border-bottom-color: var(--gov-saffron);
+  background: #fffbeb;
+}
+
+.gov-suvidha-body-container {
+  max-width: 1320px;
+  margin: 36px auto;
+  padding: 0 20px;
+  width: 100%;
+}
+
+/* Permission Layout */
+.gov-suvidha-perm-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 32px;
+}
+
+.gov-perm-cat-pills {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.gov-perm-pill {
+  background: #f8fafc;
+  border: 1px solid var(--gov-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.gov-perm-pill:hover {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.gov-perm-pill.active {
+  background: #fef3c7;
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px #d97706;
+}
+
+.gov-perm-pill strong {
+  font-size: 0.8rem;
+  color: var(--gov-navy);
+}
+
+.gov-nodal-chain-box {
+  background: #f8fafc;
+  border: 1px solid var(--gov-border);
+  padding: 14px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.gov-nodal-chain-box strong {
+  font-size: 0.8rem;
+  color: var(--gov-navy);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.nodal-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nodal-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Queue List */
+.gov-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gov-queue-item {
+  background: #f8fafc;
+  border: 1px solid var(--gov-border);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.gov-queue-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.gov-queue-ref {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--gov-navy);
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gov-queue-top h4 {
+  font-size: 1rem;
+  color: var(--gov-navy);
+  margin: 4px 0 2px 0;
+}
+
+.gov-queue-app {
+  font-size: 0.78rem;
+  color: var(--gov-text-muted);
+}
+
+.gov-perm-status {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.gov-perm-status.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.gov-perm-status.pending_nodal {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.gov-queue-mid {
+  font-size: 0.8rem;
+  color: var(--gov-text);
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.gov-nodal-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--gov-border);
+  padding-top: 10px;
+}
+
+.nodal-lbl {
+  font-size: 0.72rem;
+  color: var(--gov-text-muted);
+  font-weight: 700;
+}
+
+.nodal-chip {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.nodal-chip.ok { background: #dcfce7; color: #15803d; }
+.nodal-chip.wait { background: #fee2e2; color: #991b1b; }
+
+/* Nomination Boxes */
+.max-w-800 {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.gov-nom-cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.gov-nom-box {
+  background: #f8fafc;
+  border: 1px solid var(--gov-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.gov-nom-box strong {
+  font-size: 0.88rem;
+  color: var(--gov-navy);
+  display: block;
+}
+
+.gov-nom-box p {
+  font-size: 0.78rem;
+  color: var(--gov-text-muted);
+  margin: 4px 0 10px 0;
+  line-height: 1.4;
+}
+
+.gov-deposit-val {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--gov-green-dark);
+}
+
+/* KYC Grid */
+.gov-kyc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.gov-kyc-card {
+  background: #f8fafc;
+  border: 1px solid var(--gov-border);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.gov-kyc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--gov-border);
+  padding-bottom: 14px;
+}
+
+.gov-kyc-avatar {
+  width: 52px;
+  height: 52px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+}
+
+.gov-kyc-header h3 {
+  font-size: 1.15rem;
+  color: var(--gov-navy);
+  margin: 0;
+}
+
+.gov-kyc-party {
+  font-size: 0.8rem;
+  color: var(--gov-text-muted);
+}
+
+.gov-kyc-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.gov-kyc-clean {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-top: 6px;
+}
+
+.clean-dot {
+  width: 18px;
+  height: 18px;
+  background: #15803d;
+  color: #ffffff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+}
+
+/* Responsive */
+@media (max-width: 990px) {
+  .gov-suvidha-perm-layout {
+    grid-template-columns: 1fr;
+  }
+  .gov-kyc-grid {
+    grid-template-columns: 1fr;
+  }
+}

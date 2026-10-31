@@ -5,6 +5,8 @@ import api from "../api/axios";
 import { PROOF_TYPES, PROOF_MAX_BYTES, readProofDocument } from "../proofDocument";
 import "./Portal.css";
 import "./Register.css";
+import GovHeader from "../components/GovHeader";
+import GovFooter from "../components/GovFooter";
 import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./form6Options";
 
 /*
@@ -984,64 +986,73 @@ function Register() {
     const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
     return (
-        <main className="portal-page f6-page">
-            <section className="portal-card portal-wide f6-card" ref={cardRef}>
-                <p className="eyebrow">{t("register.title")} · Form 6</p>
-                <h1>{t("register.applyTitle")}</h1>
-                <p className="portal-muted f6-intro">{t("register.instructions")}</p>
-                <p className="f6-legend-note">Fields marked <span className="f6-req">*</span> are required. Fields marked (optional) can be left blank.</p>
+        <div className="gov-page-root">
+            <GovHeader />
+            <div className="gov-breadcrumb-strip">
+                <div className="gov-breadcrumb-container">
+                    <Link to="/">Home</Link> &gt; <Link to="/voters">Citizen Services</Link> &gt; <span>Form 6 (New Voter Registration)</span>
+                </div>
+            </div>
+            <main className="portal-page f6-page">
+                <section className="portal-card portal-wide f6-card" ref={cardRef}>
+                    <p className="eyebrow">{t("register.title")} · Form 6</p>
+                    <h1>{t("register.applyTitle")}</h1>
+                    <p className="portal-muted f6-intro">{t("register.instructions")}</p>
+                    <p className="f6-legend-note">Fields marked <span className="f6-req">*</span> are required. Fields marked (optional) can be left blank.</p>
 
-                {geographyError && <div className="f6-alert f6-alert-error" role="alert">{geographyError}</div>}
+                    {geographyError && <div className="f6-alert f6-alert-error" role="alert">{geographyError}</div>}
 
-                {submitted && (
-                    <div className="f6-alert f6-alert-ok f6-submitted" role="status">
-                        <h2>✓ Application submitted to your BLO</h2>
-                        <p>{t("register.submittedReference")} <strong className="f6-ref">{submitted.referenceId}</strong></p>
-                        {submitted.aiReview && (
-                            <div className="f6-ai">
-                                <strong>Automated document check:</strong> {submitted.aiReview.shortAiReview}
-                                <small>Risk level: {submitted.aiReview.riskLevel} · Confidence: {submitted.aiReview.confidenceScore}%</small>
-                            </div>
-                        )}
-                        <p className="f6-hint">{t("register.saveReference")}{" "}
-                            <Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>{t("register.checkRequest")}</Link></p>
-                    </div>
-                )}
+                    {submitted && (
+                        <div className="f6-alert f6-alert-ok f6-submitted" role="status">
+                            <h2>✓ Application submitted to your BLO</h2>
+                            <p>{t("register.submittedReference")} <strong className="f6-ref">{submitted.referenceId}</strong></p>
+                            {submitted.aiReview && (
+                                <div className="f6-ai">
+                                    <strong>Automated document check:</strong> {submitted.aiReview.shortAiReview}
+                                    <small>Risk level: {submitted.aiReview.riskLevel} · Confidence: {submitted.aiReview.confidenceScore}%</small>
+                                </div>
+                            )}
+                            <p className="f6-hint">{t("register.saveReference")}{" "}
+                                <Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>{t("register.checkRequest")}</Link></p>
+                        </div>
+                    )}
 
-                <nav aria-label="Form 6 stages" className="f6-progress">
-                    <p className="f6-progress-label" id="f6-progress-label">Stage {step + 1} of {STEPS.length}: <strong>{STEPS[step].title}</strong></p>
-                    <div className="f6-bar" role="progressbar" aria-labelledby="f6-progress-label" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1}>
-                        <span style={{ width: `${progress}%` }} />
-                    </div>
-                    <ol className="f6-steps">
-                        {STEPS.map((s, i) => (
-                            <li key={s.key} className={i === step ? "is-current" : i < step ? "is-done" : ""} aria-current={i === step ? "step" : undefined}>
-                                <span className="f6-step-num" aria-hidden="true">{i < step ? "✓" : i + 1}</span>
-                                <span className="f6-step-title">{s.title}</span>
-                            </li>
-                        ))}
-                    </ol>
-                </nav>
+                    <nav aria-label="Form 6 stages" className="f6-progress">
+                        <p className="f6-progress-label" id="f6-progress-label">Stage {step + 1} of {STEPS.length}: <strong>{STEPS[step].title}</strong></p>
+                        <div className="f6-bar" role="progressbar" aria-labelledby="f6-progress-label" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1}>
+                            <span style={{ width: `${progress}%` }} />
+                        </div>
+                        <ol className="f6-steps">
+                            {STEPS.map((s, i) => (
+                                <li key={s.key} className={i === step ? "is-current" : i < step ? "is-done" : ""} aria-current={i === step ? "step" : undefined}>
+                                    <span className="f6-step-num" aria-hidden="true">{i < step ? "✓" : i + 1}</span>
+                                    <span className="f6-step-title">{s.title}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    </nav>
 
-                <form onSubmit={isReview ? submit : (ev) => { ev.preventDefault(); next(); }} noValidate className="f6-form">
-                    <h2 className="f6-stage-title" tabIndex={-1} ref={headingRef}>{step + 1}. {STEPS[step].title}</h2>
-                    {isReview ? review : stages[stepKey]}
+                    <form onSubmit={isReview ? submit : (ev) => { ev.preventDefault(); next(); }} noValidate className="f6-form">
+                        <h2 className="f6-stage-title" tabIndex={-1} ref={headingRef}>{step + 1}. {STEPS[step].title}</h2>
+                        {isReview ? review : stages[stepKey]}
 
-                    <div className="f6-nav">
-                        <button type="button" className="f6-btn f6-btn-secondary" onClick={back} disabled={loading}>← Back</button>
-                        {isReview ? (
-                            <button type="submit" className="f6-btn f6-btn-primary" disabled={loading} aria-busy={loading || undefined}>
-                                {loading ? "Submitting…" : t("register.submitToBlo")}
-                            </button>
-                        ) : (
-                            <button type="submit" className="f6-btn f6-btn-primary">{returnToReview ? "Save and return to review" : "Next →"}</button>
-                        )}
-                    </div>
-                    {!isReview && <p className="f6-hint f6-memory-note">Your answers stay on this page while it is open. They are not saved anywhere until you submit, so closing or reloading the page loses them.</p>}
-                </form>
+                        <div className="f6-nav">
+                            <button type="button" className="f6-btn f6-btn-secondary" onClick={back} disabled={loading}>← Back</button>
+                            {isReview ? (
+                                <button type="submit" className="f6-btn f6-btn-primary" disabled={loading} aria-busy={loading || undefined}>
+                                    {loading ? "Submitting…" : t("register.submitToBlo")}
+                                </button>
+                            ) : (
+                                <button type="submit" className="f6-btn f6-btn-primary">{returnToReview ? "Save and return to review" : "Next →"}</button>
+                            )}
+                        </div>
+                        {!isReview && <p className="f6-hint f6-memory-note">Your answers stay on this page while it is open. They are not saved anywhere until you submit, so closing or reloading the page loses them.</p>}
+                    </form>
 
-            </section>
-        </main>
+                </section>
+            </main>
+            <GovFooter />
+        </div>
     );
 }
 

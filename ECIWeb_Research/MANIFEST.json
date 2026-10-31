@@ -1,0 +1,105 @@
+{
+  "generated_on": "2026-10-31",
+  "files": [
+    {
+      "file": "00_scope-and-evidence.md",
+      "bytes": 3528,
+      "sha256": "64fc83280a7b4d00e09298181342a34e1a656713bee036cc6c00df6ae5af694a"
+    },
+    {
+      "file": "01_ecosystem-map.md",
+      "bytes": 4839,
+      "sha256": "7bce5c432316b3b141f1e3848634827b8bbb5375fb8e214cfcf2e2e3599f02a9"
+    },
+    {
+      "file": "02_eci-public-site-audit.md",
+      "bytes": 4615,
+      "sha256": "0a04351134eff00648f98cb7758cc256e446c097723f420e140b229807723506"
+    },
+    {
+      "file": "03_citizen-service-portal-audit.md",
+      "bytes": 6652,
+      "sha256": "b2340d35699c936fe63bff9d35b7de0a78ee2b7a0e74371101d517424202b3e5"
+    },
+    {
+      "file": "04_ceo-himachal-audit.md",
+      "bytes": 4745,
+      "sha256": "b06cc5d0ff7c2099f917ac075d329401296d0204fa26c9819d99d1af992a17a9"
+    },
+    {
+      "file": "05_election-management-audit.md",
+      "bytes": 3463,
+      "sha256": "6397c1c2d00ece642730574d3059e6dc6b1259e8d51eefbfea5ddc95e0b69fb5"
+    },
+    {
+      "file": "06_encore-audit.md",
+      "bytes": 6013,
+      "sha256": "e818ec51d46f7ca12705635903209e36e53109566926f26de034e6a886b3280e"
+    },
+    {
+      "file": "07_cvigil-audit.md",
+      "bytes": 3707,
+      "sha256": "b5b5c9bfc385158083fd3cd19dcfb72e07b67592174b1ec73567d95cb22b0aff"
+    },
+    {
+      "file": "08_suvidha-audit.md",
+      "bytes": 3987,
+      "sha256": "4f095a4530b388cb06629f9804d8b9573c60293f221f52733b33d92eebbd74b6"
+    },
+    {
+      "file": "09_workflow-blueprints.md",
+      "bytes": 4202,
+      "sha256": "a97df91183c42e256b60b5be2a803a1dcf69c5004ef263504b23709074d38455"
+    },
+    {
+      "file": "10_roles-and-access-matrix.md",
+      "bytes": 4282,
+      "sha256": "131b6167dbe7ac9f7500d674f658330de68d5528fd13fc44f39ebc47ca63d909"
+    },
+    {
+      "file": "11_api-and-network-inventory.md",
+      "bytes": 4691,
+      "sha256": "18f4de56c96bfe56d26ab99580f0723daac50324259fa926d2516b088700e129"
+    },
+    {
+      "file": "12_routes-and-link-inventory.md",
+      "bytes": 3733,
+      "sha256": "88fc01c152ca7a58ce967482366132ec054e5fc73632d67d44376b6c800a2e9f"
+    },
+    {
+      "file": "13_ui-control-inventory.md",
+      "bytes": 4020,
+      "sha256": "d18bb46f801afac9b254ec9b946371525ff03eb95c69622dee83cc2acfed900f"
+    },
+    {
+      "file": "14_eciweb-implementation-roadmap.md",
+      "bytes": 6154,
+      "sha256": "d5355f5c423f78d49694a6471c84aca94c6e5769e4433f801a4d69cded961517"
+    },
+    {
+      "file": "15_live-browser-audit-checklist.md",
+      "bytes": 4576,
+      "sha256": "2dfcbce45725049430fbfbe43146bb5168d5a938cf41402babde05c99363cead"
+    },
+    {
+      "file": "16_sources-and-references.md",
+      "bytes": 3751,
+      "sha256": "86ee43357c32391891b6f5cd2c87fbbe5d7792f6c65ff69aee79b0793832a5c3"
+    },
+    {
+      "file": "README.md",
+      "bytes": 4483,
+      "sha256": "042f1df22bffcf1e07588e0e1c12a2d8f38d8f36239860ccd21e275d7be9f8c0"
+    },
+    {
+      "file": "appendix_eci_homepage-links.md",
+      "bytes": 16586,
+      "sha256": "ac3d879d24154d1eaf83c1292678ad8fe920f0c03800bf5128dabc44129db1d5"
+    },
+    {
+      "file": "appendix_voters-portal-controls.md",
+      "bytes": 5917,
+      "sha256": "0bd2bc9eab659ccea6b24f413985791285059928a40e394314b1bb6bd2eb3f45"
+    }
+  ]
+}

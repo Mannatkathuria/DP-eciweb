@@ -1,7 +1,9 @@
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "./PortalSelect.css";
 import { useTranslation } from "react-i18next";
+import GovHeader from "../components/GovHeader";
+import GovFooter from "../components/GovFooter";
 
 const portals = [
   {
@@ -32,14 +34,14 @@ function PortalSelect() {
     const { t } = useTranslation();
 
     return (
-        <main className="portal-page">
-            <header className="portal-header">
-                <div className="brand-mark">EC</div>
-                <div>
-                    <strong>{t("portal.title")}</strong>
-                    <p>{t("portal.subtitle")}</p>
+        <div className="gov-page-root">
+            <GovHeader />
+            <div className="gov-breadcrumb-strip">
+                <div className="gov-breadcrumb-container">
+                    <Link to="/">Home</Link> &gt; <span>Select Official Portal</span>
                 </div>
-            </header>
+            </div>
+            <main className="portal-page">
 
             <section className="portal-content">
                 <p className="portal-eyebrow">{t("portal.welcome")}</p>
@@ -79,6 +81,8 @@ function PortalSelect() {
                 <p className="portal-footer">{t("portal.footer")}</p>
             </section>
         </main>
+        <GovFooter />
+    </div>
     );
 }
 

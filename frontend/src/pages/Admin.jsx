@@ -4,6 +4,8 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { Link, Navigate } from "react-router-dom";
 import ReasonDialog from "./ReasonDialog";
+import GovHeader from "../components/GovHeader";
+import GovFooter from "../components/GovFooter";
 import "./Admin.css";
 
 // Mirrors the backend checks in parseBoothAssignment (admin.controllers.js).
@@ -222,8 +224,15 @@ function Admin() {
     }
 
     return (
-        <main className="admin-page">
-            <div className="admin-container">
+        <div className="gov-page-root">
+            <GovHeader />
+            <div className="gov-breadcrumb-strip">
+                <div className="gov-breadcrumb-container">
+                    <Link to="/">Home</Link> &gt; <span>Booth Level Officer (BLO) Workdesk</span>
+                </div>
+            </div>
+            <main className="admin-page">
+                <div className="admin-container">
                 <header className="admin-header">
                     <div>
                         <p className="eyebrow">Election Commission of India · BLO Portal</p>
@@ -708,6 +717,8 @@ function Admin() {
                 )}
             </div>
         </main>
+        <GovFooter />
+    </div>
     );
 }
 
