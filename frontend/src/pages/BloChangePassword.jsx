@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
-import "./Login.css";
 
 const meetsRule = (value) => value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
 

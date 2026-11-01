@@ -3,11 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import SavedApplication from "./SavedApplication";
-import "./Portal.css";
-import "./Register.css";
 
-import GovHeader from "../components/GovHeader";
-import GovFooter from "../components/GovFooter";
 
 /** Voter Services → "Check your request": look up a Form 6 application by its reference ID. */
 export default function CheckRequest() {
@@ -39,13 +35,8 @@ export default function CheckRequest() {
     };
 
     return (
-        <div className="gov-page-root">
-            <GovHeader />
-            <div className="gov-breadcrumb-strip">
-                <div className="gov-breadcrumb-container">
-                    <Link to="/">Home</Link> &gt; <Link to="/voters">Voter Services</Link> &gt; <span>Track Form 6 Request</span>
-                </div>
-            </div>
+        <>
+            <div className="container"><p className="crumb-line"><Link to="/home">Home</Link> / <Link to="/voters">Voters</Link> / <span>Track Form 6 Request</span></p></div>
             <main className="portal-page f6-page">
                 <section className="portal-card portal-wide f6-card">
                     <p className="eyebrow">{t("service.voter.eyebrow")}</p>
@@ -65,17 +56,16 @@ export default function CheckRequest() {
                     )}
                     {result?.status === "approved" && (
                         <div className="portal-success" role="status">{t("register.approvedEpic")} <strong>{result.epic}</strong>.{" "}
-                            <Link to="/login?role=voter">{t("common.signIn")}</Link></div>
+                            <Link to="/signin/voter">{t("common.signIn")}</Link></div>
                     )}
                     {result?.status === "rejected" && (
                         <div className="portal-error" role="status">Application was rejected by BLO. Note: {result.note || "Criteria not met."}</div>
                     )}
                     {result?.application && <SavedApplication application={result.application} />}
 
-                    <p className="f6-hint"><Link to="/voters">← Back to Citizen Voter Services</Link></p>
+                    <p className="f6-hint"><Link to="/voters">← Back to forms and services</Link></p>
                 </section>
             </main>
-            <GovFooter />
-        </div>
+            </>
     );
 }

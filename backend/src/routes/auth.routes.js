@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { login, me, logout, submitRegistration, getRegistrationStatus, getGeography } from "../controllers/auth.controller.js";
+import { login, me, logout, submitRegistration, getRegistrationStatus, getGeography, getRoles } from "../controllers/auth.controller.js";
 import {
     bloLogin, bloResendOtp, bloVerifyOtp, changeBloPassword,
     bloForgotPassword, bloResendResetOtp, bloResetPassword
@@ -24,6 +24,8 @@ router.post("/register", registerLimiter, submitRegistration);
 router.get("/register/:id", getRegistrationStatus);
 // Public: State/UT -> district -> assembly constituency options for the registration form.
 router.get("/geography", getGeography);
+// Public: every sign-in role with its group and permissions.
+router.get("/roles", getRoles);
 router.post("/logout", logout);
 router.get("/me", verifyJWT, me);
 

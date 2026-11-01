@@ -4,7 +4,6 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { PROOF_TYPES, PROOF_HELP, readProofDocument } from "../proofDocument";
-import "./Dashboard.css";
 
 function Dashboard() {
     const { logged, userData, logout } = useContext(AuthContext);
@@ -128,7 +127,7 @@ function Dashboard() {
         }
     };
 
-    if (!logged) return <Navigate to="/login?role=voter" replace />;
+    if (!logged) return <Navigate to="/signin/voter" replace />;
     if (userData?.role === "eci") return <Navigate to="/eci/dashboard" replace />;
     if (userData?.role === "blo" || userData?.role === "admin") return <Navigate to="/admin" replace />;
 

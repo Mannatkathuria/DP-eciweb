@@ -4,7 +4,6 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PersonaFlow from "./PersonaFlow";
-import "./PersonaVerification.css";
 
 const statusText = {
     unverified: "verification.notVerified", pending: "verification.inProgress",
@@ -138,7 +137,7 @@ function Verify() {
         }
     }, [inquiryId, navigate, t]);
 
-    if (!logged) return <Navigate to="/login?role=voter" replace />;
+    if (!logged) return <Navigate to="/signin/voter" replace />;
     if (userData?.role !== "voter") {
         return <Navigate to={userData?.role === "eci" ? "/eci/dashboard" : "/admin"} replace />;
     }

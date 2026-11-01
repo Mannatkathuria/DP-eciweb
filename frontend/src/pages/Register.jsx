@@ -3,10 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { PROOF_TYPES, PROOF_MAX_BYTES, readProofDocument } from "../proofDocument";
-import "./Portal.css";
-import "./Register.css";
-import GovHeader from "../components/GovHeader";
-import GovFooter from "../components/GovFooter";
 import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./form6Options";
 
 /*
@@ -543,7 +539,7 @@ function Register() {
         if (step > 0) { setErrors({}); setStep((s) => s - 1); return; }
         // Stage 1 has no earlier stage: Back returns to the Voter services page the form was opened from.
         if (dirty && !window.confirm("Leave the form? The details you have entered will be lost.")) return;
-        navigate("/services?role=voter");
+        navigate("/voters");
     };
     const editStep = (index) => { setReturnToReview(true); goTo(index); };
 
@@ -986,13 +982,8 @@ function Register() {
     const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
     return (
-        <div className="gov-page-root">
-            <GovHeader />
-            <div className="gov-breadcrumb-strip">
-                <div className="gov-breadcrumb-container">
-                    <Link to="/">Home</Link> &gt; <Link to="/voters">Citizen Services</Link> &gt; <span>Form 6 (New Voter Registration)</span>
-                </div>
-            </div>
+        <>
+            <div className="container"><p className="crumb-line"><Link to="/home">Home</Link> / <Link to="/voters">Voters</Link> / <span>Form 6 (New Voter Registration)</span></p></div>
             <main className="portal-page f6-page">
                 <section className="portal-card portal-wide f6-card" ref={cardRef}>
                     <p className="eyebrow">{t("register.title")} · Form 6</p>
@@ -1051,8 +1042,7 @@ function Register() {
 
                 </section>
             </main>
-            <GovFooter />
-        </div>
+            </>
     );
 }
 

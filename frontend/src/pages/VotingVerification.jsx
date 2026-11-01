@@ -4,7 +4,6 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PersonaFlow from "./PersonaFlow";
-import "./Portal.css";
 
 const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
 
@@ -121,7 +120,7 @@ function VotingVerification() {
         setVotedReceipt(null);
     };
 
-    if (!logged) return <Navigate to="/eci/login" replace />;
+    if (!logged) return <Navigate to="/signin/eci" replace />;
     if (userData?.role !== "eci") return <Navigate to={userData?.role === "voter" ? "/dashboard" : "/admin"} replace />;
 
     return (

@@ -7,18 +7,15 @@ import { validateDocumentProof } from "../utils/documentProof.js";
 import { geography, validateGeography } from "../data/geography.js";
 import { issueOtp } from "../services/otp.service.js";
 import { publicUser } from "../services/session.service.js";
+import { portalRoles, ROLES, ROLE_GROUPS } from "../config/roles.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // EPIC format: three letters followed by seven digits.
 export const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
 
-// Which account roles may use which portal's sign-in page.
-const PORTAL_ROLES = {
-    voter: ["voter"],
-    blo: ["blo", "admin"],
-    eci: ["eci"]
-};
+// Which account roles may use which portal's sign-in page (see config/roles.js: every role has
+// its own portal, and the portal id is the role id).
 
 /**
  * Step 1 of sign-in. Takes an EPIC number only (no username, no password).
@@ -50,7 +47,8 @@ export const login = asyncHandler(async (req, res) => {
         throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
-    if (PORTAL_ROLES[portal] && !PORTAL_ROLES[portal].includes(user.role)) {
+    const allowed = portalRoles(portal);
+    if (allowed && !allowed.includes(user.role)) {
         throw new ApiError(403, "This EPIC number is not authorised for this portal.");
     }
 
@@ -62,6 +60,17 @@ export const login = asyncHandler(async (req, res) => {
         data: { epic }
     });
 });
+
+/** Public. The role catalogue (labels, groups, permissions) the sign-in and role pages are built from. */
+export const getRoles = (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            groups: ROLE_GROUPS,
+            roles: ROLES.map(({ id, label, group, level, scope, permissions }) => ({ id, label, group, level, scope, permissions }))
+        }
+    });
+};
 
 export const me = asyncHandler(async (req, res) => {
     res.json({ success: true, data: publicUser(req.user) });

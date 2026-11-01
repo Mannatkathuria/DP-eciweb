@@ -1,71 +1,94 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import "./App.css";
+import SiteLayout from "./components/SiteLayout";
+import EntryGate from "./pages/EntryGate";
+import Home from "./pages/Home";
 
-import EciHome from "./pages/EciHome";
-import CitizenPortal from "./pages/CitizenPortal";
-import CvigilPortal from "./pages/CvigilPortal";
-import SuvidhaPortal from "./pages/SuvidhaPortal";
-import EncorePortal from "./pages/EncorePortal";
-import CeoHimachalPortal from "./pages/CeoHimachalPortal";
-import WorkflowPortal from "./pages/WorkflowPortal";
-import MediaPublicationsPortal from "./pages/MediaPublicationsPortal";
+// Public information
+import Voters from "./pages/Voters";
+import ReportViolation from "./pages/ReportViolation";
+import Candidates from "./pages/Candidates";
+import Results from "./pages/Results";
+import Media from "./pages/Media";
+import Roles from "./pages/Roles";
+import StatePortal, { StatesIndex } from "./pages/StatePortal";
 
-import PortalSelect from "./pages/PortalSelect";
-import ServiceSelect from "./pages/ServiceSelect";
-import Dashboard from "./pages/Dashboard";
-import Verify from "./pages/Verify";
-import Login from "./pages/Login";
+// Voter services
+import Register from "./pages/Register";
+import CheckRequest from "./pages/CheckRequest";
+import ElectoralRoll from "./pages/ElectoralRoll";
+
+// Sign-in and each role's own section
+import SignInHub from "./pages/SignInHub";
+import PortalLogin from "./pages/PortalLogin";
 import LoginOtp from "./pages/LoginOtp";
 import BloLogin from "./pages/BloLogin";
 import BloChangePassword from "./pages/BloChangePassword";
 import BloForgotPassword from "./pages/BloForgotPassword";
-import Register from "./pages/Register";
-import CheckRequest from "./pages/CheckRequest";
-import ElectoralRoll from "./pages/ElectoralRoll";
+import Dashboard from "./pages/Dashboard";
+import Verify from "./pages/Verify";
 import Admin from "./pages/Admin";
-import EciLogin from "./pages/EciLogin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
+import Workspace from "./pages/Workspace";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Flagship National Portal & Integrated Systems */}
-                <Route path="/" element={<EciHome />} />
-                <Route path="/voters" element={<CitizenPortal />} />
-                <Route path="/cvigil" element={<CvigilPortal />} />
-                <Route path="/suvidha" element={<SuvidhaPortal />} />
-                <Route path="/encore" element={<EncorePortal />} />
-                <Route path="/ceo-himachal" element={<CeoHimachalPortal />} />
-                <Route path="/workflows" element={<WorkflowPortal />} />
-                <Route path="/media-publications" element={<MediaPublicationsPortal />} />
+                {/* First visit: choose to sign in or browse. Afterwards "/" goes straight to the home page. */}
+                <Route path="/" element={<EntryGate />} />
 
-                {/* Role Switcher & Services */}
-                <Route path="/portals" element={<PortalSelect />} />
-                <Route path="/services" element={<ServiceSelect />} />
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route element={<SiteLayout />}>
+                    <Route path="/home" element={<Home />} />
 
-                {/* Authentication & Operations */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/login/otp" element={<LoginOtp />} />
-                <Route path="/blo/login" element={<BloLogin />} />
-                <Route path="/blo/password" element={<BloChangePassword />} />
-                <Route path="/blo/forgot" element={<BloForgotPassword />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/check-request" element={<CheckRequest />} />
-                <Route path="/verify" element={<Verify />} />
-                <Route path="/electoral-roll" element={<ElectoralRoll />} />
-                <Route path="/admin" element={<Admin />} />
+                    {/* Public information */}
+                    <Route path="/voters" element={<Voters />} />
+                    <Route path="/report-violation" element={<ReportViolation />} />
+                    <Route path="/candidates" element={<Candidates />} />
+                    <Route path="/results" element={<Results />} />
+                    <Route path="/states" element={<StatesIndex />} />
+                    <Route path="/states/:slug" element={<StatePortal />} />
+                    <Route path="/media" element={<Media />} />
+                    <Route path="/roles" element={<Roles />} />
 
-                <Route path="/eci/login" element={<EciLogin />} />
-                <Route path="/eci/dashboard" element={<EciDashboard />} />
-                <Route
-                    path="/eci/voting-verification"
-                    element={<VotingVerification />}
-                />
+                    {/* Voter services */}
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/check-request" element={<CheckRequest />} />
+                    <Route path="/electoral-roll" element={<ElectoralRoll />} />
+
+                    {/* Sign-in: one page per role */}
+                    <Route path="/signin" element={<SignInHub />} />
+                    <Route path="/signin/:roleId" element={<PortalLogin />} />
+                    <Route path="/login/otp" element={<LoginOtp />} />
+                    <Route path="/blo/login" element={<BloLogin />} />
+                    <Route path="/blo/password" element={<BloChangePassword />} />
+                    <Route path="/blo/forgot" element={<BloForgotPassword />} />
+
+                    {/* Each role's own section */}
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/verify" element={<Verify />} />
+                    <Route path="/admin" element={<Admin />} />
+                    <Route path="/eci/dashboard" element={<EciDashboard />} />
+                    <Route path="/eci/voting-verification" element={<VotingVerification />} />
+                    <Route path="/workspace" element={<Workspace />} />
+
+                    {/* Older addresses, kept so saved links keep working */}
+                    <Route path="/login" element={<Navigate to="/signin/voter" replace />} />
+                    <Route path="/eci/login" element={<Navigate to="/signin/eci" replace />} />
+                    <Route path="/portals" element={<Navigate to="/signin" replace />} />
+                    <Route path="/services" element={<Navigate to="/voters" replace />} />
+                    <Route path="/cvigil" element={<Navigate to="/report-violation" replace />} />
+                    <Route path="/suvidha" element={<Navigate to="/candidates" replace />} />
+                    <Route path="/encore" element={<Navigate to="/results" replace />} />
+                    <Route path="/ceo-himachal" element={<Navigate to="/states/himachal-pradesh" replace />} />
+                    <Route path="/workflows" element={<Navigate to="/roles" replace />} />
+                    <Route path="/media-publications" element={<Navigate to="/media" replace />} />
+                    <Route path="*" element={<Navigate to="/home" replace />} />
+                </Route>
+
+                {/* Stand-alone phone simulator used during demonstrations */}
                 <Route path="/phone" element={<PhoneScreen />} />
             </Routes>
         </BrowserRouter>

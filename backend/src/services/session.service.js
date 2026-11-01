@@ -13,6 +13,9 @@ export const cookieOptions = {
 
 export const publicUser = (user) => ({
   _id: user._id, epic: user.epic, role: user.role, name: user.name || null,
+  // Where this account is assigned to work (state, district, constituency, polling station...).
+  ...(user.jurisdiction ? { jurisdiction: user.jurisdiction } : {}),
+  ...(user.designation ? { designation: user.designation } : {}),
   // BLOs signing in with a temporary password must set their own before using the portal.
   ...(user.role === "blo" ? { mustChangePassword: Boolean(user.mustChangePassword) } : {})
 });

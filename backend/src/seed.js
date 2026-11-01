@@ -8,6 +8,7 @@ import { getRegistration, saveRegistration } from "./repositories/registration.r
 import { getChangeRequest, saveChangeRequest } from "./repositories/changeRequest.repository.js";
 import { hashPassword } from "./services/blo.service.js";
 import { EPIC_PATTERN } from "./controllers/auth.controller.js";
+import { ROLES, jurisdictionFor } from "./config/roles.js";
 
 const electors = [
     ["ABC1234567","Mannat Kathuria","2006-11-23","Male","Punjab","Muktsar","Faridkot","42","Power House, Malout"],
@@ -79,6 +80,22 @@ const ensureEci = async () => {
         demoAccount: true
     });
     console.log(`Created ECI account: ${epic}`);
+};
+
+// One demo account per sign-in role, so every portal can be tried. Roles that already have a
+// dedicated seeder (voter, eci, blo) are skipped. Sign in with the EPIC and read the OTP in this
+// server's terminal.
+const ensureRoleAccounts = async () => {
+    for (const role of ROLES) {
+        if (!role.demoEpic || ["voter", "eci", "blo"].includes(role.id)) continue;
+        if (await getUserByEpic(role.demoEpic)) continue;
+        await saveUser({
+            _id: crypto.randomUUID(), epic: role.demoEpic, name: `Demo ${role.label.toLowerCase()}`,
+            role: role.id, designation: role.label, jurisdiction: jurisdictionFor(role.id),
+            demoAccount: true, createdAt: new Date().toISOString()
+        });
+        console.log(`Created ${role.label} demo account: ${role.demoEpic}`);
+    }
 };
 
 const ensureDemoBlo = async () => {
@@ -266,6 +283,7 @@ await ensureStaff(process.env.ECI_EPIC || "ECI0000001", "ECI Official", "eci");
 await ensureDemoVoter();
 await ensureEci();
 await ensureDemoBlo();
+await ensureRoleAccounts();
 await seedVerificationCases();
 await seedChangeRequests();
 await seedRegistrationRequest();

@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
-import "./Dashboard.css";
-import "./Admin.css";
 
 function EciDashboard() {
     const { logged, userData, logout } = useContext(AuthContext);
@@ -108,7 +106,7 @@ function EciDashboard() {
         }
     };
 
-    if (!logged) return <Navigate to="/eci/login" replace />;
+    if (!logged) return <Navigate to="/signin/eci" replace />;
     if (userData?.role !== "eci") return <Navigate to={userData?.role === "voter" ? "/dashboard" : "/admin"} replace />;
 
     return (

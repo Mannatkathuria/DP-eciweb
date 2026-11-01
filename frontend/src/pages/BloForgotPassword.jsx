@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import "./Login.css";
 
 const BLO_ID_PATTERN = /^BLO-[A-Z]{2}-\d{6}$/;
 const meetsRule = (value) => value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);

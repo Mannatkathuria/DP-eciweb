@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
-import "./Login.css";
+import { homeFor, signInPath } from "../config/roles";
 
 function LoginOtp() {
     const [params] = useSearchParams();
@@ -22,12 +22,10 @@ function LoginOtp() {
     // different EPIC (e.g. a BLO while a voter session is open) must go through the OTP step,
     // which replaces the old session.
     if (logged && userData?.role && userData.epic === epic) {
-        const destination = userData.role === "eci" ? "/eci/dashboard"
-            : userData.role === "blo" || userData.role === "admin" ? "/admin" : "/dashboard";
-        return <Navigate to={destination} replace />;
+        return <Navigate to={homeFor(userData.role)} replace />;
     }
     if (!/^[A-Z]{3}\d{7}$/.test(epic)) {
-        return <Navigate to={portal === "eci" ? "/eci/login" : `/login?role=${portal === "blo" ? "blo" : "voter"}`} replace />;
+        return <Navigate to={signInPath(portal)} replace />;
     }
 
     const verify = async (event) => {
@@ -42,9 +40,7 @@ function LoginOtp() {
             setBusy(true);
             const { data } = await api.post("/verification/otp/verify", { electorId: epic, otp });
             login(data.user.epic, data.token, data.user);
-            const destination = data.user.role === "eci" ? "/eci/dashboard"
-                : data.user.role === "blo" || data.user.role === "admin" ? "/admin" : "/dashboard";
-            navigate(destination, { replace: true });
+            navigate(homeFor(data.user.role), { replace: true });
         } catch (err) {
             setError(t("otp.verifyFailed"));
         } finally {
@@ -67,9 +63,9 @@ function LoginOtp() {
         }
     };
 
-    const signInPath = portal === "eci" ? "/eci/login" : `/login?role=${portal === "blo" ? "blo" : "voter"}`;
+    const backPath = signInPath(portal);
     return (
-        <main className="login-page">
+        <div className="auth-wrap">
             <section className="login-card">
                 <div className="login-header">
                     <p className="eyebrow">{t("otp.secureSignIn")}</p>
@@ -89,10 +85,10 @@ function LoginOtp() {
                 <p className="login-demo">{t("otp.demoHint")}</p>
                 <div className="otp-actions">
                     <button type="button" className="back-button" onClick={resend} disabled={busy}>{t("otp.generateNew")}</button>
-                    <Link to={signInPath}>{t("otp.backToSignIn")}</Link>
+                    <Link to={backPath}>{t("otp.backToSignIn")}</Link>
                 </div>
             </section>
-        </main>
+        </div>
     );
 }
 

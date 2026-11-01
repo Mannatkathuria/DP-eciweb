@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../context/AuthContext";
-import "./Login.css";
 
 const BLO_ID_PATTERN = /^BLO-[A-Z]{2}-\d{6}$/;
 const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;

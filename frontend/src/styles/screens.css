@@ -1,0 +1,191 @@
+/* Screens that predate the new layout (sign-in extras, voter and officer dashboards, roll search,
+   Form 6, verification). Same tokens as theme.css; selectors are kept so the pages need no rewrites. */
+
+.crumb-line { margin: 18px 0 0; font-size: .88rem; color: var(--muted); }
+.crumb-line a { color: var(--muted); }
+.eyebrow { margin: 0 0 8px; color: var(--muted); font-size: .9rem; font-weight: 600; }
+
+/* ---- sign-in extras (BLO pages, OTP) ---- */
+.login-page { display: grid; place-items: center; padding: 48px 20px 24px; }
+.login-header { margin-bottom: 20px; }
+.login-header h1 { font-size: 1.75rem; }
+.login-header p:last-child { color: var(--muted); }
+.login-footer { margin-top: 20px; text-align: center; font-size: .92rem; }
+.login-demo { margin: 18px 0 0; color: var(--muted); font-size: .88rem; }
+.otp-actions { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+.back-button { padding: 0; border: 0; background: none; color: var(--brand); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- voter and ECI dashboards ---- */
+.dashboard { width: min(1100px, 100% - 40px); margin: 0 auto; padding: 36px 0 24px; }
+.voter-dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.hero-description { color: var(--muted); max-width: 62ch; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.info-section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+.info-card { padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.info-card h3 { margin-bottom: 6px; }
+.info-card p { color: var(--muted); font-size: .93rem; }
+.step-number { display: block; margin-bottom: 8px; font-weight: 700; color: var(--brand); }
+.voter-verification-warning, .voter-verification-success { margin: 16px 0; padding: 16px 18px; border-radius: var(--r-md); border: 1px solid var(--line); border-left: 4px solid var(--warning); background: var(--warning-soft); }
+.voter-verification-success { border-left-color: var(--success); background: var(--success-soft); }
+.voter-dashboard-info { margin-top: 20px; }
+.badge-success { background: var(--success-soft); border-color: var(--success); }
+@media (max-width: 800px) { .info-section { grid-template-columns: 1fr; } }
+
+/* ---- dialogs ---- */
+.modal-overlay, .reason-overlay { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; padding: 20px; background: rgba(20, 17, 42, .6); }
+.modal-content, .reason-dialog { width: min(480px, 100%); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: var(--r-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); }
+.reason-dialog h3 { margin: 0; }
+.reason-error, .row-error { margin: 0; color: var(--danger); font-weight: 600; font-size: .88rem; }
+.reason-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ---- officer workdesk and ECI console ---- */
+.admin-page { width: min(1150px, 100% - 40px); margin: 0 auto; padding: 32px 0 24px; }
+.admin-container { display: grid; gap: 20px; }
+.admin-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.admin-actions, .row-actions, .filter-pills, .admin-nav-tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.admin-actions button, .row-actions button, .tab-btn, .filter-pill {
+  min-height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--text); font-weight: 600; font-size: .9rem;
+}
+.admin-actions button:hover, .row-actions button:hover, .tab-btn:hover, .filter-pill:hover { border-color: var(--brand); color: var(--brand); }
+.tab-btn.active, .filter-pill.active { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.row-actions button.btn-approve { background: var(--success); border-color: var(--success); color: #fff; }
+.row-actions button.btn-reject { background: var(--danger); border-color: var(--danger); color: #fff; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.stat span { color: var(--muted); font-size: .88rem; }
+.stat strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.admin-card { padding: 22px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.admin-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.admin-card .table-wrap { border-radius: var(--r-md); }
+.booth-assignment { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.booth-assignment label { display: flex; flex-direction: column; gap: 3px; font-size: .82rem; font-weight: 600; }
+.ai-review-box { margin-top: 6px; padding: 8px 12px; border-left: 3px solid var(--brand); border-radius: var(--r-sm); background: var(--surface-2); font-size: .85rem; }
+.ai-risk-low { border-left-color: var(--success); }
+.ai-risk-medium { border-left-color: var(--warning); }
+.ai-risk-high { border-left-color: var(--danger); }
+.row-error { max-width: 240px; }
+
+/* ---- electoral roll search ---- */
+.electoral-page { padding: 36px 0 24px; }
+.electoral-container { width: min(820px, 100% - 40px); margin: 0 auto; }
+.electoral-header { margin-bottom: 24px; }
+.electoral-header p:last-child { color: var(--muted); }
+.electoral-card { padding: 28px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.search-methods { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.search-methods button { min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font-weight: 600; }
+.search-methods button.active { background: var(--surface); color: var(--brand); box-shadow: 0 0 0 1px var(--line-strong); }
+.search-button { margin-top: 20px; }
+.electoral-information { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.electoral-information ul { padding-left: 20px; color: var(--muted); line-height: 1.8; }
+.record-box { margin-top: 22px; padding: 4px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.record-row { display: flex; justify-content: space-between; gap: 24px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.record-row:last-child { border-bottom: 0; }
+.record-row span { color: var(--muted); }
+.record-row strong { max-width: 60%; text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .search-methods { flex-direction: column; } .search-methods button { text-align: left; } }
+
+/* ---- identity verification ---- */
+.persona-page { width: min(1100px, 100% - 40px); margin: 0 auto; padding: 36px 0 24px; }
+.persona-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
+.persona-header-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.persona-status-card, .persona-flow-card { padding: 22px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.persona-status-card { margin-bottom: 20px; }
+.persona-flow-card { margin-top: 20px; }
+.persona-status-verified { border-color: var(--success); }
+.persona-status-pending_review, .persona-status-review_required { border-color: var(--warning); }
+.persona-footnote { margin-top: 20px; color: var(--muted); font-size: .88rem; }
+
+/* ---- polling-station verification (officer) ---- */
+.portal-page { width: min(1000px, 100% - 40px); margin: 0 auto; padding: 36px 0 24px; }
+.portal-card { padding: 28px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.portal-wide { width: 100%; }
+.portal-muted { color: var(--muted); margin-bottom: 18px; }
+.portal-footer { margin-top: 20px; color: var(--muted); font-size: .92rem; }
+.portal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.voting-verification-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.verification-stage { padding: 20px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-top: 16px; }
+.fingerprint-demo-form { margin-top: 20px; }
+.portal-upload { padding: 16px; border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+.eci-badge { display: inline-block; padding: 2px 10px; border-radius: 99px; background: var(--brand-soft); font-weight: 600; font-size: .85rem; }
+.persona-flow-header, .persona-flow-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.persona-frame-container, .persona-inline-wrapper { border-radius: var(--r-md); overflow: hidden; }
+
+/* ---- Form 6 (scoped under .f6-page) ---- */
+.f6-page { width: min(920px, 100% - 40px); }
+.f6-page .f6-legend-note, .f6-page .f6-muted, .f6-page .f6-hint, .f6-page .f6-opt, .f6-page .f6-group-intro { color: var(--muted); }
+.f6-page .f6-hint, .f6-page .f6-group-intro { font-size: .9rem; margin: 0; }
+.f6-page .f6-req { color: var(--danger); font-weight: 700; }
+.f6-page .f6-progress { margin-bottom: 22px; }
+.f6-page .f6-bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.f6-page .f6-bar span { display: block; height: 100%; background: var(--brand); transition: width .2s; }
+.f6-page .f6-steps { list-style: none; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin: 12px 0 0; padding: 0; }
+.f6-page .f6-steps li { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: .75rem; color: var(--muted); }
+.f6-page .f6-step-num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-strong); font-weight: 700; background: var(--surface); }
+.f6-page .f6-steps li.is-current { color: var(--text); font-weight: 600; }
+.f6-page .f6-steps li.is-current .f6-step-num { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.f6-page .f6-steps li.is-done .f6-step-num { border-color: var(--success); color: var(--success); }
+.f6-page .f6-stage-title { font-size: 1.4rem; outline: none; }
+.f6-page .f6-group { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.f6-page .f6-group:first-of-type { border-top: 0; padding-top: 4px; }
+.f6-page .f6-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; margin-top: 10px; }
+.f6-page .f6-wide { grid-column: 1 / -1; }
+.f6-page .f6-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.f6-page .f6-field > label, .f6-page .f6-field > legend, .f6-page .f6-label { font-weight: 600; font-size: .92rem; padding: 0; }
+.f6-page .f6-error { margin: 0; color: var(--danger); font-weight: 600; font-size: .88rem; }
+.f6-page .f6-static { margin: 0; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.f6-page .f6-options { display: grid; gap: 8px; margin-top: 4px; }
+.f6-page .f6-options-cols { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.f6-page .f6-option, .f6-page .f6-check { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); font-size: .93rem; font-weight: 500; cursor: pointer; }
+.f6-page .f6-option.is-selected, .f6-page .f6-check.is-selected { border-color: var(--brand); background: var(--brand-soft); }
+.f6-page .f6-option input, .f6-page .f6-check input { flex: none; margin-top: 2px; }
+.f6-page fieldset[aria-invalid="true"] .f6-option { border-color: var(--danger); }
+.f6-page .f6-date, .f6-page .f6-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.f6-page .f6-date-part { display: inline-flex; align-items: center; gap: 6px; }
+.f6-page .f6-date input { width: 70px; text-align: center; }
+.f6-page .f6-date input.f6-date-year { width: 92px; }
+.f6-page .f6-inline select { width: 200px; }
+.f6-page .f6-inline input { width: 110px; }
+.f6-page .f6-upload { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+.f6-page .f6-upload.has-error { border-color: var(--danger); }
+.f6-page .f6-upload-file { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.f6-page .f6-upload-preview { width: 84px; height: 84px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); flex: none; }
+.f6-page .f6-upload-name { overflow-wrap: anywhere; }
+.f6-page .f6-upload-status { display: block; color: var(--success); font-weight: 600; font-size: .88rem; }
+.f6-page .f6-upload-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.f6-page .f6-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.f6-page .f6-visually-hidden:focus-visible + label { box-shadow: var(--focus); }
+.f6-page .f6-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid transparent; border-radius: var(--r-md); font-weight: 600; text-decoration: none; }
+.f6-page .f6-btn-primary { background: var(--brand); color: var(--on-brand); }
+.f6-page .f6-btn-primary:hover:not(:disabled) { background: var(--brand-strong); }
+.f6-page .f6-btn-secondary { background: var(--surface); border-color: var(--line-strong); color: var(--text); }
+.f6-page .f6-btn-text { background: none; color: var(--danger); }
+.f6-page .f6-btn-small { min-height: 34px; padding: 0 14px; font-size: .85rem; }
+.f6-page .f6-link { padding: 0; border: 0; background: none; color: var(--brand); font-weight: 600; text-decoration: underline; }
+.f6-page .f6-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); }
+.f6-page .f6-nav .f6-btn-primary { margin-left: auto; min-width: 170px; }
+.f6-page .f6-alert { padding: 13px 15px; margin: 0 0 16px; border-radius: var(--r-md); border: 1px solid var(--line); }
+.f6-page .f6-alert ul { margin: 6px 0 0; padding-left: 20px; }
+.f6-page .f6-alert-error { background: var(--danger-soft); border-color: var(--danger); }
+.f6-page .f6-alert-ok { background: var(--success-soft); border-color: var(--success); }
+.f6-page .f6-submitted h2 { font-size: 1.15rem; }
+.f6-page .f6-ref { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.f6-page .f6-ai { margin-top: 10px; padding: 10px; border-radius: var(--r-sm); background: var(--surface-2); }
+.f6-page .f6-note { padding: 12px 14px; border-left: 4px solid var(--brand); border-radius: var(--r-sm); background: var(--brand-soft); font-size: .93rem; }
+.f6-page .f6-warning { padding: 12px 14px; border-left: 4px solid var(--warning); border-radius: var(--r-sm); background: var(--warning-soft); }
+.f6-page .f6-review, .f6-saved { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.f6-page .f6-review-head, .f6-review-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.f6-review-head h3 { margin: 0; font-size: 1rem; }
+.f6-review dl, .f6-saved dl { margin: 0; }
+.f6-review-row { display: grid; grid-template-columns: minmax(150px, 38%) 1fr; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+.f6-review-row:first-child { border-top: 0; }
+.f6-review-row dt { color: var(--muted); }
+.f6-review-row dd { margin: 0; overflow-wrap: anywhere; }
+.f6-page .f6-missing { color: var(--danger); font-weight: 600; }
+.f6-page .f6-status-form { max-width: 560px; }
+@media (max-width: 760px) {
+  .f6-page .f6-steps { display: none; }
+  .f6-page .f6-grid { grid-template-columns: 1fr; }
+  .f6-review-row { grid-template-columns: 1fr; gap: 2px; }
+  .f6-page .f6-nav { flex-direction: column-reverse; }
+  .f6-page .f6-btn { width: 100%; }
+}
