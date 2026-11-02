@@ -41,7 +41,7 @@ const setup = async () => {
     };
     const geo = (await call("GET", "/auth/geography")).body.data;
     const ludhiana = geo.states.find((s) => s.name === "Punjab").districts.find((x) => x.name === "Ludhiana");
-    const area = { state: "Punjab", district: "Ludhiana", constituency: ludhiana.constituencies[9] };
+    const area = { state: "Punjab", district: "Ludhiana", constituency: ludhiana.constituencies[12] };
     const eci = await makeUser("eci");
     const deo = await makeUser("deo");
     const grant = async (who, role, jurisdiction, election) => {

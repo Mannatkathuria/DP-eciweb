@@ -74,8 +74,10 @@ export const recentEvents = async (limit = 100) => {
  * as "unhashed", not as failures.
  */
 export const verifyAudit = async () => {
-    const ids = await redis().lRange("audit:events", 0, -1);
-    const counter = Number(await redis().get("audit:count") ?? 0);
+    // List and counter are read in one transaction: a write landing between two separate reads
+    // would otherwise make them disagree and raise a false alarm while the system is busy.
+    const [ids, rawCounter] = await redis().multi().lRange("audit:events", 0, -1).get("audit:count").exec();
+    const counter = Number(rawCounter ?? 0);
     const result = { listed: ids.length, counter, checked: 0, unhashed: 0, missing: [], altered: [] };
     for (let i = 0; i < ids.length; i += 500) {
         const batch = await Promise.all(ids.slice(i, i + 500).map(async (id) => [id, await jsonGet(eventKey(id))]));
