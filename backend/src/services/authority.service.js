@@ -47,6 +47,11 @@ export const covers = (assignment, record) => {
 
 export const coversAny = (assignments, record) => assignments.some((a) => covers(a, record));
 
+/** Active, and inside its validity window (if it has one). */
+export const assignmentInEffect = (a, now = Date.now()) => a.status === "active"
+    && (!a.validFrom || new Date(a.validFrom).getTime() <= now)
+    && (!a.validUntil || new Date(a.validUntil).getTime() > now);
+
 /**
  * The assignments that currently apply to an account: its active stored assignments for the role
  * it holds now. Seeded demo accounts that only carry a `jurisdiction` on their profile are treated
@@ -55,9 +60,12 @@ export const coversAny = (assignments, record) => assignments.some((a) => covers
 export const effectiveAssignments = async (user) => {
     if (!user) return [];
     if (isNationwide(user.role)) return [{ role: user.role, nationwide: true, jurisdiction: {}, source: "role" }];
-    const stored = (await listAssignmentsForUser(user._id))
-        .filter((a) => a.status === "active" && a.role === (user.role === "admin" ? "blo" : user.role));
+    const all = await listAssignmentsForUser(user._id);
+    const stored = all.filter((a) => assignmentInEffect(a) && a.role === (user.role === "admin" ? "blo" : user.role));
     if (stored.length) return stored;
+    // A profile jurisdiction only stands in when the account has never had a stored assignment, so
+    // a revoked or expired assignment is not quietly replaced by the profile.
+    if (all.length) return [];
     if (user.jurisdiction && Object.keys(user.jurisdiction).length) {
         return [{ role: user.role, jurisdiction: user.jurisdiction, source: "profile" }];
     }

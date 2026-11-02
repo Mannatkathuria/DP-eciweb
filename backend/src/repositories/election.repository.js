@@ -22,3 +22,9 @@ export const lockNomination = (id) => acquireLock(`nomination:lock:${id}`);
 const contestingKey = (electionId, areaKey) => `contesting:${electionId}:${areaKey}`;
 export const getContestingList = (electionId, areaKey) => get(contestingKey(electionId, areaKey));
 export const saveContestingList = (list, tx) => tx.set(contestingKey(list.electionId, list.areaKey), JSON.stringify(list));
+
+// RP Act 1951, s.22(2) proviso: an Assistant Returning Officer may scrutinise nominations only when
+// the Returning Officer is unavoidably prevented. The RO records that, naming the ARO, per area.
+const delegationKey = (electionId, areaKey) => `scrutiny-delegation:${electionId}:${areaKey}`;
+export const getScrutinyDelegation = (electionId, areaKey) => get(delegationKey(electionId, areaKey));
+export const saveScrutinyDelegation = (d, tx) => tx.set(delegationKey(d.electionId, d.areaKey), JSON.stringify(d));

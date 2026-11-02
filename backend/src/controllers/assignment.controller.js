@@ -3,7 +3,7 @@ import { transaction } from "../config/redis.js";
 import { ROLE_BY_ID } from "../config/roles.js";
 import { getUserByEpic } from "../repositories/user.repository.js";
 import { getAssignment, listAllAssignments, saveAssignment } from "../repositories/assignment.repository.js";
-import { containsJurisdiction, effectiveAssignments, hasPermission, validateJurisdiction } from "../services/authority.service.js";
+import { assignmentInEffect, containsJurisdiction, effectiveAssignments, hasPermission, validateJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { constituencyHasStations, findActiveStation } from "./pollingStation.controller.js";
 import { requireReason } from "../utils/documentProof.js";
@@ -11,6 +11,25 @@ import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const ELECTION_MAX = 120;
+
+/**
+ * Optional validity window. A date (YYYY-MM-DD) or a full ISO time; validFrom defaults to now and
+ * validUntil to open-ended. A date-only validUntil lasts to the end of that day (IST).
+ */
+const parseWindow = (body) => {
+    const parse = (v, field, endOfDay) => {
+        if (v === undefined || v === null || v === "") return null;
+        const str = String(v).trim();
+        const iso = /^\d{4}-\d{2}-\d{2}$/.test(str) ? `${str}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}+05:30` : str;
+        const t = new Date(iso);
+        if (Number.isNaN(t.getTime())) throw new ApiError(400, `${field} must be a date (YYYY-MM-DD) or an ISO time.`);
+        return t.toISOString();
+    };
+    const validFrom = parse(body.validFrom, "validFrom", false);
+    const validUntil = parse(body.validUntil, "validUntil", true);
+    if (validUntil && new Date(validUntil) <= new Date(validFrom ?? Date.now())) throw new ApiError(400, "validUntil must be after validFrom (and in the future).");
+    return { validFrom, validUntil };
+};
 const sameRole = (accountRole, role) => accountRole === role || (accountRole === "admin" && role === "blo");
 
 // Election staff the District Election Officer (or CEO) appoints, and the polling parties the
@@ -60,7 +79,8 @@ export const listAssignments = asyncHandler(async (req, res) => {
         .filter((a) => !epic || a.epic === epic)
         .filter((a) => status === "all" || a.status === status)
         .filter((a) => containsJurisdiction(req.authority.assignments, a.jurisdiction))
-        .sort((a, b) => new Date(b.grantedAt) - new Date(a.grantedAt));
+        .sort((a, b) => new Date(b.grantedAt) - new Date(a.grantedAt))
+        .map((a) => ({ ...a, inEffect: assignmentInEffect(a) }));
     res.json({ success: true, data: { items, total: items.length } });
 });
 
@@ -70,6 +90,7 @@ export const grantAssignment = asyncHandler(async (req, res) => {
     if (!ROLE_BY_ID[role]) throw new ApiError(400, "Unknown role.");
     const jurisdiction = validateJurisdiction(role, body.jurisdiction ?? {});
     const election = String(body.election ?? "").trim().slice(0, ELECTION_MAX) || null;
+    const window = parseWindow(body);
     assertMayManage(req, role, jurisdiction);
     await assertKnownStation(role, jurisdiction);
 
@@ -87,6 +108,7 @@ export const grantAssignment = asyncHandler(async (req, res) => {
 
     const assignment = {
         _id: crypto.randomUUID(), userId: target._id, epic: target.epic, role, election, jurisdiction,
+        validFrom: window.validFrom, validUntil: window.validUntil,
         status: "active", grantedBy: req.user.epic, grantedAt: new Date().toISOString(),
         revokedBy: null, revokedAt: null, revokeReason: null
     };
@@ -95,7 +117,7 @@ export const grantAssignment = asyncHandler(async (req, res) => {
     await recordAudit(auditEvent({
         actor: req.user, action: "assignment.granted",
         resource: { type: "assignment", id: assignment._id }, jurisdiction,
-        after: { epic: target.epic, role, election, jurisdiction }
+        after: { epic: target.epic, role, election, jurisdiction, ...window }
     }), tx);
     await tx.exec();
     res.status(201).json({ success: true, message: "Assignment granted.", data: assignment });

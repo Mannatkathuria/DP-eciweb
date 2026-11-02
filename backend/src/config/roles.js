@@ -52,7 +52,7 @@ export const ROLES = [
 
     // Election conduct
     r("ro", "Returning officer", "conduct", 4, ["election", "constituency"], "ROF1000001",
-        ["nomination:scrutinise", "candidates:publish", "polling:arrange", "counting:supervise", "result:declare", "station:view", "control:view", "incident:manage"]),
+        ["nomination:scrutinise", "scrutiny:delegate", "candidates:publish", "polling:arrange", "counting:supervise", "result:declare", "station:view", "control:view", "incident:manage"]),
     r("aro", "Assistant returning officer", "conduct", 4, ["election", "constituency"], "ARO1000001",
         ["nomination:scrutinise", "polling:arrange", "counting:assist", "station:view", "control:view", "incident:manage"]),
     r("sector_officer", "Sector officer", "conduct", 5, ["election", "constituency"], "SCO1000001",

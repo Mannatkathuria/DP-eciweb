@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 // Uses its own disposable Redis (never REDIS_URL from .env), like registration.test.js.
 const TEST_REDIS_URL = process.env.TEST_REDIS_URL;

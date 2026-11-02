@@ -230,8 +230,19 @@ const claimDuplicateKey = async (duplicateKey, applicationId) => {
 
 const APPLICANT_STEPS = {
     "registration.field_verified": "field_verified",
+    "registration.information_requested": "information_requested",
+    "registration.information_provided": "information_provided",
+    "registration.reverification_requested": "reverification_requested",
     "registration.approved": "approved",
     "registration.rejected": "rejected"
+};
+
+/** Proves the caller is the applicant: the reference ID (in the URL) and the date of birth they gave. */
+export const applicantCheck = (req, application) => {
+    const given = new Date(String(req.body?.dateOfBirth ?? ""));
+    if (Number.isNaN(given.getTime()) || given.toISOString().slice(0, 10) !== String(application.dateOfBirth).slice(0, 10)) {
+        throw new ApiError(403, "The date of birth does not match this application.");
+    }
 };
 
 /** Public. Lets an applicant check their request using the reference ID they were given. */
@@ -248,6 +259,10 @@ export const getRegistrationStatus = asyncHandler(async (req, res) => {
             submittedAt: application.submittedAt,
             epic: application.status === "approved" ? application.epic : null,
             note: application.status === "rejected" ? application.decisionNote || null : null,
+            // What the ERO/AERO asked for, when they need more information from the applicant.
+            informationRequest: application.informationRequest
+                ? { note: application.informationRequest.note, at: application.informationRequest.at, respondedAt: application.informationRequest.respondedAt }
+                : null,
             // The saved application, with contact details and Aadhaar masked and no files.
             application: publicApplicationView(application),
             // Official status history for the applicant: which step happened when. Officers'

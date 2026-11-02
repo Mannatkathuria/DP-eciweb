@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from "react";
-import api from "../api/axios";
+import api, { clearStepUp } from "../api/axios";
 
 export const AuthContext = createContext();
 
@@ -43,6 +43,7 @@ function AuthProvider({ children }) {
     };
 
     const logout = async () => {
+        clearStepUp();
         try { await api.post("/auth/logout"); } catch {}
         localStorage.removeItem("token");
         localStorage.setItem("logged", "false");

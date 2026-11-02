@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 // Regression tests for BLO decisions (Form 6 and Form 8), mandatory proof documents, identity
 // verification and polling-day checks. They call the real HTTP endpoints and inspect what is
 // stored in Redis. They need their own, disposable Redis and never touch REDIS_URL from .env.
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 process.env.GEMINI_API = ""; // the AI review uses its built-in rule engine (no network)
 const TEST_REDIS_URL = process.env.TEST_REDIS_URL;
@@ -686,4 +687,55 @@ test("assignments: an ERO assigns BLOs only inside their constituency; the ECI m
     const trail = await call("GET", `/audit/assignment/${assignmentId}`, undefined, ero.token);
     assert.deepEqual(trail.body.data.items.map((e) => e.action), ["assignment.granted", "assignment.revoked"]);
     assert.equal(trail.body.data.items[1].note, "Transferred");
+});
+
+// ---------------------------------------------------------------- follow-up states
+
+test("Form 6 follow-up: the ERO asks for information, the applicant answers, then sends it back for re-verification", needsRedis, async () => {
+    const { call, submit, getRegistration, blo, ero } = await setup();
+    const id = await submit();
+    const ask = (body, who = ero) => call("POST", `/admin/registrations/${id}/request-information`, body, who.token);
+    assert.equal((await ask({ note: "" })).status, 400);
+    assert.equal((await ask({ note: "Please send a clearer address proof" }, blo)).status, 403); // only the ERO/AERO
+    assert.equal((await ask({ note: "Please send a clearer address proof" })).status, 200);
+    assert.equal((await getRegistration(id)).status, "information_required");
+    assert.equal((await fieldVerify(id)).status, 409, "the BLO waits for the applicant");
+
+    const status = (await call("GET", `/auth/register/${id}`)).body.data;
+    assert.equal(status.status, "information_required");
+    assert.equal(status.informationRequest.note, "Please send a clearer address proof");
+    const answer = (body) => call("POST", `/auth/register/${id}/information`, body);
+    assert.equal((await answer({ dateOfBirth: "1999-01-01", response: "Sent at the office" })).status, 403);
+    assert.equal((await answer({ dateOfBirth: "2000-01-15", response: "" })).status, 400);
+    assert.equal((await answer({ dateOfBirth: "2000-01-15", response: "I have uploaded a new electricity bill at the ERO office." })).status, 200);
+    assert.equal((await answer({ dateOfBirth: "2000-01-15", response: "Again" })).status, 409);
+    const back = await getRegistration(id);
+    assert.equal(back.status, "pending");
+    assert.match(back.informationRequest.response, /electricity bill/);
+
+    assert.equal((await call("POST", `/admin/registrations/${id}/request-reverification`, { note: "Check again" }, ero.token)).status, 409); // not verified yet
+    assert.equal((await fieldVerify(id)).status, 200);
+    assert.equal((await call("POST", `/admin/registrations/${id}/request-reverification`, { note: "House number differs from the proof; please visit again" }, ero.token)).status, 200);
+    const again = await getRegistration(id);
+    assert.equal(again.status, "pending");
+    assert.equal(again.fieldVerification, null);
+    assert.equal(again.previousVerifications.length, 1);
+    assert.equal((await fieldVerify(id)).status, 200);
+    assert.equal((await call("POST", `/admin/registrations/${id}/approve`, {}, ero.token)).status, 200);
+
+    const steps = (await call("GET", `/auth/register/${id}`)).body.data.timeline.map((t) => t.step);
+    assert.deepEqual(steps, ["submitted", "information_requested", "information_provided", "field_verified", "reverification_requested", "field_verified", "approved"]);
+});
+
+test("Form 8 follow-up: only the voter who filed the request answers an information request", needsRedis, async () => {
+    const { call, ero, getChangeRequest } = await setup();
+    const voter = await makeVoterWithRecord();
+    const other = await makeVoterWithRecord();
+    const filed = await call("POST", "/changes", { address: "Flat 9, Sarabha Nagar, Ludhiana", pinCode: "141001", documentProof: PNG }, voter.token);
+    const id = filed.body.data.requestId;
+    assert.equal((await call("POST", `/admin/changes/${id}/request-information`, { note: "Which floor is the flat on?" }, ero.token)).status, 200);
+    assert.equal((await call("POST", `/changes/${id}/information`, { response: "Second floor" }, other.token)).status, 404);
+    assert.equal((await call("POST", `/changes/${id}/information`, { response: "Second floor" }, voter.token)).status, 200);
+    assert.equal((await getChangeRequest(id)).status, "pending");
+    assert.equal((await call("POST", `/admin/changes/${id}/reject`, { note: "Duplicate request" }, ero.token)).status, 200);
 });

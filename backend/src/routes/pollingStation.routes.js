@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyJWT, requirePasswordChanged } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
+import { requireStepUp } from "../middlewares/stepUp.middleware.js";
 import {
     approveStationChange, importStations, listStationsForStaff, proposeRelocation, proposeStation, rejectStationChange
 } from "../controllers/pollingStation.controller.js";
@@ -13,7 +14,7 @@ router.get("/", authorize("station:view", "station:propose", "station:approve"),
 router.post("/", authorize("station:propose"), proposeStation);
 router.post("/import", authorize("station:propose"), importStations);
 router.post("/:id/relocation", authorize("station:propose"), proposeRelocation);
-router.post("/:id/approve", authorize("station:approve"), approveStationChange);
-router.post("/:id/reject", authorize("station:approve"), rejectStationChange);
+router.post("/:id/approve", authorize("station:approve"), requireStepUp, approveStationChange);
+router.post("/:id/reject", authorize("station:approve"), requireStepUp, rejectStationChange);
 
 export default router;

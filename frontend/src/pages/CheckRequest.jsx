@@ -10,7 +10,10 @@ const TIMELINE_TEXT = {
     submitted: "Application submitted",
     field_verified: "Verified in the field by your Booth Level Officer",
     approved: "Approved by the Electoral Registration Officer and added to the roll",
-    rejected: "Rejected by the Electoral Registration Officer"
+    rejected: "Rejected by the Electoral Registration Officer",
+    information_requested: "The Electoral Registration Officer asked you for more information",
+    information_provided: "You sent the information requested",
+    reverification_requested: "Sent back to your Booth Level Officer to verify again"
 };
 
 export default function CheckRequest() {
@@ -20,6 +23,22 @@ export default function CheckRequest() {
     const [result, setResult] = useState(null);
     const [error, setError] = useState("");
     const [checking, setChecking] = useState(false);
+    const [reply, setReply] = useState({ dateOfBirth: "", response: "" });
+    const [replyState, setReplyState] = useState({ busy: false, error: "", done: "" });
+
+    const sendReply = async (e) => {
+        e.preventDefault();
+        setReplyState({ busy: true, error: "", done: "" });
+        try {
+            const { data } = await api.post(`/auth/register/${encodeURIComponent(referenceId.trim())}/information`, reply);
+            setReplyState({ busy: false, error: "", done: data.message });
+            setReply({ dateOfBirth: "", response: "" });
+            const fresh = await api.get(`/auth/register/${encodeURIComponent(referenceId.trim())}`);
+            setResult(fresh.data.data);
+        } catch (err) {
+            setReplyState({ busy: false, error: err.response?.data?.message || "Could not send your answer. Try again.", done: "" });
+        }
+    };
 
     const checkStatus = async (e) => {
         e.preventDefault();
@@ -60,6 +79,22 @@ export default function CheckRequest() {
                     {error && <div className="portal-error" role="alert">{error}</div>}
                     {result?.status === "pending" && (
                         <div className="portal-notice" role="status">Status: <strong>PENDING REVIEW</strong>. Assigned to your constituency's Booth Level Officer.</div>
+                    )}
+                    {replyState.done && <div className="portal-success" role="status">{replyState.done}</div>}
+                    {result?.status === "information_required" && (
+                        <div className="portal-notice" role="status">
+                            <p>Status: <strong>MORE INFORMATION NEEDED</strong>. The Electoral Registration Officer asked: “{result.informationRequest?.note}”</p>
+                            <form className="portal-form" onSubmit={sendReply}>
+                                <label>Your date of birth (to confirm it's you)
+                                    <input type="date" value={reply.dateOfBirth} onChange={(ev) => setReply({ ...reply, dateOfBirth: ev.target.value })} required />
+                                </label>
+                                <label>Your answer
+                                    <textarea rows={3} maxLength={1000} value={reply.response} onChange={(ev) => setReply({ ...reply, response: ev.target.value })} required minLength={5} />
+                                </label>
+                                {replyState.error && <div className="portal-error" role="alert">{replyState.error}</div>}
+                                <button disabled={replyState.busy}>{replyState.busy ? "Sending…" : "Send answer"}</button>
+                            </form>
+                        </div>
                     )}
                     {result?.status === "field_verified" && (
                         <div className="portal-notice" role="status">Status: <strong>FIELD VERIFIED</strong>. Your Booth Level Officer has verified your application. The Electoral Registration Officer will now decide.</div>

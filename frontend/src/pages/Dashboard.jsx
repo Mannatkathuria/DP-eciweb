@@ -5,6 +5,26 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { PROOF_TYPES, PROOF_HELP, readProofDocument } from "../proofDocument";
 
+/** Answer to an ERO/AERO information request on a Form 8 change request. */
+function InfoAnswer({ id, onDone }) {
+    const [text, setText] = useState("");
+    const [state, setState] = useState({ busy: false, error: "" });
+    const send = async (e) => {
+        e.preventDefault();
+        setState({ busy: true, error: "" });
+        try { await api.post(`/changes/${id}/information`, { response: text }); setText(""); setState({ busy: false, error: "" }); onDone(); }
+        catch (err) { setState({ busy: false, error: err.response?.data?.message || "Could not send your answer." }); }
+    };
+    return (
+        <form onSubmit={send} style={{ marginTop: 6 }}>
+            <label htmlFor={`ans-${id}`}><small>Your answer</small></label>
+            <textarea id={`ans-${id}`} rows={2} maxLength={1000} minLength={5} required value={text} onChange={(e) => setText(e.target.value)} style={{ width: "100%" }} />
+            {state.error && <p className="reason-error" role="alert">{state.error}</p>}
+            <button className="btn btn-primary" disabled={state.busy}>{state.busy ? "Sending…" : "Send answer"}</button>
+        </form>
+    );
+}
+
 function Dashboard() {
     const { logged, userData, logout } = useContext(AuthContext);
     const { t } = useTranslation();
@@ -268,11 +288,17 @@ function Dashboard() {
                                                 background: r.status === "approved" ? "#56a581" : r.status === "rejected" ? "#a62e35" : "#d79d4c",
                                                 color: "#fff"
                                             }}>
-                                                {r.status === "field_verified" ? "VERIFIED BY BLO · AWAITING ERO" : r.status.toUpperCase()}
+                                                {r.status === "field_verified" ? "VERIFIED BY BLO · AWAITING ERO" : r.status === "information_required" ? "MORE INFORMATION NEEDED" : r.status.toUpperCase()}
                                             </span>
                                         </td>
                                         <td style={{ padding: "10px" }}>
                                             {r.decisionNote && <div><small><strong>Note:</strong> {r.decisionNote}</small></div>}
+                                            {r.informationRequest && (
+                                                <div><small><strong>The ERO asked:</strong> {r.informationRequest.note}</small>
+                                                    {r.informationRequest.response && <div><small><strong>Your answer:</strong> {r.informationRequest.response}</small></div>}
+                                                    {r.status === "information_required" && <InfoAnswer id={r._id} onDone={loadChangeRequests} />}
+                                                </div>
+                                            )}
                                             {r.aiReview?.shortAiReview && (
                                                 <div style={{ color: "var(--text-secondary)", fontSize: "12px", marginTop: "4px" }}>
                                                     🤖 <em>{r.aiReview.shortAiReview}</em>

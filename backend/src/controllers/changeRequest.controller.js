@@ -164,7 +164,7 @@ export const getMyChangeRequests = asyncHandler(async (req, res) => {
 // verified by the BLO of the new area and decided by the ERO of the new constituency, and the
 // new booth is fixed during field verification.
 
-export const OPEN_CHANGE_STATUSES = ["pending", "field_verified"];
+export const OPEN_CHANGE_STATUSES = ["pending", "field_verified", "information_required"];
 const AREA_FIELDS = ["state", "district", "assemblyConstituency"];
 
 export const isShift = (request) => AREA_FIELDS.some((f) => request.requestedChanges?.[f] !== undefined);

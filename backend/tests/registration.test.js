@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 // The end-to-end test needs its own, disposable Redis. It never uses REDIS_URL from .env,
 // so running the tests cannot touch your development data.

@@ -19,7 +19,19 @@ const ACTION_TEXT = {
     "registration.rejected": "Rejected",
     "change_request.field_verified": "Field verification submitted",
     "change_request.approved": "Approved and roll corrected",
-    "change_request.rejected": "Rejected"
+    "change_request.rejected": "Rejected",
+    "registration.information_requested": "Information requested from the applicant",
+    "registration.information_provided": "Applicant answered",
+    "registration.reverification_requested": "Sent back to the BLO for re-verification",
+    "change_request.information_requested": "Information requested from the voter",
+    "change_request.information_provided": "Voter answered",
+    "change_request.reverification_requested": "Sent back to the BLO for re-verification"
+};
+// Dialogs on this page: reject (final), ask the applicant for information, or send back to the BLO.
+const DIALOG = {
+    reject: { path: "reject", confirm: "Reject application", label: (who) => `Reason for rejection (shown to the ${who})`, done: "rejected" },
+    info: { path: "request-information", confirm: "Ask for information", label: (who) => `What the ${who} needs to provide (shown to them)`, done: "asked for more information" },
+    reverify: { path: "request-reverification", confirm: "Send back to the BLO", label: () => "What the BLO should check again", done: "sent back to the BLO" }
 };
 const FIELD_LABEL = { name: "Name", dateOfBirth: "Date of birth", age: "Age", gender: "Gender", state: "State/UT", district: "District",
     assemblyConstituency: "Constituency", address: "Address", pinCode: "PIN code" };
@@ -36,6 +48,7 @@ export default function EroDecisions() {
     const [awaitingBlo, setAwaitingBlo] = useState([]);
     const [changesVerified, setChangesVerified] = useState([]);
     const [changesAwaitingBlo, setChangesAwaitingBlo] = useState([]);
+    const [awaitingApplicant, setAwaitingApplicant] = useState([]);
     const [assignments, setAssignments] = useState([]);
     const [booths, setBooths] = useState({}); // corrections typed by the officer, per application
     const [busy, setBusy] = useState({});
@@ -57,13 +70,16 @@ export default function EroDecisions() {
     const load = useCallback(async () => {
         setError("");
         try {
-            const [v, p, cv, cp, a] = await Promise.all([
+            const [v, p, cv, cp, a, ri, ci] = await Promise.all([
                 api.get("/admin/registrations", { params: { status: "field_verified" } }),
                 api.get("/admin/registrations", { params: { status: "pending" } }),
                 api.get("/admin/changes", { params: { status: "field_verified" } }),
                 api.get("/admin/changes", { params: { status: "pending" } }),
-                api.get("/assignments/me")
+                api.get("/assignments/me"),
+                api.get("/admin/registrations", { params: { status: "information_required" } }),
+                api.get("/admin/changes", { params: { status: "information_required" } })
             ]);
+            setAwaitingApplicant([...(ri.data.data?.items || []).map((r) => ({ ...r, kind: "registration" })), ...(ci.data.data?.items || []).map((r) => ({ ...r, kind: "change" }))]);
             setVerified(v.data.data?.items || []);
             setAwaitingBlo(p.data.data?.items || []);
             setChangesVerified(cv.data.data?.items || []);
@@ -117,13 +133,13 @@ export default function EroDecisions() {
         } catch { /* shown on the row */ }
     };
 
-    const openReject = (item, kind) => { setDialogError(""); setDialog({ item, kind }); };
+    const openReject = (item, kind, action = "reject") => { setDialogError(""); setDialog({ item, kind, action }); };
 
     const confirmReject = async (reason) => {
-        const { item: r, kind } = dialog;
+        const { item: r, kind, action } = dialog;
         setDialogBusy(true); setDialogError("");
         try {
-            await run(r._id, () => api.post(`${KINDS[kind].base}/${r._id}/reject`, { note: reason }), () => `${kind === "registration" ? "Application" : "Correction request"} from ${KINDS[kind].label(r)} rejected.`);
+            await run(r._id, () => api.post(`${KINDS[kind].base}/${r._id}/${DIALOG[action].path}`, { note: reason }), () => `${kind === "registration" ? "Application" : "Correction request"} from ${KINDS[kind].label(r)} ${DIALOG[action].done}.`);
             setDialog(null);
         } catch (err) {
             if (err.response?.status === 409) setDialog(null);
@@ -155,6 +171,14 @@ export default function EroDecisions() {
                     ))}
                 </ol>
             )}
+        </>
+    );
+
+    const followUpNotes = (r) => (
+        <>
+            {r.informationRequest && <p><small>You asked: “{r.informationRequest.note}”{r.informationRequest.response ? <> · Answer: “{r.informationRequest.response}”</> : " · No answer yet"}</small></p>}
+            {r.reverification && r.status === "pending" && <p><small>Sent back to the BLO: “{r.reverification.note}”</small></p>}
+            {r.previousVerifications?.length > 0 && <p><small>{r.previousVerifications.length} earlier field verification(s) on record.</small></p>}
         </>
     );
 
@@ -203,6 +227,7 @@ export default function EroDecisions() {
                                                         <strong>{fv.recommendation === "approve" ? "Recommends approval" : "Recommends rejection"}</strong><br />
                                                         <small>By {fv.by} on {fv.at ? new Date(fv.at).toLocaleString() : "—"}</small>
                                                         {fv.note && <p><small>“{fv.note}”</small></p>}
+                                                        {followUpNotes(r)}
                                                         {historyBlock(r, "registration")}
                                                     </td>
                                                     <td>
@@ -221,6 +246,10 @@ export default function EroDecisions() {
                                                                 {busy[r._id] ? "Saving…" : "Approve & add to roll"}
                                                             </button>
                                                             <button className="btn-reject" onClick={() => openReject(r, "registration")} disabled={Boolean(busy[r._id])}>Reject</button>
+                                                        </div>
+                                                        <div className="row-actions" style={{ marginTop: 6 }}>
+                                                            <button className="btn btn-secondary" onClick={() => openReject(r, "registration", "info")} disabled={Boolean(busy[r._id])}>Ask for information</button>
+                                                            <button className="btn btn-secondary" onClick={() => openReject(r, "registration", "reverify")} disabled={Boolean(busy[r._id])}>Send back to BLO</button>
                                                         </div>
                                                         {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}
                                                     </td>
@@ -241,7 +270,9 @@ export default function EroDecisions() {
                                 {awaitingBlo.map((r) => (
                                     <li key={r._id}>
                                         <strong>{r.name}</strong> · {r.assemblyConstituency} · submitted {new Date(r.submittedAt).toLocaleDateString()}{" "}
+                                        <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={() => openReject(r, "registration", "info")} disabled={Boolean(busy[r._id])}>Ask for information</button>
                                         <button className="btn-reject" style={{ marginLeft: 8 }} onClick={() => openReject(r, "registration")} disabled={Boolean(busy[r._id])}>Reject</button>
+                                        {followUpNotes(r)}
                                         {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}
                                     </li>
                                 ))}
@@ -274,6 +305,7 @@ export default function EroDecisions() {
                                                         <strong>{fv.recommendation === "approve" ? "Recommends approval" : "Recommends rejection"}</strong><br />
                                                         <small>By {fv.by} on {fv.at ? new Date(fv.at).toLocaleString() : "—"}</small>
                                                         {fv.note && <p><small>“{fv.note}”</small></p>}
+                                                        {followUpNotes(cr)}
                                                         {historyBlock(cr, "change")}
                                                     </td>
                                                     <td>
@@ -295,6 +327,10 @@ export default function EroDecisions() {
                                                             </button>
                                                             <button className="btn-reject" onClick={() => openReject(cr, "change")} disabled={Boolean(busy[cr._id])}>Reject</button>
                                                         </div>
+                                                        <div className="row-actions" style={{ marginTop: 6 }}>
+                                                            <button className="btn btn-secondary" onClick={() => openReject(cr, "change", "info")} disabled={Boolean(busy[cr._id])}>Ask for information</button>
+                                                            <button className="btn btn-secondary" onClick={() => openReject(cr, "change", "reverify")} disabled={Boolean(busy[cr._id])}>Send back to BLO</button>
+                                                        </div>
                                                         {rowErrors[cr._id] && <p className="row-error" role="alert">{rowErrors[cr._id]}</p>}
                                                     </td>
                                                 </tr>
@@ -311,12 +347,30 @@ export default function EroDecisions() {
                                     {changesAwaitingBlo.map((cr) => (
                                         <li key={cr._id}>
                                             <strong>{cr.currentRecord?.name}</strong> ({cr.epic}) · {Object.keys(cr.requestedChanges || {}).filter((k) => k !== "age").map((k) => FIELD_LABEL[k] || k).join(", ")}{" "}
+                                            <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={() => openReject(cr, "change", "info")} disabled={Boolean(busy[cr._id])}>Ask for information</button>
                                             <button className="btn-reject" style={{ marginLeft: 8 }} onClick={() => openReject(cr, "change")} disabled={Boolean(busy[cr._id])}>Reject</button>
+                                            {followUpNotes(cr)}
                                             {rowErrors[cr._id] && <p className="row-error" role="alert">{rowErrors[cr._id]}</p>}
                                         </li>
                                     ))}
                                 </ul>
                             </>
+                        )}
+                    </div>
+
+                    <div className="panel">
+                        <h2>Waiting for the applicant ({awaitingApplicant.length})</h2>
+                        <p className="muted">You asked these applicants for more information. Once they answer, the application returns to where it was.</p>
+                        {awaitingApplicant.length > 0 && (
+                            <ul className="rows">
+                                {awaitingApplicant.map((r) => (
+                                    <li key={r._id}>
+                                        <strong>{KINDS[r.kind].label(r)}</strong> · {r.kind === "registration" ? "Form 6" : "Form 8"} · asked {new Date(r.informationRequest.at).toLocaleDateString()}: “{r.informationRequest.note}”{" "}
+                                        <button className="btn-reject" style={{ marginLeft: 8 }} onClick={() => openReject(r, r.kind)} disabled={Boolean(busy[r._id])}>Reject</button>
+                                        {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}
+                                    </li>
+                                ))}
+                            </ul>
                         )}
                     </div>
 
@@ -329,13 +383,15 @@ export default function EroDecisions() {
 
             {dialog && (
                 <ReasonDialog
-                    title={`Reject ${dialog.kind === "registration" ? "application" : "correction request"}: ${KINDS[dialog.kind].label(dialog.item)}`}
-                    label={`Reason for rejection (shown to the ${dialog.kind === "registration" ? "applicant" : "voter"})`}
-                    hint={dialog.kind === "registration"
-                        ? "The applicant sees this reason when they check their application status."
-                        : "The voter sees this reason with their correction request."}
+                    title={`${DIALOG[dialog.action].confirm}: ${KINDS[dialog.kind].label(dialog.item)}`}
+                    label={DIALOG[dialog.action].label(dialog.kind === "registration" ? "applicant" : "voter")}
+                    hint={dialog.action === "reverify" ? "The BLO sees this note. The earlier verification is kept on record."
+                        : dialog.kind === "registration"
+                        ? "The applicant sees this when they check their application status."
+                        : "The voter sees this with their correction request."}
                     required
-                    confirmLabel="Reject application"
+                    confirmClass={dialog.action === "reject" ? "btn-reject" : "btn-approve"}
+                    confirmLabel={DIALOG[dialog.action].confirm}
                     busy={dialogBusy}
                     error={dialogError}
                     onConfirm={confirmReject}

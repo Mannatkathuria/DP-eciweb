@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 
 // Phase 2: elections and their schedule, polling stations (DEO proposes, ECI approves), election
 // staff assignments, nominations, scrutiny, withdrawal and the published list of candidates.
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 process.env.GEMINI_API = "";
 const TEST_REDIS_URL = process.env.TEST_REDIS_URL;
@@ -247,8 +248,27 @@ test("nominations: filed in the nomination period, scrutinised by the RO, withdr
     assert.equal((await call("POST", `/nominations/${nA.body.data._id}/scrutiny`, { decision: "accepted" }, otherRo.token)).status, 403);
     assert.equal((await call("GET", `/nominations?electionId=${election._id}`, undefined, ro.token)).body.data.items.length, 4);
 
+    // RP Act s.22(2): the ARO scrutinises only after the RO records being unavoidably prevented.
+    const aroEarly = await makeUser("aro");
+    await grant(aroEarly, "aro", area, election._id);
+    const aroElsewhere = await makeUser("aro");
+    await grant(aroElsewhere, "aro", otherArea, election._id);
+    assert.equal((await call("POST", `/nominations/${nC.body.data._id}/scrutiny`, { decision: "accepted" }, aroEarly.token)).status, 403);
+    const delegate = (body, who = ro) => call("POST", "/nominations/scrutiny-delegation", { electionId: election._id, ...area, ...body }, who.token);
+    assert.equal((await delegate({ aroEpic: aroEarly.user.epic })).status, 400); // reason needed
+    assert.equal((await delegate({ aroEpic: aroEarly.user.epic, reason: "RO admitted to hospital" }, aroEarly)).status, 403); // only the RO delegates
+    assert.equal((await delegate({ aroEpic: aroElsewhere.user.epic, reason: "RO admitted to hospital" })).status, 409); // not this constituency
+    const del = await delegate({ aroEpic: aroEarly.user.epic, reason: "RO admitted to hospital" });
+    assert.equal(del.status, 201, JSON.stringify(del.body));
+    assert.equal((await delegate({ aroEpic: aroEarly.user.epic, reason: "again" })).status, 409);
+    const byAro = await call("POST", `/nominations/${nC.body.data._id}/scrutiny`, { decision: "accepted" }, aroEarly.token);
+    assert.equal(byAro.status, 200, JSON.stringify(byAro.body));
+    assert.equal(byAro.body.data.scrutiny.capacity, "assistant_returning_officer_ro_prevented");
+    assert.equal((await call("POST", "/nominations/scrutiny-delegation/revoke", { electionId: election._id, ...area, reason: "RO back on duty" }, ro.token)).status, 200);
+    assert.equal((await call("POST", `/nominations/${nD.body.data._id}/scrutiny`, { decision: "accepted" }, aroEarly.token)).status, 403);
+
     assert.equal((await call("POST", `/nominations/${nB.body.data._id}/scrutiny`, { decision: "rejected" }, ro.token)).status, 400); // reason needed
-    for (const n of [nA, nB, nC, nD]) {
+    for (const n of [nA, nB, nD]) {
         const decision = n === nB ? { decision: "rejected", reason: "Form 26 affidavit incomplete" } : { decision: "accepted" };
         assert.equal((await call("POST", `/nominations/${n.body.data._id}/scrutiny`, decision, ro.token)).status, 200);
     }
@@ -279,4 +299,22 @@ test("nominations: filed in the nomination period, scrutinised by the RO, withdr
     assert.equal(pub.body.data.candidates[0].epic, undefined);
     const audit = (await call("GET", `/audit/nomination/${nB.body.data._id}`, undefined, eci.token)).body.data.items.map((e) => e.action);
     assert.deepEqual(audit.sort(), ["nomination.filed", "nomination.rejected"]);
+});
+
+test("assignments: a validity window limits when an assignment applies; a revoked one is not replaced by the profile", needsRedis, async () => {
+    const { call, makeUser, eci, area } = await setup();
+    const ero = await makeUser("ero");
+    const bad = await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: area, validFrom: "2030-01-02", validUntil: "2030-01-01" }, eci.token);
+    assert.equal(bad.status, 400);
+    assert.equal((await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: area, validFrom: "not a date" }, eci.token)).status, 400);
+    const future = await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: area, validFrom: "2099-01-01" }, eci.token);
+    assert.equal(future.status, 201, JSON.stringify(future.body));
+    assert.equal((await call("GET", "/assignments/me", undefined, ero.token)).body.data.assignments.length, 0, "not yet in effect");
+    const listed = (await call("GET", `/assignments?epic=${ero.user.epic}`, undefined, eci.token)).body.data.items[0];
+    assert.equal(listed.inEffect, false);
+    const now = await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: { ...area, constituency: area.constituency }, election: "window test", validUntil: new Date(Date.now() + 86400000).toISOString() }, eci.token);
+    assert.equal(now.status, 201);
+    assert.equal((await call("GET", "/assignments/me", undefined, ero.token)).body.data.assignments.length, 1);
+    await call("POST", `/assignments/${now.body.data._id}/revoke`, { reason: "Transferred out" }, eci.token);
+    assert.equal((await call("GET", "/assignments/me", undefined, ero.token)).body.data.assignments.length, 0);
 });

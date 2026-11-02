@@ -42,6 +42,7 @@ import PollDay from "./pages/PollDay";
 import ControlRoom from "./pages/ControlRoom";
 import Training from "./pages/Training";
 import PhoneScreen from "./pages/PhoneScreen";
+import StepUpDialog from "./components/StepUpDialog";
 
 function App() {
     return (
@@ -111,6 +112,7 @@ function App() {
                 {/* Stand-alone phone simulator used during demonstrations */}
                 <Route path="/phone" element={<PhoneScreen />} />
             </Routes>
+            <StepUpDialog />
         </BrowserRouter>
     );
 }

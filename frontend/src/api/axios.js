@@ -17,10 +17,31 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Response interceptor to handle 401
+// Re-authentication before sensitive approvals. The server answers 401 with code STEP_UP_REQUIRED;
+// the StepUpDialog asks for a fresh one-time code, and the request is retried once with the
+// short-lived step-up token. The token is kept in memory only, never in storage.
+let stepUp = null; // { token, expiresAt }
+let prompt = null;
+export const setStepUpPrompt = (fn) => { prompt = fn; };
+export const clearStepUp = () => { stepUp = null; };
+export const rememberStepUp = (token, minutes) => { stepUp = { token, expiresAt: Date.now() + (minutes * 60 - 15) * 1000 }; };
+
+api.interceptors.request.use((config) => {
+    if (stepUp && stepUp.expiresAt > Date.now()) config.headers["X-Step-Up"] = stepUp.token;
+    return config;
+});
+
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
+        const needsStepUp = error.response?.status === 401 && error.response.data?.errors?.[0]?.code === "STEP_UP_REQUIRED";
+        if (needsStepUp) {
+            stepUp = null;
+            if (prompt && !error.config._steppedUp && (await prompt())) {
+                return api({ ...error.config, _steppedUp: true });
+            }
+            return Promise.reject(error);
+        }
         if (error.response?.status === 401) {
             localStorage.removeItem("token");
         }

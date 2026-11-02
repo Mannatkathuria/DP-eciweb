@@ -1,8 +1,9 @@
 import express from "express";
 import { verifyJWT, requirePasswordChanged } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
+import { requireStepUp } from "../middlewares/stepUp.middleware.js";
 import {
-    fileNomination, listNominationsForRo, myNominations, publishContesting, scrutinise, withdraw
+    delegateScrutiny, fileNomination, getDelegation, listNominationsForRo, revokeScrutinyDelegation, myNominations, publishContesting, scrutinise, withdraw
 } from "../controllers/nomination.controller.js";
 
 const router = express.Router();
@@ -15,6 +16,9 @@ router.post("/:id/withdraw", authorize("nomination:submit"), withdraw);
 // Returning Officer / Assistant Returning Officer
 router.get("/", authorize("nomination:scrutinise"), listNominationsForRo);
 router.post("/:id/scrutiny", authorize("nomination:scrutinise"), scrutinise);
-router.post("/contesting", authorize("candidates:publish"), publishContesting);
+router.get("/scrutiny-delegation", authorize("nomination:scrutinise"), getDelegation);
+router.post("/scrutiny-delegation", authorize("scrutiny:delegate"), requireStepUp, delegateScrutiny);
+router.post("/scrutiny-delegation/revoke", authorize("scrutiny:delegate"), requireStepUp, revokeScrutinyDelegation);
+router.post("/contesting", authorize("candidates:publish"), requireStepUp, publishContesting);
 
 export default router;

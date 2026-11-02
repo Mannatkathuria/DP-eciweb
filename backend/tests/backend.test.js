@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { compareIdentity, nameSimilarity, fetchCredential } from "../src/services/identity.service.js";
 
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 
 const elector = {

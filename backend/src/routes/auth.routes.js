@@ -6,6 +6,9 @@ import {
     bloForgotPassword, bloResendResetOtp, bloResetPassword
 } from "../controllers/blo.controller.js";
 import { verifyJWT } from "../middlewares/verifyJWT.middleware.js";
+import { requestStepUp, verifyStepUp } from "../controllers/stepUp.controller.js";
+import { respondToInformationRequest } from "../controllers/followUp.controller.js";
+import { applicantCheck } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 const loginLimiter = rateLimit({
@@ -22,12 +25,17 @@ const registerLimiter = rateLimit({
 });
 router.post("/register", registerLimiter, submitRegistration);
 router.get("/register/:id", getRegistrationStatus);
+// The applicant answers an information request, proving it is them with the reference ID and date of birth.
+router.post("/register/:id/information", registerLimiter, respondToInformationRequest("registration", applicantCheck));
 // Public: State/UT -> district -> assembly constituency options for the registration form.
 router.get("/geography", getGeography);
 // Public: every sign-in role with its group and permissions.
 router.get("/roles", getRoles);
 router.post("/logout", logout);
 router.get("/me", verifyJWT, me);
+// Re-authentication before sensitive approvals: a fresh code, then a 10-minute step-up token.
+router.post("/step-up/request", loginLimiter, verifyJWT, requestStepUp);
+router.post("/step-up/verify", loginLimiter, verifyJWT, verifyStepUp);
 
 // BLO sign-in: BLO ID + password, then an OTP sent to the BLO's mobile (valid 2 minutes).
 const bloLimiter = rateLimit({

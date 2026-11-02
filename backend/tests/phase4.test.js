@@ -4,6 +4,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 // Phase 4: control room across a jurisdiction, alerts, incidents and sector officers' visits.
+process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
 process.env.ACCESS_TOKEN_SECRET = "test";
 process.env.GEMINI_API = "";
 const TEST_REDIS_URL = process.env.TEST_REDIS_URL;

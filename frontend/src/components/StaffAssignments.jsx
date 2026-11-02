@@ -15,7 +15,7 @@ const AT_STATION = ["presiding_officer", "polling_officer"];
 
 export default function StaffAssignments({ roles, stations, constituencies, election, area }) {
     const [items, setItems] = useState([]);
-    const [form, setForm] = useState({ epic: "", role: roles[0], constituency: constituencies[0] || "", stationId: "" });
+    const [form, setForm] = useState({ epic: "", role: roles[0], constituency: constituencies[0] || "", stationId: "", validFrom: "", validUntil: "" });
     const [revoking, setRevoking] = useState(null);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
@@ -39,7 +39,7 @@ export default function StaffAssignments({ roles, stations, constituencies, elec
         const jurisdiction = { state: area.state, district: area.district, constituency: form.constituency,
             ...(atStation && station ? { pollingStation: station.name, partNumber: station.partNumber } : {}) };
         try {
-            await api.post("/assignments", { epic: form.epic.trim().toUpperCase(), role: form.role, election, jurisdiction });
+            await api.post("/assignments", { epic: form.epic.trim().toUpperCase(), role: form.role, election, jurisdiction, validFrom: form.validFrom || undefined, validUntil: form.validUntil || undefined });
             setNotice(`${ROLE_LABEL[form.role]} appointed.`);
             setForm((f) => ({ ...f, epic: "" }));
             await load();
@@ -77,21 +77,26 @@ export default function StaffAssignments({ roles, stations, constituencies, elec
                                 {choices.map((s) => <option key={s._id} value={s._id}>Part {s.partNumber}: {s.name}</option>)}
                             </select></div>
                     )}
+                    <div className="field"><label htmlFor="st-from">From (optional)</label>
+                        <input id="st-from" type="date" value={form.validFrom} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} /></div>
+                    <div className="field"><label htmlFor="st-until">Until (optional)</label>
+                        <input id="st-until" type="date" value={form.validUntil} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} /></div>
                 </div>
                 {atStation && choices.length === 0 && <p className="muted"><small>No approved polling station in this constituency yet.</small></p>}
                 <button className="btn btn-primary" type="submit" disabled={busy}>Appoint</button>
             </form>
             <div className="table-wrap" style={{ marginTop: 16 }}><table>
-                <thead><tr><th>Officer</th><th>Role</th><th>Where</th><th></th></tr></thead>
+                <thead><tr><th>Officer</th><th>Role</th><th>Where</th><th>Valid</th><th></th></tr></thead>
                 <tbody>
                     {items.map((a) => (
                         <tr key={a._id}>
                             <td>{a.epic}</td><td>{ROLE_LABEL[a.role]}</td>
                             <td><small>{[a.jurisdiction.pollingStation && `${a.jurisdiction.pollingStation} (part ${a.jurisdiction.partNumber})`, a.jurisdiction.constituency].filter(Boolean).join(", ")}</small></td>
+                            <td><small>{a.validFrom || a.validUntil ? `${a.validFrom ? new Date(a.validFrom).toLocaleDateString() : "now"} to ${a.validUntil ? new Date(a.validUntil).toLocaleDateString() : "open"}` : "Open-ended"}</small>{a.inEffect === false && <><br /><span className="badge badge-warn">Not in effect</span></>}</td>
                             <td><button className="btn-reject" onClick={() => setRevoking(a)} disabled={busy}>Revoke</button></td>
                         </tr>
                     ))}
-                    {items.length === 0 && <tr><td colSpan={4}>Nobody appointed yet.</td></tr>}
+                    {items.length === 0 && <tr><td colSpan={5}>Nobody appointed yet.</td></tr>}
                 </tbody>
             </table></div>
             {revoking && <ReasonDialog title={`Revoke ${revoking.epic}`} label="Reason" required confirmLabel="Revoke" busy={busy} error={error} onCancel={() => setRevoking(null)} onConfirm={revoke} />}

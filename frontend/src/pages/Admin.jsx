@@ -480,7 +480,7 @@ function Admin() {
                                     <tbody>
                                         {changeRequests.map((cr) => (
                                             <tr key={cr._id}>
-                                                <td>{new Date(cr.submittedAt).toLocaleString()}</td>
+                                                <td>{new Date(cr.submittedAt).toLocaleString()}{cr.reverification && <><br /><span className="badge badge-warn">Verify again</span><br /><small>ERO: “{cr.reverification.note}”</small></>}{cr.informationRequest?.response && <><br /><small>Applicant added: “{cr.informationRequest.response}”</small></>}</td>
                                                 <td>
                                                     <strong>{cr.currentRecord?.name}</strong>
                                                     <br />
@@ -607,7 +607,7 @@ function Admin() {
                                     <tbody>
                                         {registrations.map((r) => (
                                             <tr key={r._id}>
-                                                <td>{new Date(r.submittedAt).toLocaleString()}</td>
+                                                <td>{new Date(r.submittedAt).toLocaleString()}{r.reverification && <><br /><span className="badge badge-warn">Verify again</span><br /><small>ERO: “{r.reverification.note}”</small></>}{r.informationRequest?.response && <><br /><small>Applicant added: “{r.informationRequest.response}”</small></>}</td>
                                                 <td>
                                                     <strong>{r.name}</strong>
                                                 </td>

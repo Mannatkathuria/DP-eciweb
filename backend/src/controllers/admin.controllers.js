@@ -102,7 +102,7 @@ export const getStats = asyncHandler(async (req, res) => {
 // A BLO verifies and recommends; only the ERO/AERO decides. Every step is checked against the
 // caller's assignment for the application's constituency and recorded in the audit trail.
 
-export const OPEN_REGISTRATION_STATUSES = ["pending", "field_verified"];
+export const OPEN_REGISTRATION_STATUSES = ["pending", "field_verified", "information_required"];
 
 const summarise = (r) => ({
     ...withoutSecrets(r), // never send the encrypted Aadhaar to a client

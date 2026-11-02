@@ -1,11 +1,14 @@
 import crypto from "crypto";
 import { transaction } from "../config/redis.js";
 import {
-    getContestingList, getNomination, listNominations, lockNomination, saveContestingList, saveNomination
+    getContestingList, getNomination, getScrutinyDelegation, listNominations, lockNomination, saveContestingList,
+    saveNomination, saveScrutinyDelegation
 } from "../repositories/election.repository.js";
+import { getUserByEpic } from "../repositories/user.repository.js";
+import { listAssignmentsForUser } from "../repositories/assignment.repository.js";
 import { rollAreaKey } from "../repositories/rollVersion.repository.js";
 import { assignmentInElection, requireElection, todayIST } from "../services/election.service.js";
-import { assertCovers, validateJurisdiction } from "../services/authority.service.js";
+import { assertCovers, covers, validateJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
@@ -105,13 +108,72 @@ export const scrutinise = asyncHandler(async (req, res) => {
         if (today < election.schedule.scrutinyDate) throw new ApiError(409, `Scrutiny takes place on ${election.schedule.scrutinyDate}.`);
         if (today > election.schedule.lastDateOfWithdrawal) throw new ApiError(409, "The scrutiny period is over.");
         if (nomination.status !== "filed") throw new ApiError(409, `This nomination has already been ${nomination.status}.`);
-        const updated = { ...nomination, status: decision, scrutiny: { decision, reason, by: req.user.epic, at: new Date().toISOString() } };
+        let capacity = "returning_officer";
+        if (req.user.role !== "ro") {
+            const delegation = await getScrutinyDelegation(nomination.electionId, rollAreaKey(nomination));
+            if (!delegation || delegation.revokedAt || delegation.aroUserId !== req.user._id) {
+                throw new ApiError(403, "An Assistant Returning Officer may scrutinise nominations only when the Returning Officer has recorded that they are unavoidably prevented and named you (RP Act 1951, s.22(2)).");
+            }
+            capacity = "assistant_returning_officer_ro_prevented";
+        }
+        const updated = { ...nomination, status: decision, scrutiny: { decision, reason, by: req.user.epic, capacity, at: new Date().toISOString() } };
         const tx = transaction();
         saveNomination(updated, tx);
         await recordAudit(auditEvent({ actor: req.user, action: `nomination.${decision}`, resource: { type: "nomination", id: nomination._id }, jurisdiction: nomination, before: { status: "filed" }, after: { status: decision }, note: reason }), tx);
         await tx.exec();
         res.json({ success: true, data: updated });
     } finally { await release(); }
+});
+
+const delegationArea = async (req, source) => {
+    const election = await requireElection(source?.electionId);
+    const area = validateJurisdiction("ero", source ?? {});
+    assertCovers(req.authority.assignments, { ...area, assemblyConstituency: area.constituency }, "This constituency");
+    return { election, area, areaKey: rollAreaKey(area) };
+};
+
+/**
+ * RO records that they are unavoidably prevented from scrutinising, and names the ARO of the same
+ * constituency who will scrutinise instead. Only one delegation is active per area at a time.
+ */
+export const delegateScrutiny = asyncHandler(async (req, res) => {
+    const { election, area, areaKey } = await delegationArea(req, req.body);
+    const reason = requireReason(req.body?.reason);
+    const aro = await getUserByEpic(String(req.body?.aroEpic ?? "").trim().toUpperCase());
+    if (!aro || aro.role !== "aro") throw new ApiError(404, "No Assistant Returning Officer has that EPIC.");
+    const record = { ...area, assemblyConstituency: area.constituency };
+    const aroAssigned = (await listAssignmentsForUser(aro._id))
+        .some((a) => a.status === "active" && a.role === "aro" && assignmentInElection(a, election) && covers(a, record));
+    if (!aroAssigned) throw new ApiError(409, "That Assistant Returning Officer is not assigned to this constituency for this election.");
+    const current = await getScrutinyDelegation(election._id, areaKey);
+    if (current && !current.revokedAt) throw new ApiError(409, "A delegation is already active. Withdraw it first.");
+    const delegation = { electionId: election._id, areaKey, ...area, aroUserId: aro._id, aroEpic: aro.epic, aroName: aro.name ?? null,
+        reason, by: req.user.epic, at: new Date().toISOString(), revokedAt: null, revokedBy: null, revokeReason: null };
+    const tx = transaction();
+    saveScrutinyDelegation(delegation, tx);
+    await recordAudit(auditEvent({ actor: req.user, action: "scrutiny.delegated", resource: { type: "scrutiny-delegation", id: `${election._id}:${areaKey}` }, jurisdiction: area, after: { aroEpic: aro.epic }, note: reason }), tx);
+    await tx.exec();
+    res.status(201).json({ success: true, data: delegation });
+});
+
+/** RO withdraws the delegation once they can act again. */
+export const revokeScrutinyDelegation = asyncHandler(async (req, res) => {
+    const { election, area, areaKey } = await delegationArea(req, req.body);
+    const reason = requireReason(req.body?.reason);
+    const current = await getScrutinyDelegation(election._id, areaKey);
+    if (!current || current.revokedAt) throw new ApiError(404, "There is no active delegation for this constituency.");
+    const updated = { ...current, revokedAt: new Date().toISOString(), revokedBy: req.user.epic, revokeReason: reason };
+    const tx = transaction();
+    saveScrutinyDelegation(updated, tx);
+    await recordAudit(auditEvent({ actor: req.user, action: "scrutiny.delegation-revoked", resource: { type: "scrutiny-delegation", id: `${election._id}:${areaKey}` }, jurisdiction: area, before: { aroEpic: current.aroEpic }, note: reason }), tx);
+    await tx.exec();
+    res.json({ success: true, data: updated });
+});
+
+/** RO or ARO: the delegation for one constituency, if any. */
+export const getDelegation = asyncHandler(async (req, res) => {
+    const { election, areaKey } = await delegationArea(req, req.query);
+    res.json({ success: true, data: (await getScrutinyDelegation(election._id, areaKey)) ?? null });
 });
 
 /** Candidate withdraws their own nomination, until the last date of withdrawal. */

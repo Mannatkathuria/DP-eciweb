@@ -1,6 +1,10 @@
 import express from "express";
 import { verifyJWT, requireRole } from "../middlewares/verifyJWT.middleware.js";
 import { submitChangeRequest, getMyChangeRequests } from "../controllers/changeRequest.controller.js";
+import { respondToInformationRequest } from "../controllers/followUp.controller.js";
+import { ApiError } from "../utils/ApiErrors.js";
+
+const ownRequest = (req, record) => { if (record.epic !== req.user.epic) throw new ApiError(404, "Change request not found."); };
 
 const router = express.Router();
 
@@ -8,5 +12,7 @@ const router = express.Router();
 // where permission and jurisdiction are checked.
 router.post("/", verifyJWT, requireRole("voter"), submitChangeRequest);
 router.get("/my", verifyJWT, requireRole("voter"), getMyChangeRequests);
+// The voter answers an information request from the ERO/AERO.
+router.post("/:id/information", verifyJWT, requireRole("voter"), respondToInformationRequest("change_request", ownRequest));
 
 export default router;

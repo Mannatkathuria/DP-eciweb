@@ -13,6 +13,7 @@ export const checkConfig = (env = process.env) => {
     if (env.NODE_ENV === "production") {
         if (!env.ACCESS_TOKEN_SECRET || env.ACCESS_TOKEN_SECRET.length < 32) problems.push("ACCESS_TOKEN_SECRET must be at least 32 characters in production.");
         if (env.PERSONA_DEMO_MODE === "true" && env.APP_MODE !== "training") problems.push("PERSONA_DEMO_MODE must not be on in a live production deployment.");
+        if (env.STEP_UP_REQUIRED === "false" && env.APP_MODE !== "training") problems.push("STEP_UP_REQUIRED must not be turned off in a live production deployment.");
         if (!env.CLIENT_URL) problems.push("CLIENT_URL must list the allowed web origins in production.");
     }
     return problems;
