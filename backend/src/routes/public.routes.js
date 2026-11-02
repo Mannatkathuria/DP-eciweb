@@ -2,6 +2,7 @@ import express from "express";
 import { listAllElections } from "../controllers/election.controller.js";
 import { lookupStationByEpic, searchPublicStations } from "../controllers/pollingStation.controller.js";
 import { publicCandidates } from "../controllers/nomination.controller.js";
+import { publicResults, publicTurnout } from "../controllers/result.controller.js";
 
 // Public information: elections, approved polling stations and published lists of contesting
 // candidates. Mounted behind the public rate limiter. Nothing here returns personal details.
@@ -11,5 +12,7 @@ router.get("/elections", listAllElections);
 router.get("/stations", searchPublicStations);
 router.get("/stations/epic/:epic", lookupStationByEpic);
 router.get("/candidates", publicCandidates);
+router.get("/results", publicResults);
+router.get("/turnout", publicTurnout);
 
 export default router;

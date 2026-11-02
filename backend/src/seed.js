@@ -15,6 +15,9 @@ import { getDataSource, saveDataSource } from "./repositories/integration.reposi
 import { ingest } from "./services/ingestion.service.js";
 import { getElection, listStations, saveElection, saveNomination, saveStation } from "./repositories/election.repository.js";
 import { todayIST } from "./services/election.service.js";
+import { getContestingList, saveContestingList } from "./repositories/election.repository.js";
+import { getResultSource, saveResultFeed, saveResultSource } from "./repositories/result.repository.js";
+import { mockFeed } from "./controllers/result.controller.js";
 
 const electors = [
     ["ABC1234567","Mannat Kathuria","2006-11-23","Male","Punjab","Muktsar","Faridkot","42","Power House, Malout"],
@@ -422,6 +425,32 @@ const seedPollingStations = async () => {
     console.log("Seeded demo polling stations in Ludhiana South (3 approved, 1 awaiting ECI approval).");
 };
 
+// Phase 5 demo: a completed bye-election with its published list of candidates and a full count
+// from a MOCK result source. Labelled as mock everywhere it appears; it is not a result.
+const seedMockResults = async () => {
+    const electionId = "demo-past-election";
+    if (await getContestingList(electionId, "punjab|ludhiana south")) return;
+    const at = new Date().toISOString();
+    const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+    const election = { _id: electionId, name: "Demo past bye-election, Ludhiana South", type: "bye_election", states: ["Punjab"], createdBy: "SEED", createdAt: at, scheduleHistory: [], demo: true,
+        schedule: { notificationDate: dayOffset(-60), lastDateOfNominations: dayOffset(-53), scrutinyDate: dayOffset(-52), lastDateOfWithdrawal: dayOffset(-50), pollDate: dayOffset(-30), countingDate: dayOffset(-27) } };
+    const candidates = [["Harjit Sandhu", "Punjab Progress Party", "Tractor", 55], ["Meenakshi Bhalla", "National Unity Party", "Lamp", 47], ["Rupinder Gill", "Independent", "Kite", 41]]
+        .map(([name, party, symbol, age], i) => ({ serial: i + 1, nominationId: `demo-past-nomination-${i + 1}`, _id: `demo-past-nomination-${i + 1}`, name, party, independent: party === "Independent", symbol, age, ...area, status: "accepted",
+            affidavit: { criminalCases: 0, assets: 5000000 * (i + 1), liabilities: 0, education: "Graduate" } }));
+    const list = { electionId, areaKey: "punjab|ludhiana south", ...area, candidates, publishedBy: "SEED", publishedAt: at };
+    let source = await getResultSource("demo-mock-results");
+    const tx = redis().multi();
+    if (!source) {
+        source = { _id: "demo-mock-results", name: "Demo mock results feed", type: "mock", legalBasis: null, agreementReference: null, status: "active", registeredBy: "SEED", registeredAt: at };
+        saveResultSource(source, tx);
+    }
+    saveElection(election, tx);
+    saveContestingList(list, tx);
+    saveResultFeed(await mockFeed(source, election, area, list.areaKey, list, 6), tx);
+    await tx.exec();
+    console.log("Seeded a completed demo bye-election with MOCK counting results.");
+};
+
 await connectRedis();
 
 // Existing roll records are left alone: they may have been corrected (Form 8) or marked as voted.
@@ -441,6 +470,7 @@ await seedRegistrationRequest();
 await seedNewVoterPipeline();
 await seedElections();
 await seedPollingStations();
+await seedMockResults();
 
 console.log("Redis seed complete with sample data for all voter, blo, and eci tabs.");
 await redis().quit();

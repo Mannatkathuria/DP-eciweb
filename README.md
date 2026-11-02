@@ -172,6 +172,27 @@ The seed adds a "Demo poll-day election, Ludhiana South" whose poll date is the 
 - **Incidents** are reported at a station by its presiding officer or micro observer, or by the sector officer. Each has a type (EVM or VVPAT malfunction, law and order, power, staff absent, accessibility, MCC violation, other) and a severity. The sector officer, RO, DEO or CEO covering the station acknowledges it, adds updates, and resolves it with a note. Every step is timestamped and audited.
 - **Visits:** sector officers record visits to stations in their sector.
 
+## Counting and results, read-only (Phase 5)
+
+The platform never counts votes or declares a result. Counting is conducted by the Returning Officer, and the RO's declaration is the official result. `/results` shows exactly what a **registered result source** sends:
+
+- **Sources** are registered by the ECI administrator (`POST /api/v1/results/sources`). There are two types. An `official_feed` must record its legal basis and agreement reference. A `mock` produces invented figures, and every view labels them "MOCK DATA ... not an election result".
+- **Entries** (`POST /api/v1/results/sources/:id/entries`) are append-only:
+  - Counting rounds come in order, optionally by counting table. Table figures must add up to the round.
+  - Postal ballots are received once.
+  - A correction names an earlier round and carries the source's reason. The original figures stay on record.
+  - Votes must cover exactly the candidates on the published list of contesting candidates. An official feed is refused before the counting date.
+  - Publication status moves from in progress to completed to declared, never backwards. The declared winner (by serial number) comes from the source. Nothing can be added after the declaration.
+- **The public view** shows the source and its label, the standings (a display sum of the received figures), a round-by-round table with a slider, NOTA and postal ballots. It also runs **checks** that flag differences without changing anything:
+  - EVM votes against the votes recorded in this platform's station registers.
+  - More votes than electors on the roll (official feeds only).
+  - Corrections received.
+  - A declared winner who is not ahead in the figures received.
+- **Turnout** (`/public/turnout`) is shown per polling station from the station registers, and labelled approximate.
+- There are no endpoints to edit or delete results.
+
+The seed adds a completed "Demo past bye-election, Ludhiana South" with a published candidate list and a full count from the "Demo mock results feed".
+
 ## Roles, assignments and audit (Phase 0)
 
 - **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.
