@@ -39,6 +39,7 @@ import RoDesk from "./pages/RoDesk";
 import CandidateDesk from "./pages/CandidateDesk";
 import Booths from "./pages/Booths";
 import PollDay from "./pages/PollDay";
+import PresidingOfficer from "./pages/PresidingOfficer";
 import ControlRoom from "./pages/ControlRoom";
 import Training from "./pages/Training";
 import PhoneScreen from "./pages/PhoneScreen";
@@ -94,6 +95,7 @@ function App() {
                     <Route path="/candidate" element={<CandidateDesk />} />
                     <Route path="/agent" element={<AgentDesk />} />
                     <Route path="/poll-day" element={<PollDay />} />
+                    <Route path="/poll-day/presiding-officer" element={<PresidingOfficer />} />
                     <Route path="/control-room" element={<ControlRoom />} />
                     <Route path="/training" element={<Training />} />
 

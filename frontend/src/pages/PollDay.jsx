@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
@@ -122,6 +122,7 @@ export default function PollDay() {
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
                     {!s && lastStation && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={lastStation} role={userData.role} />}
+                    {s && userData?.role === "presiding_officer" && <p><Link to="/poll-day/presiding-officer">Open the presiding officer assistant</Link>: checklists, your polling party and the procedure library.</p>}
                     {s && !isVab && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={s.station} role={userData.role} />}
                     {s && !s.onPollDay && <div className="alert alert-warn">Poll day for this election is {s.election.pollDate}. Nothing can be recorded before then.</div>}
                     {s && !isVab && (
@@ -129,7 +130,10 @@ export default function PollDay() {
                             <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
                                 <div><small className="muted">Poll</small><br /><span className={`badge ${pollOpen ? "badge-ok" : s.poll.status === "closed" ? "badge-bad" : "badge-warn"}`}>{POLL_LABEL[s.poll.status]}</span></div>
                                 <div><small className="muted">Voted</small><br /><strong className="figure">{s.turnout.voted}</strong> of {s.turnout.electors} ({s.turnout.percent}%)</div>
-                                <div><small className="muted">Queue</small><br /><strong className="figure">{s.queue ? s.queue.waiting : "–"}</strong>{s.queue && <small className="muted"> at {new Date(s.queue.at).toLocaleTimeString()}</small>}</div>
+                                <div><small className="muted">Queue</small><br /><strong className="figure">{s.queue ? s.queue.waiting : "–"}</strong>{s.queue && <small className="muted"> at {new Date(s.queue.at).toLocaleTimeString()}</small>}
+                                    {s.queueEstimate?.status === "estimated" && <><br /><small>About {s.queueEstimate.minutes} min wait at {s.queueEstimate.perMinute} voters a minute</small></>}
+                                    {s.queueEstimate?.status === "stale" && <><br /><span className="badge badge-warn">Report is old: count again</span></>}
+                                    {s.queueEstimate?.status === "insufficient_data" && <><br /><small className="muted">Too few voters so far to estimate the wait</small></>}</div>
                                 <div><small className="muted">Open cases</small><br /><strong className="figure">{s.openCases}</strong></div>
                             </div>
                             {can.conduct && s.onPollDay && NEXT[s.poll.status] && (

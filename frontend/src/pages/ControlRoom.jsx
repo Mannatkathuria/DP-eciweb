@@ -30,6 +30,7 @@ export default function ControlRoom() {
     const [data, setData] = useState(null);
     const [electionId, setElectionId] = useState("");
     const [filter, setFilter] = useState("all");
+    const [place, setPlace] = useState({ state: "", district: "", constituency: "" });
     const [dialog, setDialog] = useState(null);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
@@ -59,7 +60,11 @@ export default function ControlRoom() {
         catch (err) { setError(apiMessage(err, "The request failed. Nothing was changed.")); return false; }
         finally { setBusy(false); }
     };
-    const rows = (data?.stations ?? []).filter((r) => filter === "all" || (filter === "alerts" ? r.alerts.length > 0 : r.poll === filter));
+    const all = data?.stations ?? [];
+    const options = (key, within) => [...new Set(all.filter(within).map((r) => r[key]))].sort();
+    const inPlace = (r) => (!place.state || r.state === place.state) && (!place.district || r.district === place.district) && (!place.constituency || r.constituency === place.constituency);
+    const FILTERS = { alerts: (r) => r.alerts.length > 0, offline: (r) => ["offline", "stale", "sync_failed", "unknown"].includes(r.connectivity?.status), pending: (r) => r.connectivity?.pendingOutbox > 0 };
+    const rows = all.filter(inPlace).filter((r) => filter === "all" || (FILTERS[filter] ? FILTERS[filter](r) : r.poll === filter));
     const sum = data?.summary;
 
     return (
@@ -95,11 +100,20 @@ export default function ControlRoom() {
                             <div className="panel">
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", flexWrap: "wrap", gap: 12 }}>
                                     <h2 style={{ margin: 0 }}>Polling stations</h2>
+                                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                                    {options("state", () => true).length > 1 && <div className="field" style={{ margin: 0 }}><label htmlFor="cr-state">State/UT</label>
+                                        <select id="cr-state" value={place.state} onChange={(e) => setPlace({ state: e.target.value, district: "", constituency: "" })}><option value="">All</option>{options("state", () => true).map((v) => <option key={v}>{v}</option>)}</select></div>}
+                                    {options("district", (r) => !place.state || r.state === place.state).length > 1 && <div className="field" style={{ margin: 0 }}><label htmlFor="cr-district">District</label>
+                                        <select id="cr-district" value={place.district} onChange={(e) => setPlace({ ...place, district: e.target.value, constituency: "" })}><option value="">All</option>{options("district", (r) => !place.state || r.state === place.state).map((v) => <option key={v}>{v}</option>)}</select></div>}
+                                    {options("constituency", (r) => (!place.state || r.state === place.state) && (!place.district || r.district === place.district)).length > 1 && <div className="field" style={{ margin: 0 }}><label htmlFor="cr-ac">Constituency</label>
+                                        <select id="cr-ac" value={place.constituency} onChange={(e) => setPlace({ ...place, constituency: e.target.value })}><option value="">All</option>{options("constituency", (r) => (!place.state || r.state === place.state) && (!place.district || r.district === place.district)).map((v) => <option key={v}>{v}</option>)}</select></div>}
                                     <div className="field" style={{ margin: 0 }}><label htmlFor="cr-filter">Show</label>
                                         <select id="cr-filter" value={filter} onChange={(e) => setFilter(e.target.value)}>
                                             <option value="all">All stations</option><option value="alerts">With alerts</option>
                                             <option value="open">Poll open</option><option value="not_started">Not started</option><option value="closed">Closed</option>
+                                            <option value="offline">Device offline or missing</option><option value="pending">Records waiting to sync</option>
                                         </select></div>
+                                    </div>
                                 </div>
                                 <div className="table-wrap" style={{ marginTop: 12 }}><table>
                                     <thead><tr><th>Station</th><th>Poll</th><th>Turnout</th><th>Queue</th><th>Device</th><th>Cases / incidents</th><th>Alerts</th>{data.can.visit && <th></th>}</tr></thead>
@@ -108,8 +122,10 @@ export default function ControlRoom() {
                                             <td><strong>{r.name}</strong><br /><small>Part {r.partNumber}, {r.constituency}</small>{r.lastVisit && <><br /><small className="muted">Visited {new Date(r.lastVisit.at).toLocaleTimeString()}: {r.lastVisit.note}</small></>}</td>
                                             <td><span className={`badge ${POLL[r.poll][1]}`}>{POLL[r.poll][0]}</span></td>
                                             <td className="figure">{r.turnout.percent}%<br /><small>{r.turnout.voted} / {r.turnout.electors}</small></td>
-                                            <td>{r.queue ? <>{r.queue.waiting}<br /><small>{new Date(r.queue.at).toLocaleTimeString()}</small></> : "–"}</td>
-                                            <td>{r.connectivity ? <><span className={`badge ${LINK[r.connectivity.status][1]}`}>{LINK[r.connectivity.status][0]}</span>{r.connectivity.lastHeartbeatAt && <><br /><small>{new Date(r.connectivity.lastHeartbeatAt).toLocaleTimeString()}</small></>}{r.connectivity.pendingOutbox > 0 && <><br /><small>{r.connectivity.pendingOutbox} waiting to sync</small></>}</> : "–"}</td>
+                                            <td>{r.queue ? <>{r.queue.waiting}<br /><small>{new Date(r.queue.at).toLocaleTimeString()}</small>
+                                                {r.queueEstimate?.status === "estimated" && <><br /><small>~{r.queueEstimate.minutes} min</small></>}
+                                                {r.queueEstimate?.status === "stale" && <><br /><span className="badge badge-warn">Stale</span></>}</> : "–"}</td>
+                                            <td>{r.connectivity ? <><span className={`badge ${LINK[r.connectivity.status][1]}`}>{LINK[r.connectivity.status][0]}</span>{r.connectivity.lastHeartbeatAt && <><br /><small>{new Date(r.connectivity.lastHeartbeatAt).toLocaleTimeString()}</small></>}{r.connectivity.pendingOutbox > 0 && <><br /><small>{r.connectivity.pendingOutbox} waiting to sync</small></>}{r.connectivity.packageVersions?.length > 0 && <><br /><small className="muted">Package {r.connectivity.packageVersions.join(", ")}</small></>}</> : "–"}</td>
                                             <td>{r.openCases} / {r.openIncidents}</td>
                                             <td>{r.alerts.map((a) => <span key={a.code} className="badge badge-bad" style={{ display: "inline-block", margin: "0 4px 4px 0" }}>{a.text}</span>)}</td>
                                             {data.can.visit && <td><button className="btn btn-quiet btn-small" disabled={busy} onClick={() => setDialog({

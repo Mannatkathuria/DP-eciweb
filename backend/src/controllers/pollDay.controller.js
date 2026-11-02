@@ -9,6 +9,7 @@ import { assignmentInElection, electionStage, todayIST } from "../services/elect
 import { hasPermission } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { rankElectors } from "../services/search.service.js";
+import { queueEstimate } from "../services/queue.service.js";
 import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
@@ -72,9 +73,10 @@ const stationRecord = (station) => ({ ...station, assemblyConstituency: station.
 /** Station dashboard: poll state, turnout so far, queue and open cases. */
 export const getStation = asyncHandler(async (req, res) => {
     const { station, election, onPollDay, stations } = await stationContext(req);
-    const [state, voted, electors, cases, incidents] = await Promise.all([
-        loadState(election, station), registerLength(election._id, station._id), listElectors(), listPollCases(election._id, station._id), listIncidents(election._id)
+    const [state, register, electors, cases, incidents] = await Promise.all([
+        loadState(election, station), listRegister(election._id, station._id), listElectors(), listPollCases(election._id, station._id), listIncidents(election._id)
     ]);
+    const voted = register.length;
     const total = electors.filter(inPart(station)).length;
     res.json({ success: true, data: {
         station: { _id: station._id, stationCode: station.stationCode, name: station.name, address: station.address, state: station.state, district: station.district, constituency: station.constituency, partNumber: station.partNumber, accessibility: station.accessibility },
@@ -82,6 +84,7 @@ export const getStation = asyncHandler(async (req, res) => {
         election: { _id: election._id, name: election.name, pollDate: election.schedule.pollDate, stage: electionStage(election) },
         onPollDay, poll: { status: state.status, history: state.history, closing: state.closing },
         queue: state.queue, queueHistory: state.queueHistory.slice(-12),
+        queueEstimate: queueEstimate({ queue: state.queue, register, pollStatus: state.status }),
         turnout: { electors: total, voted, percent: total ? Math.round((voted / total) * 1000) / 10 : 0 },
         openCases: cases.filter((c) => c.status === "open").length,
         incidents: incidents.filter((i) => i.stationId === station._id).sort((a, b) => b.reportedAt.localeCompare(a.reportedAt)),
@@ -369,4 +372,83 @@ export const lookupVabSlip = asyncHandler(async (req, res) => {
     if (!elector || !inPart(station)(elector)) throw new ApiError(404, "This slip is not valid at your polling station.");
     res.json({ success: true, data: { epic: elector.epic, name: elector.name, serial: slip.serial, age: ageOf(elector.dateOfBirth), gender: elector.gender,
         voted: Boolean(await votedAt(election._id, elector.epic)) } });
+});
+
+/**
+ * Public: the queue at a polling station on poll day, for voters deciding when to go. Anonymous
+ * counts and the estimate only; marked as stale when no recent report has come in.
+ */
+export const publicQueue = asyncHandler(async (req, res) => {
+    const station = (await listStations()).find((s) => s._id === String(req.params.id) && s.status === "ACTIVE");
+    if (!station) throw new ApiError(404, "Polling station not found.");
+    const today = todayIST();
+    const election = (await listElections()).find((e) => e.states.includes(station.state) && electionStage(e, today) === "poll_day");
+    if (!election) return res.json({ success: true, data: { station: { _id: station._id, name: station.name }, estimate: { status: "no_poll_today" } } });
+    const [state, register] = await Promise.all([loadState(election, station), listRegister(election._id, station._id)]);
+    const est = queueEstimate({ queue: state.queue, register, pollStatus: state.status });
+    res.set("Cache-Control", "public, max-age=60");
+    res.json({ success: true, data: {
+        station: { _id: station._id, name: station.name, partNumber: station.partNumber, constituency: station.constituency },
+        election: { name: election.name, pollDate: election.schedule.pollDate },
+        estimate: { status: est.status, waiting: est.waiting, minutes: est.minutes, reportedAt: est.reportedAt ?? null },
+        note: "An estimate from the polling party's latest count and the station's recent pace. It is not official turnout."
+    } });
+});
+
+// ---- Presiding officer assistant: procedure library, checklists, the polling party ----
+import { CHECKLISTS, LIBRARY_VERSION, PROCEDURES, SOURCES, searchProcedures } from "../config/procedures.js";
+import { listAllAssignments } from "../repositories/assignment.repository.js";
+import { getUserById } from "../repositories/user.repository.js";
+import { assignmentInEffect } from "../services/authority.service.js";
+import { ROLES as ROLE_CATALOGUE } from "../config/roles.js";
+
+/** The polling party and others assigned to this station for this election (names and roles only). */
+const listAssignmentsForStation = async (station, election) => {
+    const here = (await listAllAssignments()).filter((a) => assignmentInEffect(a) && a.jurisdiction?.pollingStation
+        && norm(a.jurisdiction.pollingStation) === norm(station.name) && norm(a.jurisdiction.constituency) === norm(station.constituency)
+        && (!a.jurisdiction.partNumber || String(a.jurisdiction.partNumber) === station.partNumber) && assignmentInElection(a, election));
+    const label = (role) => ROLE_CATALOGUE.find((r) => r.id === role)?.label ?? role;
+    return Promise.all(here.map(async (a) => ({ role: a.role, roleLabel: label(a.role), name: (await getUserById(a.userId))?.name ?? null, epic: a.epic ?? null, agentType: a.agentType ?? null, candidateName: a.candidateName ?? null })));
+};
+
+const checklistKey = (electionId, stationId) => `poll:checklists:${electionId}:${stationId}`;
+
+export const getProcedures = asyncHandler(async (req, res) => {
+    const items = searchProcedures(req.query.q);
+    res.json({ success: true, data: {
+        version: LIBRARY_VERSION, sources: SOURCES, items,
+        notice: "Plain-language reference, not the official text. Decisions are the presiding officer's under the Rules and the Commission's instructions. Entries are unreviewed until an authorised official checks them against the current handbook."
+    } });
+});
+
+export const getAssistant = asyncHandler(async (req, res) => {
+    const { station, election } = await stationContext(req);
+    const saved = JSON.parse((await redis().get(checklistKey(election._id, station._id))) ?? "{}");
+    const party = await listAssignmentsForStation(station, election);
+    res.json({ success: true, data: {
+        checklists: Object.fromEntries(Object.entries(CHECKLISTS).map(([k, c]) => [k, { title: c.title, items: c.items.map(([id, text, ref]) => ({ id, text, ref: ref ?? null, done: saved[k]?.[id] ?? null })) }])),
+        party, procedures: PROCEDURES.map((p) => ({ id: p.id, title: p.title })), version: LIBRARY_VERSION
+    } });
+});
+
+export const tickChecklist = asyncHandler(async (req, res) => {
+    const { station, election } = await stationContext(req);
+    const kind = String(req.params.kind ?? "");
+    const list = CHECKLISTS[kind];
+    if (!list) throw new ApiError(404, "Unknown checklist.");
+    const item = String(req.body?.item ?? "");
+    if (!list.items.some(([id]) => id === item)) throw new ApiError(400, "Unknown checklist item.");
+    const done = req.body?.done === true;
+    const note = clean(req.body?.note, 300) || null;
+    const result = await withStationLock(election._id, station._id, async () => {
+        const saved = JSON.parse((await redis().get(checklistKey(election._id, station._id))) ?? "{}");
+        saved[kind] = { ...(saved[kind] ?? {}), [item]: done ? { at: new Date().toISOString(), by: req.user.epic, note } : null };
+        const tx = transaction();
+        tx.set(checklistKey(election._id, station._id), JSON.stringify(saved));
+        await recordAudit(auditEvent({ actor: req.user, action: `poll.checklist.${done ? "ticked" : "unticked"}`, resource: { type: "poll_station", id: `${election._id}:${station._id}` }, jurisdiction: stationRecord(station), after: { kind, item }, note }), tx);
+        await tx.exec();
+        return saved[kind];
+    });
+    if (!result) throw new ApiError(503, "The station is busy. Try again.");
+    res.json({ success: true, data: result });
 });

@@ -3,7 +3,7 @@ import { transaction } from "../config/redis.js";
 import { listElections, listStations } from "../repositories/election.repository.js";
 import { listElectors } from "../repositories/elector.repository.js";
 import {
-    addVisit, getIncident, getPollState, listIncidents, listPollCases, listVisits, lockIncident, registerLength, saveIncident
+    addVisit, getIncident, getPollState, listIncidents, listPollCases, listRegister, listVisits, lockIncident, saveIncident
 } from "../repositories/poll.repository.js";
 import { electionStage, requireElection, todayIST } from "../services/election.service.js";
 import { coversAny, hasPermission } from "../services/authority.service.js";
@@ -14,6 +14,7 @@ import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { listAllDevices } from "../repositories/device.repository.js";
 import { stationDeviceSummary } from "../services/device.service.js";
+import { queueEstimate } from "../services/queue.service.js";
 import { sweepOfflineDevices } from "./device.controller.js";
 
 // Control room: the poll across every station the caller's jurisdiction covers (a sector
@@ -85,7 +86,8 @@ export const overview = asyncHandler(async (req, res) => {
     for (const e of electors) if (e.isActive !== false) { const k = partKey(e.state, e.assemblyConstituency, String(e.partNumber)); sizes.set(k, (sizes.get(k) ?? 0) + 1); }
 
     const rows = await Promise.all(stations.map(async (s) => {
-        const [state, voted, cases, visits] = await Promise.all([getPollState(election._id, s._id), registerLength(election._id, s._id), listPollCases(election._id, s._id), listVisits(election._id, s._id)]);
+        const [state, register, cases, visits] = await Promise.all([getPollState(election._id, s._id), listRegister(election._id, s._id), listPollCases(election._id, s._id), listVisits(election._id, s._id)]);
+        const voted = register.length;
         const here = incidents.filter((i) => i.stationId === s._id);
         const total = sizes.get(partKey(s.state, s.constituency, s.partNumber)) ?? 0;
         return {
@@ -93,6 +95,7 @@ export const overview = asyncHandler(async (req, res) => {
             poll: state?.status ?? "not_started", closing: state?.closing ?? null,
             turnout: { electors: total, voted, percent: total ? Math.round((voted / total) * 1000) / 10 : 0 },
             queue: state?.queue ?? null,
+            queueEstimate: queueEstimate({ queue: state?.queue, register, pollStatus: state?.status ?? "not_started", now }),
             openCases: cases.filter((c) => c.status === "open").length,
             openIncidents: here.filter((i) => i.status !== "resolved").length,
             lastVisit: visits.at(-1) ?? null,

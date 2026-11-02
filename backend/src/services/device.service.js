@@ -38,6 +38,8 @@ export const stationDeviceSummary = (devices, now = Date.now()) => {
     return {
         devices: live.length, status: live.length ? best : "unknown", worst, counts, lastHeartbeatAt: last,
         pendingOutbox: live.reduce((n, d) => n + (d.lastHeartbeat?.pendingOutbox ?? 0), 0),
-        packageVersions: [...new Set(live.map((d) => d.lastHeartbeat?.packageVersion).filter(Boolean))]
+        packageVersions: [...new Set(live.map((d) => d.lastHeartbeat?.packageVersion ?? d.lastPackage?.version).filter(Boolean))],
+        packageIssuedAt: live.map((d) => d.lastPackage?.at).filter(Boolean).sort().at(-1) ?? null,
+        lastSyncAt: live.map((d) => d.lastSync?.at).filter(Boolean).sort().at(-1) ?? null
     };
 };

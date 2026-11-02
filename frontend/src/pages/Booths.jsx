@@ -9,6 +9,30 @@ import useGeography from "../hooks/useGeography";
 const apiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 const FACILITIES = [["ramp", "Ramp"], ["wheelchair", "Wheelchair"], ["drinkingWater", "Drinking water"], ["toilet", "Toilet"], ["shade", "Shade"], ["signage", "Signage"]];
 
+const QUEUE_TEXT = {
+    estimated: (e) => `${e.waiting} waiting, about ${e.minutes} minute${e.minutes === 1 ? "" : "s"}`,
+    insufficient_data: (e) => `${e.waiting} waiting (not enough recent voting to estimate the wait)`,
+    stale: () => "No recent queue report from this station",
+    unknown: () => "No queue report yet",
+    not_open: () => "The poll is not open yet",
+    closed: () => "The poll has closed",
+    no_poll_today: () => "There is no poll at this station today"
+};
+
+/** Poll day: the queue at the station, from the polling party's latest count and the recent pace. */
+function QueueNow({ id }) {
+    const [q, setQ] = useState(null);
+    const [err, setErr] = useState("");
+    const check = async () => { setErr(""); try { setQ((await api.get(`/public/stations/${id}/queue`)).data.data); } catch (e) { setErr(apiMessage(e, "Could not check the queue.")); } };
+    return (
+        <p style={{ margin: "8px 0 0" }}>
+            <button className="btn btn-quiet btn-small" onClick={check}>{q ? "Check again" : "Check the queue now"}</button>{" "}
+            {q && <span aria-live="polite"><strong>{QUEUE_TEXT[q.estimate.status]?.(q.estimate) ?? q.estimate.status}</strong>{q.estimate.reportedAt && <small className="muted"> (reported {new Date(q.estimate.reportedAt).toLocaleTimeString()})</small>}<br /><small className="muted">{q.note}</small></span>}
+            {err && <small className="muted">{err}</small>}
+        </p>
+    );
+}
+
 export function StationCard({ s }) {
     return (
         <li className="panel" style={{ listStyle: "none", marginBottom: 12 }}>
@@ -29,6 +53,7 @@ export function StationCard({ s }) {
                 ))}
             </p>
             {s.location && <p style={{ margin: "8px 0 0" }}><a href={`https://www.openstreetmap.org/?mlat=${s.location.lat}&mlon=${s.location.lng}#map=17/${s.location.lat}/${s.location.lng}`} target="_blank" rel="noreferrer">Open the map</a></p>}
+            {s._id && <QueueNow id={s._id} />}
             <p className="muted" style={{ margin: "8px 0 0" }}><small>Version {s.version ?? "–"}{s.verifiedAt ? `, approved ${new Date(s.verifiedAt).toLocaleDateString()}` : ""}</small></p>
         </li>
     );

@@ -174,3 +174,27 @@ test("sync: accepted once, repeats answered with the first result, clashes kept 
     assert.ok(synced.some((e) => e.payload.deviceId === dev.id && e.payload.accepted >= 1));
     assert.equal(JSON.stringify(synced).includes(electors[0]), false, "events carry counts only");
 });
+
+test("presiding officer assistant: sourced procedures, checklists kept and audited, the polling party", needsRedis, async () => {
+    const { call, team, A } = await setup();
+    const lib = (await call("GET", "/poll-day/procedures?q=agent%20challenge", undefined, team.po.token)).body.data;
+    assert.equal(lib.items[0].id, "challenged-vote");
+    assert.ok(lib.items.every((p) => p.sources.length && p.version === lib.version && p.reviewStatus));
+    assert.ok(lib.items[0].sources.every((s) => lib.sources[s.source]), "every source is listed");
+    assert.match(lib.notice, /not the official text/);
+
+    assert.equal((await call("GET", "/poll-day/assistant", undefined, team.po.token)).status, 403, "presiding officer only");
+    const a = (await call("GET", "/poll-day/assistant", undefined, team.pro.token)).body.data;
+    assert.deepEqual(Object.keys(a.checklists), ["readiness", "equipment", "closing"]);
+    assert.ok(a.party.some((p) => p.role === "polling_officer") && a.party.some((p) => p.role === "presiding_officer"));
+    assert.equal(a.party.some((p) => p.role === "polling_officer" && p.epic === team.poB.user.epic), false, "not another station's party");
+    assert.equal((await call("POST", "/poll-day/checklists/readiness", { item: "nope", done: true }, team.pro.token)).status, 400);
+    assert.equal((await call("POST", "/poll-day/checklists/readiness", { item: "layout", done: true, note: "Compartment moved to the window wall" }, team.pro.token)).status, 200);
+    const again = (await call("GET", "/poll-day/assistant", undefined, team.pro.token)).body.data;
+    assert.equal(again.checklists.readiness.items.find((i) => i.id === "layout").done.by, team.pro.user.epic);
+
+    // Public queue view: no names, an explicit status.
+    const q = (await call("GET", `/public/stations/${A._id}/queue`)).body.data;
+    assert.ok(["closed", "not_open", "unknown", "stale", "estimated", "insufficient_data"].includes(q.estimate.status));
+    assert.equal(JSON.stringify(q).includes(ctx.electors[0]), false);
+});
