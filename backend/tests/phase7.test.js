@@ -177,3 +177,31 @@ test("security: cookie-only sessions need the anti-forgery header to change anyt
     const list = await (await fetch(`${base}/eci/voters`, { headers: { Authorization: `Bearer ${eci.token}` } })).json();
     assert.ok(list.data.items.every((e) => e.dateOfBirth === undefined), "no dates of birth for the national administrator");
 });
+
+test("suspension: a suspended account loses its session and assignments at once; reinstating restores them", needsRedis, async () => {
+    const { call, makeUser } = await setup();
+    process.env.STEP_UP_REQUIRED = "false";
+    try {
+        const eci = await makeUser("eci");
+        const ero = await makeUser("ero");
+        const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+        assert.equal((await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: area }, eci.token)).status, 201);
+        assert.equal((await call("POST", `/users/${ero.user.epic}/suspend`, { reason: "" }, eci.token)).status, 400);
+        assert.equal((await call("POST", `/users/${eci.user.epic}/suspend`, { reason: "Testing" }, eci.token)).status, 409, "not yourself");
+        assert.equal((await call("POST", `/users/${eci.user.epic}/suspend`, { reason: "Testing" }, ero.token)).status, 403);
+        assert.equal((await call("POST", `/users/${ero.user.epic}/suspend`, { reason: "Under inquiry" }, eci.token)).status, 200);
+        assert.equal((await call("GET", "/assignments/me", undefined, ero.token)).status, 403, "the session stops working");
+        assert.equal((await call("GET", `/users/${ero.user.epic}`, undefined, eci.token)).body.data.suspended, true);
+        assert.equal((await call("POST", `/users/${ero.user.epic}/reinstate`, { reason: "Inquiry closed" }, eci.token)).status, 200);
+        assert.equal((await call("GET", "/assignments/me", undefined, ero.token)).body.data.assignments.length, 1);
+
+        // PC-level assignment for a Returning Officer of a parliamentary constituency.
+        const ropc = await makeUser("ro");
+        const pc = await call("POST", "/assignments", { epic: ropc.user.epic, role: "ro", jurisdiction: { state: "Punjab", parliamentaryConstituency: "2" } }, eci.token);
+        assert.equal(pc.status, 201, JSON.stringify(pc.body));
+        assert.equal((await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: { state: "Punjab", parliamentaryConstituency: "2" } }, eci.token)).status, 400, "an ERO works per assembly constituency");
+        const { coversAny } = await import("../src/services/authority.service.js");
+        assert.equal(coversAny([pc.body.data], { state: "Punjab", assemblyConstituency: "Ajnala" }), true, "Ajnala is in PC 2 (Amritsar)");
+        assert.equal(coversAny([pc.body.data], { state: "Punjab", assemblyConstituency: "Ludhiana South" }), false);
+    } finally { process.env.STEP_UP_REQUIRED = "true"; }
+});

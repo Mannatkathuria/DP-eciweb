@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
+import AccountSuspension from "../components/AccountSuspension";
 
 function EciDashboard() {
     const { logged, userData, logout } = useContext(AuthContext);
@@ -362,6 +363,7 @@ function EciDashboard() {
                     </div>
                 )}
             </section>
+            <AccountSuspension />
         </main>
     );
 }

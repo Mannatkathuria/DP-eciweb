@@ -20,6 +20,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
 
     const user = await getUserById(decoded?._id);
     if (!user) throw new ApiError(401, "Invalid access token: user not found.");
+    if (user.suspended) throw new ApiError(403, "This account is suspended. Contact the election office that appointed you.");
     // A password change or reset signs out sessions that were started before it.
     if (user.passwordChangedAt && decoded.iat * 1000 < Date.parse(user.passwordChangedAt) - 1000) {
         throw new ApiError(401, "Your password was changed. Please sign in again.");

@@ -20,6 +20,26 @@ const isNationwide = (roleId) => {
 
 export const hasPermission = (user, permission) => permissionsFor(user?.role).includes(permission);
 
+// Parliamentary constituencies (PC) by number within each State/UT, from the same ECI dataset.
+// An assembly constituency belongs to exactly one PC.
+const pcOfAc = new Map(); // "state|ac" -> pcNo
+const pcsOfState = new Map(); // state -> Set of pcNo
+for (const st of geography.states) {
+    for (const d of st.districts) {
+        for (const ac of d.acs ?? []) {
+            if (!ac.pcNo) continue;
+            pcOfAc.set(`${norm(st.name)}|${norm(ac.name)}`, String(ac.pcNo));
+            if (!pcsOfState.has(st.name)) pcsOfState.set(st.name, new Set());
+            pcsOfState.get(st.name).add(String(ac.pcNo));
+        }
+    }
+}
+export const pcOf = (state, ac) => pcOfAc.get(`${norm(state)}|${norm(ac)}`) ?? null;
+
+// Roles that may be assigned to a whole parliamentary constituency instead of one assembly
+// constituency (RO of a PC, PC-level observers and counting staff).
+export const PC_ROLES = ["ro", "general_observer", "expenditure_observer", "police_observer", "counting_observer", "counting_supervisor", "counting_assistant"];
+
 /** The jurisdiction a record (application, elector, change request) belongs to. */
 export const recordJurisdiction = (record) => ({
     state: record?.state,
@@ -38,6 +58,13 @@ export const covers = (assignment, record) => {
     const target = recordJurisdiction(record);
     const scope = assignment?.jurisdiction ?? {};
     const fields = JURISDICTION_FIELDS.filter((f) => norm(scope[f]));
+    if (scope.parliamentaryConstituency) {
+        if (norm(scope.state) !== norm(target.state)) return false;
+        // A PC-wide record (no AC) is covered only by the same PC; an AC record by the PC containing it.
+        const recordPc = target.constituency ? pcOf(target.state, target.constituency) : String(record?.parliamentaryConstituency ?? "");
+        if (recordPc !== String(scope.parliamentaryConstituency)) return false;
+        return fields.filter((f) => f !== "state").every((f) => norm(scope[f]) === norm(target[f]) || (f === "pollingStation" && !norm(target.pollingStation)));
+    }
     if (!fields.length) return false; // an empty, non-national assignment covers nothing
     return fields.every((f) => {
         if (f === "pollingStation" && !norm(target.pollingStation)) return true;
@@ -58,7 +85,7 @@ export const assignmentInEffect = (a, now = Date.now()) => a.status === "active"
  * as holding that one assignment. National roles always cover the whole country.
  */
 export const effectiveAssignments = async (user) => {
-    if (!user) return [];
+    if (!user || user.suspended) return [];
     if (isNationwide(user.role)) return [{ role: user.role, nationwide: true, jurisdiction: {}, source: "role" }];
     const all = await listAssignmentsForUser(user._id);
     const stored = all.filter((a) => assignmentInEffect(a) && a.role === (user.role === "admin" ? "blo" : user.role));
@@ -103,7 +130,7 @@ export const validateJurisdiction = (roleId, input = {}) => {
     if (!scope.length) return {};
 
     const j = Object.fromEntries(
-        [...JURISDICTION_FIELDS, "partNumber"].map((f) => [f, clean(input[f])]).filter(([, v]) => v));
+        [...JURISDICTION_FIELDS, "partNumber", "parliamentaryConstituency"].map((f) => [f, clean(input[f])]).filter(([, v]) => v));
 
     const stateEntry = geography.states.find((s) => norm(s.name) === norm(j.state));
     if (!stateEntry) throw new ApiError(400, "Select a valid State/UT for this assignment.");
@@ -115,6 +142,14 @@ export const validateJurisdiction = (roleId, input = {}) => {
         if (!district) throw new ApiError(400, "Select a valid district for the selected State/UT.");
         out.district = district.name;
         districts = [district];
+    }
+    if (j.parliamentaryConstituency && !j.constituency && !j.pollingStation) {
+        if (!PC_ROLES.includes(roleId)) throw new ApiError(400, "This role is assigned to an assembly constituency, not a parliamentary constituency.");
+        const pc = String(Number(j.parliamentaryConstituency));
+        if (!pcsOfState.get(stateEntry.name)?.has(pc)) throw new ApiError(400, "Select a valid parliamentary constituency number for the selected State/UT.");
+        if (out.district) throw new ApiError(400, "A parliamentary constituency assignment names the State/UT and the PC number only.");
+        out.parliamentaryConstituency = pc;
+        return out;
     }
     if (j.constituency || scope.includes("constituency") || scope.includes("pollingStation")) {
         const name = districts.map((d) => findCI(d.constituencies, j.constituency)).find(Boolean);

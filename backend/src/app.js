@@ -27,6 +27,7 @@ import controlRoomRoutes from "./routes/controlRoom.routes.js";
 import resultRoutes from "./routes/result.routes.js";
 import trainingRoutes from "./routes/training.routes.js";
 import agentRoutes from "./routes/agent.routes.js";
+import userRoutes from "./routes/user.routes.js";
 import { isTraining } from "./config/appMode.js";
 
 
@@ -119,6 +120,7 @@ app.use("/api/v1/control-room", controlRoomRoutes);
 app.use("/api/v1/results", resultRoutes);
 app.use("/api/v1/training", trainingRoutes);
 app.use("/api/v1/agents", agentRoutes);
+app.use("/api/v1/users", userRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

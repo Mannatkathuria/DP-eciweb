@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { ApiError } from "../utils/ApiErrors.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -22,6 +23,8 @@ export const publicUser = (user) => ({
 
 // Signs a JWT, sets the httpOnly cookie, and returns the token.
 export const issueSession = (res, user) => {
+  // A suspended account is never given a session, whichever sign-in path it used.
+  if (user.suspended) throw new ApiError(403, "This account is suspended. Contact the election office that appointed you.");
   const token = jwt.sign(
     { _id: user._id, epic: user.epic, role: user.role },
     process.env.ACCESS_TOKEN_SECRET,
