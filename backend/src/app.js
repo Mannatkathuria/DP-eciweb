@@ -30,6 +30,7 @@ import agentRoutes from "./routes/agent.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
+import countingRoutes from "./routes/counting.routes.js";
 import { isTraining } from "./config/appMode.js";
 
 
@@ -125,6 +126,7 @@ app.use("/api/v1/agents", agentRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/events", eventsRoutes);
 app.use("/api/v1/devices", deviceRoutes);
+app.use("/api/v1/counting", countingRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

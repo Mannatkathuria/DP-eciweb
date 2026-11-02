@@ -87,7 +87,7 @@ export default function RoDesk() {
                 lede={area ? `${area.constituency}, ${area.state}. Scrutinise nominations, publish the list of contesting candidates and arrange polling parties.` : "Your constituency assignment is loading."} />
             <section className="section">
                 <div className="container stack">
-                    <p><Link to="/control-room">Open the control room</Link></p>
+                    <p><Link to="/control-room">Open the control room</Link> · <Link to="/counting">Counting operations</Link></p>
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
                     {area && (

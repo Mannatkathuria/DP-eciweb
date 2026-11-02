@@ -34,7 +34,7 @@ export default function AgentDesk() {
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {appointment?.jurisdiction.pollingStation && <p className="panel">Your polling station: part {appointment.jurisdiction.partNumber}, {appointment.jurisdiction.pollingStation}. <Link to="/poll-day">Open the poll-day view</Link></p>}
                     {appointment && role === "election_agent" && <AgentAppointments electionId={appointment.election} isCandidate={false} />}
-                    {appointment && role === "counting_agent" && <p className="panel">Results are shown as received from the registered result source. <Link to="/results">Open results and counting</Link></p>}
+                    {appointment && role === "counting_agent" && <p className="panel">Results are shown as received from the registered result source. <Link to="/results">Open results</Link> · <Link to="/counting">Counting rounds and discrepancy reports</Link></p>}
                 </div>
             </section>
         </>
