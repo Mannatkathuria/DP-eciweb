@@ -1,5 +1,5 @@
 import { coversAny } from "../services/authority.service.js";
-import { historyFor, recentEvents } from "../services/audit.service.js";
+import { historyFor, recentEvents, verifyAudit } from "../services/audit.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Audit events carry the jurisdiction of the record acted on; a supervisory user only sees
@@ -16,4 +16,9 @@ export const listRecentAudit = asyncHandler(async (req, res) => {
 export const getResourceHistory = asyncHandler(async (req, res) => {
     const items = visible(req, await historyFor(req.params.type, req.params.id));
     res.json({ success: true, data: { items, total: items.length } });
+});
+
+/** ECI administrator: recompute every event hash and compare the counter with the trail. */
+export const checkAuditIntegrity = asyncHandler(async (req, res) => {
+    res.json({ success: true, data: await verifyAudit() });
 });

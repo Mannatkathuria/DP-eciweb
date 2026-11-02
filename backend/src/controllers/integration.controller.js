@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { isTraining } from "../config/appMode.js";
 import { transaction } from "../config/redis.js";
 import { getDataSource, listDataSources, listIngestionRuns, saveDataSource } from "../repositories/integration.repository.js";
 import { ingest, rescreenProspects } from "../services/ingestion.service.js";
@@ -22,6 +23,7 @@ export const createSource = asyncHandler(async (req, res) => {
     const body = req.body ?? {};
     const type = String(body.type ?? "");
     if (!SOURCE_TYPES.includes(type)) throw new ApiError(400, `type must be one of: ${SOURCE_TYPES.join(", ")}.`);
+    if (isTraining() && type !== "synthetic") throw new ApiError(409, "The training environment only accepts synthetic data sources.");
     const name = clean(body.name, 120);
     if (name.length < 3) throw new ApiError(400, "Give the source a name.");
     const purpose = clean(body.purpose);

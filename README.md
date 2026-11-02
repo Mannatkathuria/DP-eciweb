@@ -193,6 +193,17 @@ The platform never counts votes or declares a result. Counting is conducted by t
 
 The seed adds a completed "Demo past bye-election, Ludhiana South" with a published candidate list and a full count from the "Demo mock results feed".
 
+## Training environment, training modules and hardening (Phase 6)
+
+**Training environment.** Start the backend with `APP_MODE=training` to run a practice copy. Every API response carries `X-App-Mode: training`, `/api/v1/health` reports the mode, and every screen shows a banner. Only synthetic data sources and mock result sources can be registered, so nothing real can be connected by mistake.
+
+**Training modules** (`/training`). Each role sees its own modules (BLO, ERO/AERO, polling party, presiding officer, sector officer and control room, returning officer, DEO). Each module walks through the real screens step by step and ends with a short knowledge check. The answers stay on the server, the pass mark is 80%, and a pass is kept even if a later attempt fails. Supervisors see their staff's progress inside their own jurisdiction: EROs and BLO supervisors see BLOs, DEOs see polling, counting and sector staff, and ROs see polling parties. This is prototype material, not official ECI training.
+
+**Hardening.**
+- **Tamper-evident audit trail.** Every event stores a SHA-256 hash of its content, and an event counter is written in the same transaction. `GET /api/v1/audit/integrity` (ECI administrator; there is also a button on `/eci/integrations`) recomputes every hash and compares the count. An edited, missing or uncounted event is reported.
+- **Security headers** on every response: `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a `default-src 'none'` content security policy and `Cache-Control: no-store`. `X-Powered-By` is removed.
+- **Start-up configuration check.** With `NODE_ENV=production`, the server refuses to start if `ACCESS_TOKEN_SECRET` is shorter than 32 characters, if `PERSONA_DEMO_MODE` is on in a live deployment, or if `CLIENT_URL` is missing.
+
 ## Roles, assignments and audit (Phase 0)
 
 - **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.
@@ -216,7 +227,7 @@ From `backend`:
 npm test
 ```
 
-The end-to-end and integration tests (registration, BLO sign-in, BLO decisions, Form 8, verification and polling day) need their own **disposable** Redis, never your development database, and are skipped otherwise:
+The end-to-end and integration tests (registration, BLO sign-in, BLO decisions, Form 8, verification, polling day, and the Phase 1 to 6 suites) need their own **disposable** Redis, never your development database, and are skipped otherwise:
 
 ```bash
 docker run -d --name eci-redis-test -p 6390:6379 redis
@@ -255,6 +266,8 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 /booths           Public polling-station search
 /poll-day         Poll day at the officer's own polling station (and the BLO's voter assistance booth)
 /control-room     Stations, alerts and incidents across the official's jurisdiction
+/results          Read-only counting and turnout (registered source or labelled mock)
+/training         Training modules for the signed-in role, and staff progress for supervisors
 ```
 
 ## Notes

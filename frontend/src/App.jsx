@@ -40,6 +40,7 @@ import CandidateDesk from "./pages/CandidateDesk";
 import Booths from "./pages/Booths";
 import PollDay from "./pages/PollDay";
 import ControlRoom from "./pages/ControlRoom";
+import Training from "./pages/Training";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
@@ -91,6 +92,7 @@ function App() {
                     <Route path="/candidate" element={<CandidateDesk />} />
                     <Route path="/poll-day" element={<PollDay />} />
                     <Route path="/control-room" element={<ControlRoom />} />
+                    <Route path="/training" element={<Training />} />
 
                     {/* Older addresses, kept so saved links keep working */}
                     <Route path="/login" element={<Navigate to="/signin/voter" replace />} />

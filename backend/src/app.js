@@ -25,11 +25,27 @@ import publicRoutes from "./routes/public.routes.js";
 import pollDayRoutes from "./routes/pollDay.routes.js";
 import controlRoomRoutes from "./routes/controlRoom.routes.js";
 import resultRoutes from "./routes/result.routes.js";
+import trainingRoutes from "./routes/training.routes.js";
+import { isTraining } from "./config/appMode.js";
 
 
 const app = express();
 
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
+// Security headers for an API that only serves JSON, plus the deployment mode on every response.
+app.use((req, res, next) => {
+    res.set({
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+        "Cache-Control": "no-store",
+        "X-App-Mode": isTraining() ? "training" : "live"
+    });
+    next();
+});
 
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
@@ -45,7 +61,8 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["X-App-Mode"]
   })
 );
 
@@ -75,7 +92,7 @@ const publicLimiter = rateLimit({
 });
 
 app.get("/api/v1/health", (req, res) => {
-    res.status(200).json({ success: true, message: "Election Management API is running", database: "redis" });
+    res.status(200).json({ success: true, message: "Election Management API is running", database: "redis", mode: isTraining() ? "training" : "live" });
 });
 
 app.use("/api/v1/electors", publicLimiter, electorRoutes);
@@ -99,6 +116,7 @@ app.use("/api/v1/public", publicLimiter, publicRoutes);
 app.use("/api/v1/poll-day", pollDayRoutes);
 app.use("/api/v1/control-room", controlRoomRoutes);
 app.use("/api/v1/results", resultRoutes);
+app.use("/api/v1/training", trainingRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

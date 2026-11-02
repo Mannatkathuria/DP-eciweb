@@ -25,7 +25,8 @@ export const NAV = [
     label: "Information",
     items: [
       { label: "Awareness and media", note: "Publications, EVM questions, voter education", to: "/media" },
-      { label: "Roles and access", note: "Who does what, and what each role may do", to: "/roles" }
+      { label: "Roles and access", note: "Who does what, and what each role may do", to: "/roles" },
+      { label: "Training for election staff", note: "Practice modules for your role (sign in)", to: "/training" }
     ]
   }
 ];

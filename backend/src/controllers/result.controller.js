@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { isTraining } from "../config/appMode.js";
 import { transaction } from "../config/redis.js";
 import { getContestingList, listStations } from "../repositories/election.repository.js";
 import { listElectors } from "../repositories/elector.repository.js";
@@ -30,6 +31,7 @@ export const registerResultSource = asyncHandler(async (req, res) => {
     const name = clean(body.name, 120);
     if (name.length < 3) throw new ApiError(400, "Give the source a name.");
     if (!["mock", "official_feed"].includes(body.type)) throw new ApiError(400, "type must be mock or official_feed.");
+    if (isTraining() && body.type !== "mock") throw new ApiError(409, "The training environment only accepts mock result sources.");
     const legalBasis = clean(body.legalBasis, 300) || null; const agreementReference = clean(body.agreementReference, 120) || null;
     if (body.type === "official_feed" && (!legalBasis || !agreementReference)) throw new ApiError(400, "An official feed needs its legal basis and the agreement reference.");
     const source = { _id: crypto.randomUUID(), name, type: body.type, legalBasis, agreementReference, status: "active", registeredBy: req.user.epic, registeredAt: new Date().toISOString() };

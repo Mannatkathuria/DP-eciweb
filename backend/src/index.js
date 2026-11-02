@@ -2,6 +2,14 @@ import "dotenv/config";
 import app from "./app.js";
 import connectDB from "./config/db.js";
 import { connectRedis } from "./config/redis.js";
+import { APP_MODE, checkConfig } from "./config/appMode.js";
+
+const configProblems = checkConfig();
+if (configProblems.length) {
+  for (const problem of configProblems) console.error(`CONFIG: ${problem}`);
+  throw new Error("Unsafe configuration; see the messages above.");
+}
+if (APP_MODE === "training") console.log("TRAINING environment: practice data only.");
 
 const PORT = process.env.PORT || 8000;
 

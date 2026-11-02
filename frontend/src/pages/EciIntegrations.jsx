@@ -14,6 +14,27 @@ const SAMPLE = JSON.stringify([
     { sourceReference: "SYN-1001", name: "Example Person", dateOfBirth: "2008-03-15", gender: "Female", state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South", partNumber: "18" }
 ], null, 2);
 
+/** Recomputes every audit event's hash on the server and shows whether the trail is intact. */
+function AuditIntegrity() {
+    const [r, setR] = useState(null);
+    const [error, setError] = useState("");
+    const check = async () => { setError(""); try { setR((await api.get("/audit/integrity")).data.data); } catch (err) { setError(apiMessage(err, "Could not check the audit trail.")); } };
+    return (
+        <div className="panel">
+            <h2>Audit trail integrity</h2>
+            <p className="muted">Every audit event carries a hash of its content. This check recomputes all of them and compares the event count.</p>
+            <button className="secondary-btn" onClick={check}>Check the audit trail</button>
+            {error && <div className="alert alert-error" role="alert">{error}</div>}
+            {r && (
+                <div className={`alert ${r.ok ? "alert-ok" : "alert-error"}`} role="status" style={{ marginTop: 12 }}>
+                    <strong>{r.ok ? "Intact" : "Problem found"}</strong>
+                    {r.checked} events checked{r.unhashed ? `, ${r.unhashed} written before hashing` : ""}. {r.altered.length} altered, {r.missing.length} missing, count {r.countMatches ? "matches" : "does not match"}.
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function EciIntegrations() {
     const { logged, userData } = useContext(AuthContext);
     const [sources, setSources] = useState([]);
@@ -116,6 +137,7 @@ export default function EciIntegrations() {
                             {runs.length === 0 && <li className="muted">No imports yet.</li>}
                         </ul>
                     </div>
+                    <AuditIntegrity />
                     <p><Link to="/eci/dashboard">← Back to the ECI dashboard</Link></p>
                 </div>
             </section>
