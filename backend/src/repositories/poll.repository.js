@@ -40,3 +40,16 @@ export const withStationLock = async (electionId, stationId, fn) => {
     }
     return null;
 };
+
+// Incidents reported during the poll, and sector officers' station visits.
+export const getIncident = (id) => jsonGet(`incident:${id}`);
+export const saveIncident = (i, tx) => {
+    tx.set(`incident:${i._id}`, JSON.stringify(i));
+    tx.sAdd(`incidents:${i.electionId}`, i._id);
+};
+export const listIncidents = async (electionId) =>
+    (await Promise.all((await redis().sMembers(`incidents:${electionId}`)).map(getIncident))).filter(Boolean);
+export const addVisit = (visit, tx) => tx.rPush(`poll:visits:${visit.electionId}:${visit.stationId}`, JSON.stringify(visit));
+export const listVisits = async (electionId, stationId) =>
+    (await redis().lRange(`poll:visits:${electionId}:${stationId}`, 0, -1)).map((s) => JSON.parse(s));
+export const lockIncident = (id) => acquireLock(`incident:lock:${id}`);

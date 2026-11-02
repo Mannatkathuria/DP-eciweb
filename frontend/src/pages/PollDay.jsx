@@ -12,6 +12,8 @@ import { apiMessage } from "../config/elections";
 const ROLES = ["presiding_officer", "polling_officer", "polling_agent", "micro_observer", "blo", "admin"];
 const POLL_LABEL = { not_started: "Not started", mock_poll_done: "Mock poll held", open: "Poll open", closed: "Poll closed" };
 const NEXT = { not_started: ["mock_poll_done", "Record mock poll held"], mock_poll_done: ["open", "Open the poll"], open: ["closed", "Close the poll"] };
+const INCIDENT_TYPES = { evm_malfunction: "EVM malfunction", vvpat_malfunction: "VVPAT malfunction", law_and_order: "Law and order", power_failure: "Power or lighting failure", staff_absent: "Polling staff absent", accessibility: "Accessibility problem", mcc_violation: "Model Code of Conduct violation near the station", other: "Other" };
+const INCIDENT_STATUS = { reported: "Reported", acknowledged: "Being handled", resolved: "Resolved" };
 const CASE_LABEL = { identity_doubt: "Identity doubt", challenged_vote: "Challenged vote", tendered_vote: "Tendered vote", assisted_voter: "Assisted voter (companion)", not_in_roll: "Name not in this part", other: "Other" };
 const DECISION_LABEL = { allowed: "Allowed to vote", refused: "Refused", rejected: "Challenge failed", upheld: "Challenge upheld", closed: "Closed" };
 const DECISIONS = { identity_doubt: [["allowed", "Allow to vote", false], ["refused", "Refuse", true]], challenged_vote: [["rejected", "Challenge fails, allow", false], ["upheld", "Uphold challenge", true]], other: [["closed", "Close", false]] };
@@ -50,6 +52,7 @@ export default function PollDay() {
     const [dialog, setDialog] = useState(null); // { title, label, required, run(reason) }
     const [challenge, setChallenge] = useState({ epic: "", note: "" });
     const [assist, setAssist] = useState({ epic: "", companionName: "" });
+    const [incident, setIncident] = useState({ type: "evm_malfunction", severity: "high", description: "" });
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [busy, setBusy] = useState(false);
@@ -196,6 +199,25 @@ export default function PollDay() {
                                         ))}</div>
                                     )}
                                 </li>
+                            ))}</ul>
+                        </div>
+                    )}
+
+                    {s && !isVab && (can.reportIncident || s.incidents.length > 0) && (
+                        <div className="panel">
+                            <h2>Incidents</h2>
+                            {can.reportIncident && (
+                                <form className="portal-form" onSubmit={(e) => { e.preventDefault(); act(() => api.post("/control-room/incidents", { electionId: s.election._id, stationId: s.station._id, ...incident }), () => "Incident reported to the sector officer and control room.").then((ok) => ok && setIncident({ ...incident, description: "" })); }}>
+                                    <div className="form-row">
+                                        <div className="field"><label htmlFor="in-type">Type</label><select id="in-type" value={incident.type} onChange={(e) => setIncident({ ...incident, type: e.target.value })}>{Object.entries(INCIDENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                                        <div className="field"><label htmlFor="in-sev">Severity</label><select id="in-sev" value={incident.severity} onChange={(e) => setIncident({ ...incident, severity: e.target.value })}>{["low", "medium", "high", "critical"].map((v) => <option key={v}>{v}</option>)}</select></div>
+                                    </div>
+                                    <div className="field"><label htmlFor="in-desc">What happened</label><input id="in-desc" value={incident.description} onChange={(e) => setIncident({ ...incident, description: e.target.value })} required minLength={5} /></div>
+                                    <button className="btn btn-quiet" type="submit" disabled={busy}>Report incident</button>
+                                </form>
+                            )}
+                            <ul className="rows" style={{ marginTop: 12 }}>{s.incidents.map((i) => (
+                                <li key={i._id} style={{ padding: "8px 0" }}><strong>{INCIDENT_TYPES[i.type]}</strong> ({i.severity}) · {INCIDENT_STATUS[i.status]}<br /><small>{i.timeline.at(-1).note}</small></li>
                             ))}</ul>
                         </div>
                     )}

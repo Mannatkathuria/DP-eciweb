@@ -3,7 +3,7 @@ import { transaction } from "../config/redis.js";
 import { listElections, listStations } from "../repositories/election.repository.js";
 import { getElectorByEpic, listElectors, saveElector } from "../repositories/elector.repository.js";
 import {
-    appendRegister, getPollCase, getPollState, listPollCases, listRegister, registerLength, savePollCase, savePollState, votedAt, withStationLock
+    appendRegister, getPollCase, getPollState, listIncidents, listPollCases, listRegister, registerLength, savePollCase, savePollState, votedAt, withStationLock
 } from "../repositories/poll.repository.js";
 import { assignmentInElection, electionStage, todayIST } from "../services/election.service.js";
 import { hasPermission } from "../services/authority.service.js";
@@ -70,8 +70,8 @@ const stationRecord = (station) => ({ ...station, assemblyConstituency: station.
 /** Station dashboard: poll state, turnout so far, queue and open cases. */
 export const getStation = asyncHandler(async (req, res) => {
     const { station, election, onPollDay, stations } = await stationContext(req);
-    const [state, voted, electors, cases] = await Promise.all([
-        loadState(election, station), registerLength(election._id, station._id), listElectors(), listPollCases(election._id, station._id)
+    const [state, voted, electors, cases, incidents] = await Promise.all([
+        loadState(election, station), registerLength(election._id, station._id), listElectors(), listPollCases(election._id, station._id), listIncidents(election._id)
     ]);
     const total = electors.filter(inPart(station)).length;
     res.json({ success: true, data: {
@@ -82,12 +82,14 @@ export const getStation = asyncHandler(async (req, res) => {
         queue: state.queue, queueHistory: state.queueHistory.slice(-12),
         turnout: { electors: total, voted, percent: total ? Math.round((voted / total) * 1000) / 10 : 0 },
         openCases: cases.filter((c) => c.status === "open").length,
+        incidents: incidents.filter((i) => i.stationId === station._id).sort((a, b) => b.reportedAt.localeCompare(a.reportedAt)),
         idDocuments: ID_DOCUMENTS,
         can: {
             conduct: hasPermission(req.user, "polling:conduct"),
             mark: hasPermission(req.user, "polling:mark-register") || hasPermission(req.user, "polling:conduct"),
             identify: hasPermission(req.user, "polling:identify-voter") || hasPermission(req.user, "polling:conduct"),
-            object: hasPermission(req.user, "polling:object")
+            object: hasPermission(req.user, "polling:object"),
+            reportIncident: hasPermission(req.user, "incident:report")
         }
     } });
 });

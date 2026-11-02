@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
@@ -88,6 +88,7 @@ export default function DeoDesk() {
                 lede={area ? `${area.district}, ${area.state}. Propose polling stations and relocations for ECI approval, and appoint election staff.` : "Your district assignment is loading."} />
             <section className="section">
                 <div className="container stack">
+                    <p><Link to="/control-room">Open the control room</Link></p>
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
                     {!area && !error && <p>You do not have a district assignment yet. Ask the ECI administrator to assign you.</p>}

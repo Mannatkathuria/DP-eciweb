@@ -23,6 +23,7 @@ import pollingStationRoutes from "./routes/pollingStation.routes.js";
 import nominationRoutes from "./routes/nomination.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import pollDayRoutes from "./routes/pollDay.routes.js";
+import controlRoomRoutes from "./routes/controlRoom.routes.js";
 
 
 const app = express();
@@ -95,6 +96,7 @@ app.use("/api/v1/polling-stations", pollingStationRoutes);
 app.use("/api/v1/nominations", nominationRoutes);
 app.use("/api/v1/public", publicLimiter, publicRoutes);
 app.use("/api/v1/poll-day", pollDayRoutes);
+app.use("/api/v1/control-room", controlRoomRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

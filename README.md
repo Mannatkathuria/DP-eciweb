@@ -164,6 +164,14 @@ The seed adds a demo election with nominations open, a demo bye-election in its 
 
 The seed adds a "Demo poll-day election, Ludhiana South" whose poll date is the day you run the seed, twelve synthetic electors in part 18, and assigns the demo presiding officer (`PRO1000001`), polling officer (`POL1000001`), polling agent (`PAG1000001`) and micro observer (`MOB1000001`) to it.
 
+## Control room and incidents (Phase 4)
+
+`/control-room` shows every approved polling station in the signed-in official's jurisdiction for the chosen election: a sector officer's or RO's constituency, a DEO's district, a CEO's State, or the whole country for the Commission. Observers can read it but not act. It refreshes every 10 seconds and lists stations with alerts first. For each station it shows poll status, turnout, the latest queue report, open cases and incidents, and the last sector officer visit.
+
+- **Alerts:** a poll not opened by 07:30 IST (start time set by `POLL_START_IST`, default 07:00, plus 30 minutes), no queue report for an hour while the poll is open, a doubt or challenge waiting more than 30 minutes, and an unresolved high or critical incident.
+- **Incidents** are reported at a station by its presiding officer or micro observer, or by the sector officer. Each has a type (EVM or VVPAT malfunction, law and order, power, staff absent, accessibility, MCC violation, other) and a severity. The sector officer, RO, DEO or CEO covering the station acknowledges it, adds updates, and resolves it with a note. Every step is timestamped and audited.
+- **Visits:** sector officers record visits to stations in their sector.
+
 ## Roles, assignments and audit (Phase 0)
 
 - **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.
@@ -225,6 +233,7 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 /candidate        Candidate: file, track and withdraw a nomination
 /booths           Public polling-station search
 /poll-day         Poll day at the officer's own polling station (and the BLO's voter assistance booth)
+/control-room     Stations, alerts and incidents across the official's jurisdiction
 ```
 
 ## Notes

@@ -59,6 +59,9 @@ export const PERMISSION_TEXT = {
   "station:propose": "Propose polling stations and relocations",
   "station:approve": "Approve polling stations and relocations",
   "station:view": "View polling stations in your jurisdiction",
-  "candidates:publish": "Publish the list of contesting candidates"
+  "candidates:publish": "Publish the list of contesting candidates",
+  "control:view": "See the control room for your jurisdiction",
+  "incident:report": "Report incidents at a polling station",
+  "incident:manage": "Acknowledge and resolve incidents"
 };
 export const permissionText = (id) => PERMISSION_TEXT[id] || id;

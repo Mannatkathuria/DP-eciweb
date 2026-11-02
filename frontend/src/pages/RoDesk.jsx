@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
@@ -74,6 +74,7 @@ export default function RoDesk() {
                 lede={area ? `${area.constituency}, ${area.state}. Scrutinise nominations, publish the list of contesting candidates and arrange polling parties.` : "Your constituency assignment is loading."} />
             <section className="section">
                 <div className="container stack">
+                    <p><Link to="/control-room">Open the control room</Link></p>
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
                     {area && (
