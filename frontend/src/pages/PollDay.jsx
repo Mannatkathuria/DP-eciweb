@@ -12,6 +12,7 @@ import { apiMessage } from "../config/elections";
 // Poll day at the signed-in officer's own polling station. What each person can do is decided
 // by the server; the page shows the controls their role is allowed to use.
 
+const LAST_STATION = "eciweb-pollday-station";
 const ROLES = ["presiding_officer", "polling_officer", "polling_agent", "micro_observer", "blo", "admin"];
 const POLL_LABEL = { not_started: "Not started", mock_poll_done: "Mock poll held", open: "Poll open", closed: "Poll closed" };
 const NEXT = { not_started: ["mock_poll_done", "Record mock poll held"], mock_poll_done: ["open", "Open the poll"], open: ["closed", "Close the poll"] };
@@ -48,6 +49,7 @@ function GuidedMark({ elector, documents, busy, onMark, onCancel, onDoubt }) {
 export default function PollDay() {
     const { logged, userData } = useContext(AuthContext);
     const [s, setS] = useState(null);
+    const [lastStation, setLastStation] = useState(null);
     const [q, setQ] = useState("");
     const [field, setField] = useState("any");
     const [slip, setSlip] = useState(null);
@@ -69,9 +71,14 @@ export default function PollDay() {
     const load = useCallback(async () => {
         try {
             const st = await api.get("/poll-day/station");
-            setS(st.data.data);
+            setS(st.data.data); setLastStation(null);
+            try { localStorage.setItem(LAST_STATION, JSON.stringify(st.data.data.station)); } catch { /* storage full or blocked */ }
             if (userData?.role !== "blo" && userData?.role !== "admin") setCases((await api.get("/poll-day/cases")).data.data.items);
-        } catch (err) { setError(apiMessage(err, "Could not load your polling station.")); }
+        } catch (err) {
+            // Without a connection, the offline desk still works from the last station this device saw.
+            if (!err.response) { try { setLastStation(JSON.parse(localStorage.getItem(LAST_STATION) || "null")); } catch { /* ignore */ } }
+            setError(err.response ? apiMessage(err, "Could not load your polling station.") : "No connection to the server. If this device has the station package, you can keep marking below.");
+        }
     }, [userData]);
     useEffect(() => { if (allowed) load(); }, [allowed, load]);
     // Live where available (another officer marked a voter, the presiding officer opened the poll,
@@ -114,7 +121,8 @@ export default function PollDay() {
                 <div className="container stack">
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
-                    {s && !isVab && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={s.station} />}
+                    {!s && lastStation && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={lastStation} role={userData.role} />}
+                    {s && !isVab && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={s.station} role={userData.role} />}
                     {s && !s.onPollDay && <div className="alert alert-warn">Poll day for this election is {s.election.pollDate}. Nothing can be recorded before then.</div>}
                     {s && !isVab && (
                         <div className="panel" aria-live="polite">

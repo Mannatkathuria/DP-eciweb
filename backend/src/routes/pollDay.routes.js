@@ -1,4 +1,5 @@
 import express from "express";
+import { downloadPackage, listConflicts, publicKey, resolveConflict, sync } from "../controllers/offline.controller.js";
 import { verifyJWT, requirePasswordChanged, requireRole } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
 import {
@@ -24,5 +25,11 @@ router.post("/cases/:id/resolve", authorize("polling:conduct"), resolveCase);
 router.post("/vab-slips/:epic", requireRole("blo", "admin"), authorize("roll:view-part"), issueVabSlip);
 router.get("/vab-slips/:slipId", authorize("polling:identify-voter", "polling:mark-register", "polling:conduct"), lookupVabSlip);
 router.get("/register", authorize("polling:conduct"), getRegister);
+// Offline poll day: station package, outbox sync and the conflicts it can raise.
+router.get("/package/public-key", authorize(...STATION_TEAM), publicKey);
+router.get("/package", authorize("polling:conduct", "polling:identify-voter", "polling:mark-register"), downloadPackage);
+router.post("/sync", authorize("polling:conduct", "polling:mark-register"), sync);
+router.get("/sync-conflicts", authorize("polling:conduct"), listConflicts);
+router.post("/sync-conflicts/:id/resolve", authorize("polling:conduct"), resolveConflict);
 
 export default router;

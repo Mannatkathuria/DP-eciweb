@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { apiMessage } from "../config/elections";
+import OfflineDesk from "./OfflineDesk";
 
 // Registers this browser as one of the polling station's devices and sends a verified heartbeat
 // every 30 seconds while the poll-day screen is open. The control room shows a station as online
@@ -16,7 +17,7 @@ export const deviceHeaders = (stationId) => { const d = read(stationId); return 
 let outbox = { pendingOutbox: 0, lastSyncAt: null, lastSyncError: null, packageVersion: null };
 export const reportOutbox = (state) => { outbox = { ...outbox, ...state }; };
 
-export default function StationDevice({ station }) {
+export default function StationDevice({ station, role }) {
     const [device, setDevice] = useState(() => read(station._id));
     const [status, setStatus] = useState(null);
     const [error, setError] = useState("");
@@ -64,6 +65,7 @@ export default function StationDevice({ station }) {
                     <button className="btn btn-primary">Register this device</button>
                 </form>}
             {error && <div className="alert alert-warn" role="status">{error}</div>}
+            {device && <OfflineDesk station={station} device={device} role={role} />}
         </div>
     );
 }

@@ -18,8 +18,9 @@ const { MODULES } = await import("../src/config/training.js");
 test("config: unsafe production settings are refused at start-up", () => {
     assert.deepEqual(checkConfig({ NODE_ENV: "development" }), []);
     const problems = checkConfig({ NODE_ENV: "production", ACCESS_TOKEN_SECRET: "short", PERSONA_DEMO_MODE: "true" });
-    assert.equal(problems.length, 3);
-    assert.deepEqual(checkConfig({ NODE_ENV: "production", ACCESS_TOKEN_SECRET: "x".repeat(40), CLIENT_URL: "https://example.org" }), []);
+    assert.equal(problems.length, 4); // secret, demo mode, package signing key, CLIENT_URL
+    assert.deepEqual(checkConfig({ NODE_ENV: "production", ACCESS_TOKEN_SECRET: "x".repeat(40), CLIENT_URL: "https://example.org", PACKAGE_SIGNING_KEY: "pem" }), []);
+    assert.match(checkConfig({ NODE_ENV: "production", ACCESS_TOKEN_SECRET: "x".repeat(40), CLIENT_URL: "https://example.org" }).join(" "), /PACKAGE_SIGNING_KEY/);
 });
 
 test("training content: every module has steps and questions with a valid answer", () => {

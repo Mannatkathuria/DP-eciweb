@@ -99,16 +99,22 @@ export const getStation = asyncHandler(async (req, res) => {
 const SEARCH_FIELDS = ["any", "name", "relative", "house", "serial", "epic"];
 
 /** Station-scoped elector search (polling party, and the BLO at the voter assistance booth). */
+/**
+ * The electors of the station's part with their serial numbers on the roll; electors seeded or
+ * added before serial numbers existed fall back to their place in name order after the numbered ones.
+ */
+export const partWithSerials = async (station) => {
+    const part = (await listElectors()).filter(inPart(station)).sort((a, b) => a.name.localeCompare(b.name));
+    let extra = part.reduce((m, e) => Math.max(m, Number(e.serialNumber) || 0), 0);
+    return { part, serial: new Map(part.map((e) => [e.epic, Number(e.serialNumber) || ++extra])) };
+};
+export { ageOf, BLOCKING, loadState, stationRecord };
+
 export const searchElectors = asyncHandler(async (req, res) => {
     const { station, election } = await stationContext(req);
     const field = SEARCH_FIELDS.includes(req.query.field) ? req.query.field : "any";
     const pollingStaff = hasPermission(req.user, "polling:identify-voter") || hasPermission(req.user, "polling:mark-register") || hasPermission(req.user, "polling:conduct");
-    const part = (await listElectors()).filter(inPart(station)).sort((a, b) => a.name.localeCompare(b.name));
-    // The serial number on the roll; electors seeded or added before serial numbers existed fall
-    // back to their place in name order after the numbered ones.
-    const highest = part.reduce((m, e) => Math.max(m, Number(e.serialNumber) || 0), 0);
-    let extra = highest;
-    const serial = new Map(part.map((e) => [e.epic, Number(e.serialNumber) || ++extra]));
+    const { part, serial } = await partWithSerials(station);
     const ranked = rankElectors(part, req.query.q, { field, serialOf: (e) => serial.get(e.epic) }).slice(0, 50);
     const matches = ranked.map((r) => r.elector);
     const why = new Map(ranked.map((r) => [r.elector.epic, { matchedOn: r.matchedOn, score: Number(r.score.toFixed(2)) }]));
@@ -156,7 +162,12 @@ export const markVoterAtStation = async ({ user, station, election, epic, idDocu
     let event = null;
     const result = await withStationLock(election._id, station._id, async () => {
         const state = await loadState(election, station);
-        if (state.status !== "open") throw new ApiError(409, state.status === "closed" ? "The poll has closed." : "The presiding officer has not opened the poll.");
+        // Offline records carry the time the officer acted: they count if that was while the poll
+        // was open, even when the device reconnects after the poll closed.
+        const openedAt = state.history.find((h) => h.status === "open")?.at;
+        const inWindow = actedAt && openedAt && actedAt >= openedAt && (state.status === "open" || (state.status === "closed" && actedAt <= state.closing?.at));
+        if (state.status !== "open" && !inWindow) throw new ApiError(409, state.status === "closed" ? "The poll has closed." : "The presiding officer has not opened the poll.");
+        if (actedAt && !inWindow) throw new ApiError(409, "This record is from before the poll was opened.");
         const elector = await getElectorByEpic(epic);
         if (!elector || !inPart(station)(elector)) throw new ApiError(404, "This elector is not on the roll of this part.");
         const previous = await votedAt(election._id, epic);

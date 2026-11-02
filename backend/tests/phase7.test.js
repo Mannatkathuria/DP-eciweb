@@ -14,7 +14,7 @@ const needsRedis = { skip: TEST_REDIS_URL ? false : "set TEST_REDIS_URL to a dis
 const { checkConfig } = await import("../src/config/appMode.js");
 
 test("production refuses to start with step-up turned off", () => {
-    const base = { NODE_ENV: "production", ACCESS_TOKEN_SECRET: "x".repeat(40), CLIENT_URL: "https://www.eciweb.in" };
+    const base = { NODE_ENV: "production", ACCESS_TOKEN_SECRET: "x".repeat(40), CLIENT_URL: "https://www.eciweb.in", PACKAGE_SIGNING_KEY: "pem" };
     assert.deepEqual(checkConfig(base), []);
     assert.match(checkConfig({ ...base, STEP_UP_REQUIRED: "false" }).join(" "), /STEP_UP_REQUIRED/);
 });
