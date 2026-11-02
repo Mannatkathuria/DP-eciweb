@@ -13,6 +13,7 @@ import {
 } from "../controllers/admin.controllers.js";
 import {
     listAllChangeRequests,
+    submitChangeFieldVerification,
     approveChangeRequest,
     rejectChangeRequest
 } from "../controllers/changeRequest.controller.js";
@@ -37,10 +38,10 @@ router.post("/registrations/:id/field-verification", authorize("verification:fie
 router.post("/registrations/:id/approve", authorize("application:decide"), approveRegistration);
 router.post("/registrations/:id/reject", authorize("application:decide"), rejectRegistration);
 
-// Voter change/correction requests (Form 8): still decided by the BLO in this prototype.
-// TODO(phase 1): move the decision to the ERO/AERO, like Form 6.
-router.get("/changes", bloOnly, listAllChangeRequests);
-router.post("/changes/:id/approve", bloOnly, approveChangeRequest);
-router.post("/changes/:id/reject", bloOnly, rejectChangeRequest);
+// Form 8 corrections and shifts: the same split. The BLO verifies; the ERO/AERO decides.
+router.get("/changes", authorize(...CAN_SEE_APPLICATIONS), listAllChangeRequests);
+router.post("/changes/:id/field-verification", authorize("verification:field-report"), submitChangeFieldVerification);
+router.post("/changes/:id/approve", authorize("application:decide"), approveChangeRequest);
+router.post("/changes/:id/reject", authorize("application:decide"), rejectChangeRequest);
 
 export default router;

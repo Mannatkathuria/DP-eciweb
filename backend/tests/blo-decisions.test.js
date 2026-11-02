@@ -337,8 +337,11 @@ const makeVoterWithRecord = async () => {
     return { epic, token: jwt.sign({ _id: user._id, epic, role: "voter" }, "test") };
 };
 
-test("Form 8: proof is validated, rejection needs a reason, approval updates the roll once", needsRedis, async () => {
-    const { call, blo, getChangeRequest, getElectorByEpic } = await setup();
+const verifyChange = (id, body, token = ctx.blo.token) =>
+    ctx.call("POST", `/admin/changes/${id}/field-verification`, { recommendation: "approve", ...body }, token);
+
+test("Form 8: proof is validated; the BLO verifies, the ERO decides once; rejection needs a reason", needsRedis, async () => {
+    const { call, blo, ero, getChangeRequest, getElectorByEpic } = await setup();
     const voter = await makeVoterWithRecord();
     const change = { address: "Flat 7, Sarabha Nagar, Ludhiana", pinCode: "141001" };
 
@@ -350,22 +353,77 @@ test("Form 8: proof is validated, rejection needs a reason, approval updates the
     const requestId = first.body.data.requestId;
     assert.equal((await getChangeRequest(requestId)).currentRecord.address.includes("Model Town"), true);
 
-    assert.equal((await call("POST", `/admin/changes/${requestId}/reject`, { note: "  " }, blo.token)).status, 400);
+    // The BLO cannot decide; the ERO cannot approve before field verification.
+    assert.equal((await call("POST", `/admin/changes/${requestId}/approve`, {}, blo.token)).status, 403);
+    assert.equal((await call("POST", `/admin/changes/${requestId}/reject`, { note: "No" }, blo.token)).status, 403);
+    assert.equal((await call("POST", `/admin/changes/${requestId}/approve`, {}, ero.token)).status, 409);
+    assert.equal((await call("POST", `/admin/changes/${requestId}/reject`, { note: "  " }, ero.token)).status, 400);
+    assert.equal((await call("POST", `/admin/changes/${requestId}/field-verification`, { recommendation: "reject" }, blo.token)).status, 400);
     assert.equal((await getChangeRequest(requestId)).status, "pending");
 
-    const approvals = await Promise.all([1, 2].map(() => call("POST", `/admin/changes/${requestId}/approve`, {}, blo.token)));
+    // Field verification does not touch the roll. An address change in the same area keeps the booth.
+    assert.equal((await verifyChange(requestId, {})).status, 200);
+    assert.equal((await getChangeRequest(requestId)).status, "field_verified");
+    assert.notEqual((await getElectorByEpic(voter.epic)).address, change.address);
+    const mineBefore = await call("GET", "/changes/my", undefined, voter.token);
+    assert.equal(mineBefore.body.data.items.find((r) => r._id === requestId).status, "field_verified");
+
+    const approvals = await Promise.all([1, 2].map(() => call("POST", `/admin/changes/${requestId}/approve`, {}, ero.token)));
     assert.deepEqual(approvals.map((r) => r.status).sort(), [200, 409]);
     const elector = await getElectorByEpic(voter.epic);
     assert.equal(elector.address, change.address);
     assert.equal(elector.pinCode, "141001");
-    assert.equal((await getChangeRequest(requestId)).status, "approved");
+    assert.equal(elector.partNumber, "42", "booth unchanged");
+    const decided = await getChangeRequest(requestId);
+    assert.equal(decided.status, "approved");
+    assert.equal(decided.decidedBy, ero.user.epic);
 
-    // A rejected request keeps its reason for the voter.
+    // The ERO can reject before field verification; the reason reaches the voter.
     const second = await call("POST", "/changes", { address: "House 3, Civil Lines, Ludhiana", documentProof: PNG }, voter.token);
-    const rejected = await call("POST", `/admin/changes/${second.body.data.requestId}/reject`, { note: "Proof does not show this address." }, blo.token);
+    const rejected = await call("POST", `/admin/changes/${second.body.data.requestId}/reject`, { note: "Proof does not show this address." }, ero.token);
     assert.equal(rejected.status, 200);
     const mine = await call("GET", "/changes/my", undefined, voter.token);
     assert.equal(mine.body.data.items.find((r) => r._id === second.body.data.requestId).decisionNote, "Proof does not show this address.");
+
+    // History: field verification and approval, with the corrected fields before and after.
+    const supervisor = await setup().then(({ makeUser, area }) => makeUser("blo_supervisor", { jurisdiction: area }));
+    const history = (await call("GET", `/audit/change_request/${requestId}`, undefined, supervisor.token)).body.data.items;
+    assert.deepEqual(history.map((e) => e.action), ["change_request.field_verified", "change_request.approved"]);
+    assert.equal(history[1].after.address, change.address);
+    assert.ok(history[1].before.address.includes("Model Town"));
+});
+
+test("Form 8 shift: verified by the BLO and decided by the ERO of the NEW constituency, with a new booth", needsRedis, async () => {
+    const { call, makeUser, area, blo, ero, getChangeRequest, getElectorByEpic } = await setup();
+    const voter = await makeVoterWithRecord();
+    const geo = (await call("GET", "/auth/geography")).body.data;
+    const district = geo.states.find((st) => st.name === area.state).districts.find((d) => d.name === area.district);
+    const newConstituency = district.constituencies.find((c) => c !== area.constituency);
+    const newArea = { ...area, constituency: newConstituency };
+    const newBlo = await makeUser("blo", { mustChangePassword: false, jurisdiction: newArea });
+    const newEro = await makeUser("ero", { jurisdiction: newArea });
+
+    const res = await call("POST", "/changes", { assemblyConstituency: newConstituency, address: "House 21, New Colony, Ludhiana", documentProof: PNG }, voter.token);
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const id = res.body.data.requestId;
+
+    // The old area's officers neither see nor act on it.
+    assert.ok(!(await call("GET", "/admin/changes?status=all", undefined, blo.token)).body.data.items.some((r) => r._id === id));
+    assert.equal((await verifyChange(id, { partNumber: "9", pollingStation: "Primary School, New Colony" })).status, 403);
+    // The new BLO must fix the new booth.
+    assert.equal((await verifyChange(id, {}, newBlo.token)).status, 400);
+    const listed = (await call("GET", "/admin/changes", undefined, newBlo.token)).body.data.items.find((r) => r._id === id);
+    assert.equal(listed.shift, true);
+    assert.equal((await verifyChange(id, { partNumber: "9", pollingStation: "Primary School, New Colony" }, newBlo.token)).status, 200);
+
+    assert.equal((await call("POST", `/admin/changes/${id}/approve`, {}, ero.token)).status, 403);
+    const approved = await call("POST", `/admin/changes/${id}/approve`, {}, newEro.token);
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
+    const elector = await getElectorByEpic(voter.epic);
+    assert.equal(elector.assemblyConstituency, newConstituency);
+    assert.equal(elector.partNumber, "9");
+    assert.equal(elector.pollingStation, "Primary School, New Colony");
+    assert.equal((await getChangeRequest(id)).appliedChanges.partNumber, "9");
 });
 
 test("electoral roll: public search hides the address; the voter sees their own", needsRedis, async () => {

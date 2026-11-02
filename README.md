@@ -111,7 +111,7 @@ The command prints the BLO ID (for example `BLO-UP-000001`) and a one-time tempo
 
 A BLO who forgets their password uses **Forgot password?** on the sign-in page: an OTP (valid 2 minutes) is sent to the mobile number registered for that BLO ID, and after entering it plus the new password twice, the stored password is replaced. A reset also clears a lockout and signs out existing sessions.
 
-## Voter registration (Form 6): BLO verifies, ERO decides
+## Voter registration (Form 6) and corrections (Form 8): BLO verifies, ERO decides
 
 The workflow follows the Representation of the People Act, 1950: the **BLO verifies in the field and recommends**, and only the **ERO or AERO decides** (ss. 13B, 13C, 23).
 
@@ -119,6 +119,10 @@ The workflow follows the Representation of the People Act, 1950: the **BLO verif
 2. **BLO field verification** on `/admin` (tab *Form 6 field verification*). The BLO sees only applications in their assigned constituency. They record the **part number** (1-9999) and **polling station** (pre-filled from their own assignment) and choose **Verified: recommend approval**, or **Recommend rejection** with a reason. The status becomes `field_verified`. Nothing is added to the roll at this step.
 3. **ERO/AERO decision** on `/ero`. The officer sees field-verified applications in their constituency, the BLO's recommendation, note and history. They can correct the booth, then **Approve & add to roll** (issues the EPIC, creates the electoral-roll record and the voter account in one transaction) or **Reject** with a reason shown to the applicant. They can also reject an application that is still waiting for the BLO.
 4. Every step is written to the **audit trail** with who acted, under which role and assignment, and what changed.
+
+### Corrections and shifts (Form 8)
+
+Form 8 follows the same split (RP Act 1950, s. 22). The voter submits a correction with a proof document from their dashboard. The BLO verifies it on `/admin` (tab *Form 8 field verification*) and recommends approval or rejection; the ERO/AERO decides on `/ero`, and only an approval changes the roll. A request belongs to the area the elector will be in **after** the change, so a **shift of residence** to another constituency is verified by the BLO and decided by the ERO of the new constituency, and the BLO must record the new part number and polling station. The audit entry for an approval lists each corrected field before and after. Officials use `/api/v1/admin/changes`; the old unchecked review routes under `/api/v1/changes` were removed.
 
 ## Roles, assignments and audit (Phase 0)
 

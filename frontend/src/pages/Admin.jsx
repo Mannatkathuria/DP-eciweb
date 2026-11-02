@@ -28,9 +28,10 @@ const DIALOGS = {
         hint: "The Electoral Registration Officer reads this before deciding. Only the ERO/AERO can reject an application.",
         required: true, confirmLabel: "Send to ERO"
     }),
-    rejectChange: (cr) => ({
-        title: `Reject correction request: ${cr.currentRecord?.name || cr.epic}`, label: "Reason for rejection (shown to the voter)",
-        hint: "The voter sees this reason with their correction request.", required: true, confirmLabel: "Reject request"
+    recommendChangeRejection: (cr) => ({
+        title: `Recommend rejection: ${cr.currentRecord?.name || cr.epic}`, label: "What you found during field verification",
+        hint: "The Electoral Registration Officer reads this before deciding. Only the ERO/AERO can reject a request.",
+        required: true, confirmLabel: "Send to ERO"
     }),
     clearCase: () => ({
         title: "Clear and verify this case", label: "Approval note for the voter record",
@@ -179,13 +180,21 @@ function Admin() {
         }
     };
 
-    const approveChangeRequest = async (cr) => {
+    // Form 8 field verification. A shift of residence also needs the new booth.
+    const recommendChangeApproval = async (cr) => {
         if (busyIds[cr._id]) return;
         clearMessages(cr._id);
+        const body = { recommendation: "approve" };
+        if (cr.shift) {
+            const booth = assignmentFor(cr);
+            const problem = assignmentProblem(booth);
+            if (problem) { setRowError(cr._id, problem); return; }
+            Object.assign(body, { partNumber: booth.partNumber.trim(), pollingStation: booth.pollingStation.trim() });
+        }
         try {
             await runDecision(cr._id,
-                () => api.post(`/admin/changes/${cr._id}/approve`, {}),
-                () => `Change request approved. The electoral roll record for EPIC ${cr.epic} has been updated.`);
+                () => api.post(`/admin/changes/${cr._id}/field-verification`, body),
+                () => `Field verification for EPIC ${cr.epic} sent to the ERO.`);
         } catch {
             // Error shown on the row.
         }
@@ -208,7 +217,7 @@ function Admin() {
         const { kind, item } = dialog;
         const requests = {
             recommendRejection: [() => api.post(`/admin/registrations/${item._id}/field-verification`, { recommendation: "reject", note: reason }), () => `Rejection recommended for ${item.name}. The ERO will decide.`],
-            rejectChange: [() => api.post(`/admin/changes/${item._id}/reject`, { note: reason }), () => "Change request rejected."],
+            recommendChangeRejection: [() => api.post(`/admin/changes/${item._id}/field-verification`, { recommendation: "reject", note: reason }), () => `Rejection recommended for EPIC ${item.epic}. The ERO will decide.`],
             clearCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "cleared", note: reason }), () => "Case cleared: voter identity verified."],
             escalateCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "escalated", note: reason }), () => "Case escalated for manual field inspection."]
         };
@@ -265,7 +274,7 @@ function Admin() {
                         className={`tab-btn ${activeTab === "changes" ? "active" : ""}`}
                         onClick={() => setActiveTab("changes")}
                     >
-                        ✎ Change Requests (Form 8) ({changeRequests.length})
+                        ✎ Form 8 field verification ({changeRequests.length})
                     </button>
                     <button
                         className={`tab-btn ${activeTab === "registrations" ? "active" : ""}`}
@@ -433,7 +442,7 @@ function Admin() {
                             <div>
                                 <h2>Electoral Roll Change Requests (Form 8)</h2>
                                 <p style={{ color: "var(--text-secondary)", fontSize: "13px", margin: "4px 0 0" }}>
-                                    Review requested voter corrections with proof documents and Gemini AI anomaly checks. Approvals reflect immediately in the live electoral roll.
+                                    Verify requested corrections against the proof and in the field, then send your recommendation to the Electoral Registration Officer, who decides. A shift of residence needs the new part number and polling station.
                                 </p>
                             </div>
                         </div>
@@ -479,6 +488,19 @@ function Admin() {
                                                             <strong>{k}:</strong> {String(val)}
                                                         </div>
                                                     ))}
+                                                    {cr.shift && (
+                                                        <div className="booth-assignment" style={{ marginTop: 8 }}>
+                                                            <strong>Shift of residence: new booth *</strong>
+                                                            <label>Part number
+                                                                <input value={assignmentFor(cr).partNumber} onChange={(e) => updateAssignment(cr, "partNumber", e.target.value)}
+                                                                    disabled={Boolean(busyIds[cr._id])} inputMode="numeric" maxLength={4} placeholder="e.g. 42" />
+                                                            </label>
+                                                            <label>Polling station
+                                                                <input value={assignmentFor(cr).pollingStation} onChange={(e) => updateAssignment(cr, "pollingStation", e.target.value)}
+                                                                    disabled={Boolean(busyIds[cr._id])} maxLength={200} />
+                                                            </label>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     {cr.documentProof ? (
@@ -511,17 +533,17 @@ function Admin() {
                                                     <div className="row-actions">
                                                         <button
                                                             className="btn-approve"
-                                                            onClick={() => approveChangeRequest(cr)}
+                                                            onClick={() => recommendChangeApproval(cr)}
                                                             disabled={Boolean(busyIds[cr._id])}
                                                         >
-                                                            {busyIds[cr._id] ? "Saving…" : "✓ Approve Changes"}
+                                                            {busyIds[cr._id] ? "Saving…" : "Verified: recommend approval"}
                                                         </button>
                                                         <button
                                                             className="btn-reject"
-                                                            onClick={() => openDialog("rejectChange", cr)}
+                                                            onClick={() => openDialog("recommendChangeRejection", cr)}
                                                             disabled={Boolean(busyIds[cr._id])}
                                                         >
-                                                            ✕ Reject
+                                                            Recommend rejection
                                                         </button>
                                                     </div>
                                                     {rowErrors[cr._id] && <p className="row-error" role="alert">{rowErrors[cr._id]}</p>}

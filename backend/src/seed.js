@@ -273,8 +273,25 @@ const seedChangeRequests = async () => {
         status: "pending",
         submittedAt: new Date().toISOString()
     };
-    if (!(await seedOnce(getChangeRequest, changeReq, saveChangeRequest))) return;
-    console.log("Seeded demo change request (Form 8).");
+    if (await seedOnce(getChangeRequest, changeReq, saveChangeRequest)) console.log("Seeded demo change request (Form 8).");
+
+    // A second request inside the demo jurisdiction (Ludhiana South, part 18), so the demo BLO
+    // and ERO have a Form 8 request to verify and decide.
+    const ludhianaReq = {
+        ...changeReq,
+        _id: "demo-change-002",
+        epic: "DEF7654321",
+        currentRecord: {
+            name: "Ananya Verma", dateOfBirth: "1998-09-22T00:00:00.000Z", gender: "Female",
+            state: "Punjab", district: "Ludhiana", assemblyConstituency: "Ludhiana South",
+            address: "—", pinCode: "—", partNumber: "18",
+            pollingStation: "Government Girls Senior Secondary School, Ludhiana"
+        },
+        requestedChanges: { address: "12 Dugri Road, Ludhiana", pinCode: "141013" },
+        aiReview: { ...changeReq.aiReview, shortAiReview: "Address correction. Attached utility bill shows '12 Dugri Road, Ludhiana'." },
+        submittedAt: new Date().toISOString()
+    };
+    if (await seedOnce(getChangeRequest, ludhianaReq, saveChangeRequest)) console.log("Seeded demo change request in Ludhiana South (Form 8).");
 };
 
 const seedRegistrationRequest = async () => {

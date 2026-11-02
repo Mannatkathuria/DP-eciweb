@@ -247,7 +247,7 @@ function Dashboard() {
                                     <th style={{ padding: "10px" }}>Date</th>
                                     <th style={{ padding: "10px" }}>Requested Changes</th>
                                     <th style={{ padding: "10px" }}>Status</th>
-                                    <th style={{ padding: "10px" }}>BLO Decision / AI Review</th>
+                                    <th style={{ padding: "10px" }}>Decision / AI Review</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -268,7 +268,7 @@ function Dashboard() {
                                                 background: r.status === "approved" ? "#56a581" : r.status === "rejected" ? "#a62e35" : "#d79d4c",
                                                 color: "#fff"
                                             }}>
-                                                {r.status.toUpperCase()}
+                                                {r.status === "field_verified" ? "VERIFIED BY BLO · AWAITING ERO" : r.status.toUpperCase()}
                                             </span>
                                         </td>
                                         <td style={{ padding: "10px" }}>
