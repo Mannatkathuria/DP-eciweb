@@ -11,6 +11,7 @@ import { validateJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 // Counting and results are READ-ONLY here. Counting is conducted by the Returning Officer and
 // the result is declared by the RO (Form 21C/21E); this platform only shows what a registered
@@ -138,7 +139,9 @@ export const receiveEntry = asyncHandler(async (req, res) => {
         saveResultFeed(feed, tx);
         await recordAudit(auditEvent({ actor: req.user, action: `results.${kind}_received`, resource: { type: "results", id: `${election._id}:${areaKey}` }, jurisdiction: { ...area, assemblyConstituency: area.constituency },
             after: { source: source.name, kind, round: entry.round ?? entry.corrects ?? null, total: sumVotes(entry.votes) }, note: entry.reason }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "COUNTING_UPDATE_IMPORTED", jurisdiction: area, electionId: election._id, payload: { kind, round: entry.round ?? null, mock: source.type === "mock" }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.status(201).json({ success: true, data: entry });
     } finally { await release(); }
 });
@@ -165,7 +168,9 @@ export const receivePublication = asyncHandler(async (req, res) => {
         const tx = transaction();
         saveResultFeed(feed, tx);
         await recordAudit(auditEvent({ actor: req.user, action: `results.${status}`, resource: { type: "results", id: `${election._id}:${areaKey}` }, jurisdiction: { ...area, assemblyConstituency: area.constituency }, after: { status, declaredWinnerSerial } }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "OFFICIAL_RESULT_UPDATED", jurisdiction: area, electionId: election._id, payload: { status, mock: source.type === "mock" }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, data: feed.publication });
     } finally { await release(); }
 });

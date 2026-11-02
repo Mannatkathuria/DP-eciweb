@@ -14,6 +14,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { assertCovers, boothFromAssignments, coversAny, recordJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { parseBoothAssignment } from "./admin.controllers.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 const clean = (val) => String(val ?? "").trim();
 const PIN_CODE_PATTERN = /^[1-9]\d{5}$/;
@@ -256,7 +257,9 @@ export const submitChangeFieldVerification = asyncHandler(async (req, res) => {
             after: { status: updated.status, recommendation, partNumber: fieldVerification.partNumber, pollingStation: fieldVerification.pollingStation },
             note: note || null
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "VERIFICATION_COMPLETED", jurisdiction: recordJurisdiction(target), payload: { kind: "form8", recommendation }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, message: "Field verification submitted. The ERO/AERO will decide this request.", data: updated });
     } finally {
         await release();
@@ -318,7 +321,9 @@ export const approveChangeRequest = asyncHandler(async (req, res) => {
             after: changes,
             note: decided.decisionNote || null
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "REGISTRATION_DECIDED", jurisdiction: recordJurisdiction(target), payload: { kind: "form8", decision: "approved" }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
 
         res.json({
             success: true,
@@ -360,7 +365,9 @@ export const rejectChangeRequest = asyncHandler(async (req, res) => {
             after: { status: "rejected" },
             note: reason
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "REGISTRATION_DECIDED", jurisdiction: recordJurisdiction(target), payload: { kind: "form8", decision: "rejected" }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, message: "Change request rejected.", data: decided });
     } finally {
         await release();

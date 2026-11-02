@@ -9,6 +9,7 @@ import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { REASON_MAX_LENGTH } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 // Outcomes a BLO can record. "contacted" keeps the task open; the others close it.
 export const TASK_OUTCOMES = ["contacted", "form6_submitted", "declined", "not_found", "ineligible"];
@@ -115,7 +116,9 @@ export const assignTask = asyncHandler(async (req, res) => {
             actor: req.user, action: "regtask.assigned", resource: { type: "regtask", id: task._id }, jurisdiction: task.jurisdiction,
             before: { assignedTo: task.assignedTo?.epic ?? null }, after: { assignedTo: bloUser.epic }
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "BLO_ASSIGNED", jurisdiction: task.jurisdiction, payload: { taskId: task._id }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, data: updated });
     } finally {
         await release();

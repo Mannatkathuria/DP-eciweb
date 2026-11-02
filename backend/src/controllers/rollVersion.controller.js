@@ -6,6 +6,7 @@ import { assertCovers, validateJurisdiction } from "../services/authority.servic
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 // Fields captured in a published roll entry. Address and contact details are not part of the
 // published roll extract.
@@ -64,7 +65,9 @@ export const publishRollVersion = asyncHandler(async (req, res) => {
             actor: req.user, action: "roll.published", resource: { type: "rollversion", id: version._id },
             jurisdiction: area, after: { version: version.version, entryCount: entries.length, hash, changes: version.changes }
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "ELECTORAL_ROLL_UPDATED", jurisdiction: area, payload: { version: version.version, entryCount: entries.length }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.status(201).json({ success: true, message: `Version ${version.version} published.`, data: summary(version) });
     } finally {
         await release();

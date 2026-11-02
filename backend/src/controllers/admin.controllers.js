@@ -9,6 +9,7 @@ import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { assertCovers, boothFromAssignments, coversAny, recordJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 const percentile = (sorted, p) => {
     if (!sorted.length) return null;
@@ -218,7 +219,9 @@ export const submitFieldVerification = asyncHandler(async (req, res) => {
             after: { status: updated.status, recommendation, partNumber: fieldVerification.partNumber, pollingStation: fieldVerification.pollingStation },
             note: note || null
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "VERIFICATION_COMPLETED", jurisdiction: recordJurisdiction(application), payload: { kind: "form6", recommendation }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, message: "Field verification submitted. The ERO/AERO will decide this application.", data: summarise(updated) });
     } finally {
         await release();
@@ -300,7 +303,9 @@ export const rejectRegistration = asyncHandler(async (req, res) => {
             after: { status: "rejected" },
             note: reason
         }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "REGISTRATION_DECIDED", jurisdiction: recordJurisdiction(application), payload: { kind: "form6", decision: "rejected" }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, message: "Request rejected.", data: summarise(rejected) });
     } finally {
         await release();

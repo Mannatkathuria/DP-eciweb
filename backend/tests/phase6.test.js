@@ -85,7 +85,7 @@ test("training modules: each role sees its own modules without answers; scores a
     const { call, makeUser, eci } = await setup();
     const blo = await makeUser("blo");
     const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South", pollingStation: "Government Girls Senior Secondary School, Ludhiana", partNumber: "18" };
-    assert.equal((await call("POST", "/assignments", { epic: blo.user.epic, role: "blo", jurisdiction: area }, eci.token)).status, 201);
+    { const r = await call("POST", "/assignments", { epic: blo.user.epic, role: "blo", jurisdiction: area }, eci.token); assert.equal(r.status, 201, JSON.stringify(r.body)); }
 
     const mine = (await call("GET", "/training/modules", undefined, blo.token)).body.data;
     assert.deepEqual(mine.items.map((m) => m.id), ["blo-field-verification", "blo-new-voters"]);

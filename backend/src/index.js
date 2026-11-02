@@ -3,6 +3,8 @@ import app from "./app.js";
 import connectDB from "./config/db.js";
 import { connectRedis } from "./config/redis.js";
 import { APP_MODE, checkConfig } from "./config/appMode.js";
+import { attachRealtime } from "./realtime/socket.js";
+import { sweepOfflineDevices } from "./controllers/device.controller.js";
 
 const configProblems = checkConfig();
 if (configProblems.length) {
@@ -42,10 +44,17 @@ export default handler;
 // Local development only (Vercel sets VERCEL=1 automatically)
 if (!process.env.VERCEL) {
   init()
-    .then(() => {
-      app.listen(PORT, () => {
+    .then(async () => {
+      const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
       });
+      // Live updates need a long-running process, so they are attached here and not on Vercel.
+      if (process.env.REALTIME !== "off") {
+        const origins = (process.env.CLIENT_URL || "http://localhost:5173").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+        await attachRealtime(server, { origins }).catch((err) => console.error("Realtime updates disabled:", err.message));
+      }
+      // Marks polling-station devices that stopped sending heartbeats as offline (STATION_OFFLINE).
+      setInterval(() => sweepOfflineDevices().catch((err) => console.error("Device sweep failed:", err.message)), 60 * 1000).unref();
     })
     .catch((err) => {
       console.error("STARTUP FAILED:", err.message);

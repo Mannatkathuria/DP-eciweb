@@ -7,6 +7,7 @@ import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 // Polling stations are provided by the DEO with the prior approval of the Election Commission
 // (RP Act 1951, s. 25). Here the DEO proposes a station or a relocation, and the ECI approves it;
@@ -156,7 +157,9 @@ export const approveStationChange = asyncHandler(async (req, res) => {
         await recordAudit(auditEvent({ actor: req.user, action: `station.${change.type === "create" ? "approved" : "relocated"}`, resource: { type: "station", id: station._id }, jurisdiction: station,
             before: change.type === "relocate" ? { name: station.name, address: station.address } : { status: station.status },
             after: { name: updated.name, address: updated.address, status: "ACTIVE", version, electorsUpdated }, note: change.reason }), tx);
+        const liveEvent = recordEvent(opsEvent({ type: "POLLING_STATION_UPDATED", jurisdiction: { ...station, pollingStation: updated.name }, stationId: station._id, payload: { change: change.type, version }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(liveEvent);
         res.json({ success: true, message: change.type === "create" ? "Station approved." : `Relocation approved; ${electorsUpdated} electors updated.`, data: updated });
     } finally { await release(); }
 });

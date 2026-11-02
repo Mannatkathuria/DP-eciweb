@@ -7,10 +7,14 @@ import {
 } from "../repositories/poll.repository.js";
 import { electionStage, requireElection, todayIST } from "../services/election.service.js";
 import { coversAny, hasPermission } from "../services/authority.service.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { listAllDevices } from "../repositories/device.repository.js";
+import { stationDeviceSummary } from "../services/device.service.js";
+import { sweepOfflineDevices } from "./device.controller.js";
 
 // Control room: the poll across every station the caller's jurisdiction covers (a sector
 // officer's or RO's constituency, a DEO's district, a CEO's State, the whole country for the
@@ -25,6 +29,8 @@ export const INCIDENT_TYPES = {
     mcc_violation: "Model Code of Conduct violation near the station", other: "Other"
 };
 export const SEVERITIES = ["low", "medium", "high", "critical"];
+// Who an incident is with; "escalate" moves it one step up.
+export const ESCALATION_LEVELS = ["sector_officer", "returning_officer", "district_election_officer", "chief_electoral_officer"];
 // Thresholds for alerts (minutes). Poll hours vary by election; 07:00 is the usual start.
 const POLL_START = process.env.POLL_START_IST || "07:00";
 const OPEN_GRACE = 30, QUEUE_STALE = 60, CASE_STALE = 30;
@@ -70,7 +76,10 @@ export const overview = asyncHandler(async (req, res) => {
     const election = await chooseElection(req);
     const onPollDay = electionStage(election) === "poll_day";
     const now = Date.now();
-    const [stations, electors, incidents] = await Promise.all([coveredStations(req, election), listElectors(), listIncidents(election._id)]);
+    // Devices that stopped sending heartbeats are marked offline here too, so the sweep also runs
+    // on serverless hosting where no timer runs between requests.
+    await sweepOfflineDevices().catch(() => 0);
+    const [stations, electors, incidents, devices] = await Promise.all([coveredStations(req, election), listElectors(), listIncidents(election._id), listAllDevices()]);
     const partKey = (state, constituency, part) => `${norm(state)}|${norm(constituency)}|${part}`;
     const sizes = new Map();
     for (const e of electors) if (e.isActive !== false) { const k = partKey(e.state, e.assemblyConstituency, String(e.partNumber)); sizes.set(k, (sizes.get(k) ?? 0) + 1); }
@@ -87,6 +96,7 @@ export const overview = asyncHandler(async (req, res) => {
             openCases: cases.filter((c) => c.status === "open").length,
             openIncidents: here.filter((i) => i.status !== "resolved").length,
             lastVisit: visits.at(-1) ?? null,
+            connectivity: stationDeviceSummary(devices.filter((d) => d.stationId === s._id), now),
             alerts: stationAlerts({ onPollDay, state, cases, incidents: here, now })
         };
     }));
@@ -102,7 +112,8 @@ export const overview = asyncHandler(async (req, res) => {
             stations: rows.length, open: rows.filter((r) => r.poll === "open").length, closed: rows.filter((r) => r.poll === "closed").length,
             notStarted: rows.filter((r) => ["not_started", "mock_poll_done"].includes(r.poll)).length,
             electors: electorsTotal, voted: votedTotal, percent: electorsTotal ? Math.round((votedTotal / electorsTotal) * 1000) / 10 : 0,
-            alerts: sum((r) => r.alerts.length), openIncidents: sum((r) => r.openIncidents)
+            alerts: sum((r) => r.alerts.length), openIncidents: sum((r) => r.openIncidents),
+            connectivity: Object.fromEntries(["online", "synchronising", "sync_failed", "stale", "offline", "unknown"].map((c) => [c, rows.filter((r) => r.connectivity.status === c).length]))
         },
         stations: rows,
         incidents: incidents.filter((i) => ids.has(i.stationId)).sort((a, b) => (a.status === "resolved") - (b.status === "resolved") || SEVERITIES.indexOf(b.severity) - SEVERITIES.indexOf(a.severity) || b.reportedAt.localeCompare(a.reportedAt)),
@@ -133,19 +144,24 @@ export const reportIncident = asyncHandler(async (req, res) => {
         state: station.state, district: station.district, constituency: station.constituency, partNumber: station.partNumber,
         type: body.type, severity: body.severity, description, status: "reported",
         reportedBy: { epic: req.user.epic, role: req.user.role }, reportedAt: at,
-        timeline: [{ action: "reported", by: req.user.epic, at, note: description }]
+        timeline: [{ action: "reported", by: req.user.epic, at, note: description }],
+        // Serious incidents start at the RO's level; others with the sector officer.
+        escalationLevel: ["high", "critical"].includes(body.severity) ? 1 : 0
     };
     const tx = transaction();
     saveIncident(incident, tx);
     await recordAudit(auditEvent({ actor: req.user, action: "incident.reported", resource: { type: "incident", id: incident._id }, jurisdiction: stationRecord(station), after: { type: incident.type, severity: incident.severity } }), tx);
+    const event = recordEvent(opsEvent({ type: "INCIDENT_CREATED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id,
+        payload: { incidentId: incident._id, incidentType: incident.type, severity: incident.severity, level: ESCALATION_LEVELS[incident.escalationLevel] }, actor: req.user }), tx);
     await tx.exec();
+    await publishEvents(event);
     res.status(201).json({ success: true, data: incident });
 });
 
 /** Acknowledge, update or resolve an incident (sector officer, RO, DEO, CEO within jurisdiction). */
 export const updateIncident = asyncHandler(async (req, res) => {
     const action = String(req.body?.action ?? "");
-    if (!["acknowledge", "update", "resolve"].includes(action)) throw new ApiError(400, "action must be acknowledge, update or resolve.");
+    if (!["acknowledge", "update", "escalate", "resolve"].includes(action)) throw new ApiError(400, "action must be acknowledge, update, escalate or resolve.");
     const release = await lockIncident(req.params.id);
     if (!release) throw new ApiError(409, "This incident is being updated.");
     try {
@@ -156,16 +172,22 @@ export const updateIncident = asyncHandler(async (req, res) => {
         }
         if (incident.status === "resolved") throw new ApiError(409, "This incident is already resolved.");
         if (action === "acknowledge" && incident.status !== "reported") throw new ApiError(409, "This incident has already been acknowledged.");
-        const note = action === "resolve" ? requireReason(req.body?.note, "resolution") : clean(req.body?.note) || null;
+        const note = ["resolve", "escalate"].includes(action) ? requireReason(req.body?.note, action === "resolve" ? "resolution" : "escalation") : clean(req.body?.note) || null;
         if (action === "update" && !note) throw new ApiError(400, "Write the update.");
+        const level = incident.escalationLevel ?? 0;
+        if (action === "escalate" && level >= ESCALATION_LEVELS.length - 1) throw new ApiError(409, "This incident is already with the Chief Electoral Officer.");
         const at = new Date().toISOString();
         const status = action === "resolve" ? "resolved" : "acknowledged";
-        const updated = { ...incident, status, timeline: [...incident.timeline, { action, by: req.user.epic, at, note }], ...(action === "resolve" ? { resolvedAt: at, resolvedBy: req.user.epic } : {}) };
+        const updated = { ...incident, status, timeline: [...incident.timeline, { action, by: req.user.epic, at, note, ...(action === "escalate" ? { to: ESCALATION_LEVELS[level + 1] } : {}) }],
+            escalationLevel: action === "escalate" ? level + 1 : level, ...(action === "resolve" ? { resolvedAt: at, resolvedBy: req.user.epic } : {}) };
         const tx = transaction();
         saveIncident(updated, tx);
-        await recordAudit(auditEvent({ actor: req.user, action: `incident.${{ acknowledge: "acknowledged", update: "updated", resolve: "resolved" }[action]}`, resource: { type: "incident", id: incident._id },
-            jurisdiction: { ...incident, assemblyConstituency: incident.constituency, pollingStation: incident.stationName }, before: { status: incident.status }, after: { status }, note }), tx);
+        await recordAudit(auditEvent({ actor: req.user, action: `incident.${{ acknowledge: "acknowledged", update: "updated", escalate: "escalated", resolve: "resolved" }[action]}`, resource: { type: "incident", id: incident._id },
+            jurisdiction: { ...incident, assemblyConstituency: incident.constituency, pollingStation: incident.stationName }, before: { status: incident.status, level: ESCALATION_LEVELS[level] }, after: { status, level: ESCALATION_LEVELS[updated.escalationLevel] }, note }), tx);
+        const event = recordEvent(opsEvent({ type: action === "escalate" ? "INCIDENT_ESCALATED" : "INCIDENT_UPDATED", jurisdiction: { ...incident, pollingStation: incident.stationName },
+            electionId: incident.electionId, stationId: incident.stationId, payload: { incidentId: incident._id, status, level: ESCALATION_LEVELS[updated.escalationLevel] }, actor: req.user }), tx);
         await tx.exec();
+        await publishEvents(event);
         res.json({ success: true, data: updated });
     } finally { await release(); }
 });

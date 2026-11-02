@@ -5,6 +5,8 @@ import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import ReasonDialog from "./ReasonDialog";
 import VabSlip from "../components/VabSlip";
+import StationDevice from "../components/StationDevice";
+import { useLiveEvents } from "../api/live";
 import { apiMessage } from "../config/elections";
 
 // Poll day at the signed-in officer's own polling station. What each person can do is decided
@@ -71,12 +73,10 @@ export default function PollDay() {
             if (userData?.role !== "blo" && userData?.role !== "admin") setCases((await api.get("/poll-day/cases")).data.data.items);
         } catch (err) { setError(apiMessage(err, "Could not load your polling station.")); }
     }, [userData]);
-    useEffect(() => {
-        if (!allowed) return undefined;
-        load();
-        const t = setInterval(load, 15000);
-        return () => clearInterval(t);
-    }, [allowed, load]);
+    useEffect(() => { if (allowed) load(); }, [allowed, load]);
+    // Live where available (another officer marked a voter, the presiding officer opened the poll,
+    // an incident changed), otherwise every 15 seconds.
+    useLiveEvents(() => load(), { enabled: allowed, pollMs: 15000 });
 
     if (!logged) return <Navigate to="/signin" replace />;
     if (!allowed) return <Navigate to="/home" replace />;
@@ -114,6 +114,7 @@ export default function PollDay() {
                 <div className="container stack">
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
+                    {s && !isVab && ["presiding_officer", "polling_officer"].includes(userData?.role) && <StationDevice station={s.station} />}
                     {s && !s.onPollDay && <div className="alert alert-warn">Poll day for this election is {s.election.pollDate}. Nothing can be recorded before then.</div>}
                     {s && !isVab && (
                         <div className="panel" aria-live="polite">

@@ -9,6 +9,7 @@ import { assignmentInElection, electionStage, todayIST } from "../services/elect
 import { hasPermission } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { rankElectors } from "../services/search.service.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -45,7 +46,7 @@ const inPart = (station) => (e) => e.isActive !== false && norm(e.state) === nor
  * The caller's station and the election being polled there. Chooses the election on its poll day
  * if there is one, otherwise the next poll (so the screen can say when poll day is).
  */
-const stationContext = async (req) => {
+export const stationContext = async (req) => {
     const own = req.authority.assignments.filter((a) => a.jurisdiction?.pollingStation);
     if (!own.length) throw new ApiError(403, "You are not assigned to a polling station.");
     const stations = (await listStations()).filter((s) => s.status === "ACTIVE");
@@ -140,6 +141,19 @@ export const markVoter = asyncHandler(async (req, res) => {
     if (checks.inkApplied !== true) throw new ApiError(400, "Confirm that indelible ink has been applied.");
     if (!onPollDay) throw new ApiError(409, `Poll day is ${election.schedule.pollDate}.`);
 
+    const result = await markVoterAtStation({ user: req.user, station, election, epic, idDocument });
+    if (!result) throw new ApiError(503, "The station register is busy. Try again.");
+    res.status(201).json({ success: true, message: `${result.name} marked at serial ${result.serial}.`, data: result });
+});
+
+/**
+ * Marks one elector in the station register, under the station lock: the poll must be open, the
+ * elector on this part, not already marked, and with no open or adverse doubt or challenge. Used
+ * by the online screen and by offline sync (which passes the time the officer acted and an
+ * idempotency key). Returns the register entry, or null if the station lock was busy.
+ */
+export const markVoterAtStation = async ({ user, station, election, epic, idDocument, actedAt = null, idempotencyKey = null, deviceId = null }) => {
+    let event = null;
     const result = await withStationLock(election._id, station._id, async () => {
         const state = await loadState(election, station);
         if (state.status !== "open") throw new ApiError(409, state.status === "closed" ? "The poll has closed." : "The presiding officer has not opened the poll.");
@@ -151,17 +165,22 @@ export const markVoter = asyncHandler(async (req, res) => {
         if (cases.some((c) => c.status === "open")) throw new ApiError(409, "A doubt or challenge about this elector is waiting for the presiding officer.");
         if (cases.some((c) => ["refused", "upheld"].includes(c.decision))) throw new ApiError(409, "The presiding officer has decided that this person may not vote as this elector.");
         const at = new Date().toISOString();
-        const entry = { serial: (await registerLength(election._id, station._id)) + 1, electionId: election._id, stationId: station._id, epic, name: elector.name, idDocument, at, by: req.user.epic };
+        const serial = (await registerLength(election._id, station._id)) + 1;
+        const entry = { serial, electionId: election._id, stationId: station._id, epic, name: elector.name, idDocument, at, by: user.epic,
+            ...(actedAt ? { actedAt, deviceId, syncedAt: at } : {}) };
         const tx = transaction();
         appendRegister(entry, tx);
-        saveElector({ ...elector, hasVoted: true, votedAt: at, votedBooth: station.name, updatedAt: at }, tx);
-        await recordAudit(auditEvent({ actor: req.user, action: "poll.voter_marked", resource: { type: "poll_station", id: `${election._id}:${station._id}` }, jurisdiction: stationRecord(station), after: { epic, serial: entry.serial, idDocument } }), tx);
+        saveElector({ ...elector, hasVoted: true, votedAt: actedAt ?? at, votedBooth: station.name, updatedAt: at }, tx);
+        await recordAudit(auditEvent({ actor: user, action: "poll.voter_marked", resource: { type: "poll_station", id: `${election._id}:${station._id}` }, jurisdiction: stationRecord(station), after: { epic, serial, idDocument, ...(actedAt ? { actedAt, deviceId, offline: true } : {}) } }), tx);
+        // The live event carries the count only, never who voted.
+        event = recordEvent(opsEvent({ type: "TURNOUT_UPDATED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id, payload: { voted: serial }, actor: user, idempotencyKey }), tx);
         await tx.exec();
         return entry;
     });
-    if (!result) throw new ApiError(503, "The station register is busy. Try again.");
-    res.status(201).json({ success: true, message: `${result.name} marked at serial ${result.serial}.`, data: result });
-});
+    if (event) await publishEvents(event);
+    return result;
+};
+
 
 /** Presiding officer moves the poll forward: mock poll held, poll open, poll closed. */
 export const setPollStatus = asyncHandler(async (req, res) => {
@@ -182,10 +201,12 @@ export const setPollStatus = asyncHandler(async (req, res) => {
         const tx = transaction();
         savePollState(updated, tx);
         await recordAudit(auditEvent({ actor: req.user, action: `poll.${status}`, resource: { type: "poll_station", id: `${election._id}:${station._id}` }, jurisdiction: stationRecord(station), before: { status: state.status }, after: { status, ...(status === "closed" ? { votesInRegister: votes } : {}) } }), tx);
+        updated._event = recordEvent(opsEvent({ type: "POLL_STATUS_CHANGED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id, payload: { status, votes }, actor: req.user }), tx);
         await tx.exec();
         return updated;
     });
     if (!result) throw new ApiError(503, "The station is busy. Try again.");
+    await publishEvents(result._event);
     res.json({ success: true, data: { status: result.status, history: result.history, closing: result.closing } });
 });
 
@@ -200,11 +221,13 @@ export const reportQueue = asyncHandler(async (req, res) => {
         const report = { waiting, at: new Date().toISOString(), by: req.user.epic };
         const tx = transaction();
         savePollState({ ...state, queue: report, queueHistory: [...state.queueHistory, report].slice(-50) }, tx);
+        const event = recordEvent(opsEvent({ type: "QUEUE_UPDATED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id, payload: { waiting }, actor: req.user }), tx);
         await tx.exec();
-        return report;
+        return { report, event };
     });
     if (!result) throw new ApiError(503, "The station is busy. Try again.");
-    res.json({ success: true, data: result });
+    await publishEvents(result.event);
+    res.json({ success: true, data: result.report });
 });
 
 /** Exceptions raised at the station. Polling agents may only challenge an elector's identity. */
@@ -244,7 +267,9 @@ export const raiseCase = asyncHandler(async (req, res) => {
     const tx = transaction();
     savePollCase(c, tx);
     await recordAudit(auditEvent({ actor: req.user, action: `poll.case_${type}`, resource: { type: "poll_case", id: c._id }, jurisdiction: stationRecord(station), after: { type, epic, status: c.status }, note: c.note }), tx);
+    const event = recordEvent(opsEvent({ type: "EXCEPTION_CREATED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id, payload: { caseId: c._id, caseType: type, status: c.status }, actor: req.user }), tx);
     await tx.exec();
+    await publishEvents(event);
     res.status(201).json({ success: true, data: c });
 });
 
@@ -273,11 +298,13 @@ export const resolveCase = asyncHandler(async (req, res) => {
         const tx = transaction();
         savePollCase(updated, tx);
         await recordAudit(auditEvent({ actor: req.user, action: "poll.case_decided", resource: { type: "poll_case", id: c._id }, jurisdiction: stationRecord(station), before: { status: "open" }, after: { decision }, note: decisionNote }), tx);
+        const event = recordEvent(opsEvent({ type: "EXCEPTION_RESOLVED", jurisdiction: stationRecord(station), electionId: election._id, stationId: station._id, payload: { caseId: c._id, caseType: c.type, decision }, actor: req.user }), tx);
         await tx.exec();
-        return updated;
+        return { updated, event };
     });
     if (!result) throw new ApiError(503, "The station is busy. Try again.");
-    res.json({ success: true, data: result });
+    await publishEvents(result.event);
+    res.json({ success: true, data: result.updated });
 });
 
 /** Presiding officer: the register of electors who voted (confidential; Form 17A in the prototype). */

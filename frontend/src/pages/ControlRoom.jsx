@@ -5,14 +5,25 @@ import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import ReasonDialog from "./ReasonDialog";
 import { STAGE_LABEL, apiMessage } from "../config/elections";
+import { useLiveEvents } from "../api/live";
 
-// Control room: every polling station in the signed-in official's jurisdiction, refreshed every
-// 10 seconds, with alerts first, incidents to handle and sector officers' visits.
+// Control room: every polling station in the signed-in official's jurisdiction, with alerts first,
+// incidents to handle, sector officers' visits and each station's device connectivity. Updates
+// arrive live over Socket.IO where the server offers it; otherwise the page refreshes every 10 s.
 
 const ROLES = ["sector_officer", "ro", "aro", "deo", "deputy_deo", "ceo", "eci", "cec", "election_commissioner", "general_observer"];
 const POLL = { not_started: ["Not started", "badge-warn"], mock_poll_done: ["Mock poll held", "badge-warn"], open: ["Open", "badge-ok"], closed: ["Closed", ""] };
 const SEVERITY = { low: "", medium: "badge-progress", high: "badge-warn", critical: "badge-bad" };
 const INCIDENT_STATUS = { reported: "Reported", acknowledged: "Being handled", resolved: "Resolved" };
+const ESCALATION = ["sector officer", "Returning Officer", "District Election Officer", "Chief Electoral Officer"];
+// A station is only "online" when one of its registered devices sent a verified heartbeat.
+const LINK = { online: ["Online", "badge-ok"], synchronising: ["Syncing", "badge-progress"], sync_failed: ["Sync failed", "badge-bad"], stale: ["No heartbeat", "badge-warn"], offline: ["Offline", "badge-bad"], unknown: ["No device", ""] };
+const EVENT_LABEL = {
+    POLL_STATUS_CHANGED: "Poll status changed", QUEUE_UPDATED: "Queue reported", TURNOUT_UPDATED: "Turnout updated", INCIDENT_CREATED: "Incident reported",
+    INCIDENT_UPDATED: "Incident updated", INCIDENT_ESCALATED: "Incident escalated", EXCEPTION_CREATED: "Exception raised", EXCEPTION_RESOLVED: "Exception decided",
+    STATION_ONLINE: "Device online", STATION_OFFLINE: "Device offline", SYNC_COMPLETED: "Offline records synced", SYNC_FAILED: "Sync failed",
+    POLLING_STATION_UPDATED: "Polling station updated", ELECTORAL_ROLL_UPDATED: "Electoral roll published", COUNTING_UPDATE_IMPORTED: "Counting update imported", OFFICIAL_RESULT_UPDATED: "Official result updated"
+};
 
 export default function ControlRoom() {
     const { logged, userData } = useContext(AuthContext);
@@ -31,12 +42,13 @@ export default function ControlRoom() {
             setData(res.data); setError("");
         } catch (err) { setError(apiMessage(err, "Could not load the control room.")); }
     }, [electionId]);
-    useEffect(() => {
-        if (!allowed) return undefined;
+    useEffect(() => { if (allowed) load(); }, [allowed, load]);
+    // Reloads when an event arrives (live), or every 10 seconds when live updates are unavailable.
+    const [recent, setRecent] = useState([]);
+    const live = useLiveEvents((events) => {
+        if (events.length) setRecent((r) => [...events.reverse(), ...r].slice(0, 8));
         load();
-        const t = setInterval(load, 10000);
-        return () => clearInterval(t);
-    }, [allowed, load]);
+    }, { enabled: allowed });
 
     if (!logged) return <Navigate to="/signin" replace />;
     if (!allowed) return <Navigate to="/home" replace />;
@@ -53,7 +65,7 @@ export default function ControlRoom() {
     return (
         <>
             <PageHead title="Control room" crumbs={[{ label: "Control room" }]}
-                lede={data ? `${data.election.name}, poll on ${data.election.pollDate} (${STAGE_LABEL[data.election.stage]}). Updated ${new Date(data.generatedAt).toLocaleTimeString()}, refreshes every 10 seconds.` : "Loading."} />
+                lede={data ? `${data.election.name}, poll on ${data.election.pollDate} (${STAGE_LABEL[data.election.stage]}). Updated ${new Date(data.generatedAt).toLocaleTimeString()}, ${live === "live" ? "live updates on" : "refreshes every 10 seconds"}.` : "Loading."} />
             <section className="section">
                 <div className="container stack">
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
@@ -70,7 +82,14 @@ export default function ControlRoom() {
                                 <div><small className="muted">Turnout</small><br /><strong className="figure">{sum.percent}%</strong> <small>({sum.voted} of {sum.electors})</small></div>
                                 <div><small className="muted">Alerts</small><br /><strong className="figure">{sum.alerts}</strong></div>
                                 <div><small className="muted">Open incidents</small><br /><strong className="figure">{sum.openIncidents}</strong></div>
+                                {sum.connectivity && <div><small className="muted">Devices online / offline / unknown</small><br /><strong className="figure">{sum.connectivity.online + sum.connectivity.synchronising} / {sum.connectivity.offline + sum.connectivity.stale} / {sum.connectivity.unknown}</strong>{sum.connectivity.sync_failed > 0 && <> <span className="badge badge-bad">{sum.connectivity.sync_failed} sync failed</span></>}</div>}
                             </div>
+                            {recent.length > 0 && (
+                                <div className="panel" aria-live="polite">
+                                    <h2 style={{ marginTop: 0 }}>Latest updates</h2>
+                                    <ul className="rows">{recent.map((e) => <li key={e._id}><small>{new Date(e.at).toLocaleTimeString()}</small> {EVENT_LABEL[e.type] ?? e.type}{e.jurisdiction?.pollingStation ? `, ${e.jurisdiction.pollingStation}` : e.jurisdiction?.constituency ? `, ${e.jurisdiction.constituency}` : ""}</li>)}</ul>
+                                </div>
+                            )}
                             {!data.onPollDay && <div className="alert alert-warn">This election is not polling today, so the stations show no activity yet.</div>}
 
                             <div className="panel">
@@ -83,13 +102,14 @@ export default function ControlRoom() {
                                         </select></div>
                                 </div>
                                 <div className="table-wrap" style={{ marginTop: 12 }}><table>
-                                    <thead><tr><th>Station</th><th>Poll</th><th>Turnout</th><th>Queue</th><th>Cases / incidents</th><th>Alerts</th>{data.can.visit && <th></th>}</tr></thead>
+                                    <thead><tr><th>Station</th><th>Poll</th><th>Turnout</th><th>Queue</th><th>Device</th><th>Cases / incidents</th><th>Alerts</th>{data.can.visit && <th></th>}</tr></thead>
                                     <tbody>{rows.map((r) => (
                                         <tr key={r.stationId}>
                                             <td><strong>{r.name}</strong><br /><small>Part {r.partNumber}, {r.constituency}</small>{r.lastVisit && <><br /><small className="muted">Visited {new Date(r.lastVisit.at).toLocaleTimeString()}: {r.lastVisit.note}</small></>}</td>
                                             <td><span className={`badge ${POLL[r.poll][1]}`}>{POLL[r.poll][0]}</span></td>
                                             <td className="figure">{r.turnout.percent}%<br /><small>{r.turnout.voted} / {r.turnout.electors}</small></td>
                                             <td>{r.queue ? <>{r.queue.waiting}<br /><small>{new Date(r.queue.at).toLocaleTimeString()}</small></> : "–"}</td>
+                                            <td>{r.connectivity ? <><span className={`badge ${LINK[r.connectivity.status][1]}`}>{LINK[r.connectivity.status][0]}</span>{r.connectivity.lastHeartbeatAt && <><br /><small>{new Date(r.connectivity.lastHeartbeatAt).toLocaleTimeString()}</small></>}{r.connectivity.pendingOutbox > 0 && <><br /><small>{r.connectivity.pendingOutbox} waiting to sync</small></>}</> : "–"}</td>
                                             <td>{r.openCases} / {r.openIncidents}</td>
                                             <td>{r.alerts.map((a) => <span key={a.code} className="badge badge-bad" style={{ display: "inline-block", margin: "0 4px 4px 0" }}>{a.text}</span>)}</td>
                                             {data.can.visit && <td><button className="btn btn-quiet btn-small" disabled={busy} onClick={() => setDialog({
@@ -98,7 +118,7 @@ export default function ControlRoom() {
                                             })}>Record visit</button></td>}
                                         </tr>
                                     ))}
-                                    {rows.length === 0 && <tr><td colSpan={7}>No stations to show.</td></tr>}</tbody>
+                                    {rows.length === 0 && <tr><td colSpan={8}>No stations to show.</td></tr>}</tbody>
                                 </table></div>
                             </div>
 
@@ -107,13 +127,15 @@ export default function ControlRoom() {
                                 {data.incidents.length === 0 && <p>No incidents reported.</p>}
                                 <ul className="rows">{data.incidents.map((i) => (
                                     <li key={i._id} style={{ padding: "12px 0" }}>
-                                        <span className={`badge ${SEVERITY[i.severity]}`}>{i.severity}</span> <strong>{data.incidentTypes[i.type]}</strong> at {i.stationName} (part {i.partNumber}, {i.constituency}) · <em>{INCIDENT_STATUS[i.status]}</em>
+                                        <span className={`badge ${SEVERITY[i.severity]}`}>{i.severity}</span> <strong>{data.incidentTypes[i.type]}</strong> at {i.stationName} (part {i.partNumber}, {i.constituency}) · <em>{INCIDENT_STATUS[i.status]}</em>{i.escalationLevel > 0 && <> · <span className="badge badge-warn">Escalated to {ESCALATION[i.escalationLevel]}</span></>}
                                         <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{i.timeline.map((t, n) => <li key={n}><small>{new Date(t.at).toLocaleTimeString()} {t.action} by {t.by}{t.note ? `: ${t.note}` : ""}</small></li>)}</ul>
                                         {data.can.manage && i.status !== "resolved" && (
                                             <div style={{ marginTop: 6 }}>
                                                 {i.status === "reported" && <button className="btn-approve" style={{ marginRight: 8 }} disabled={busy} onClick={() => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "acknowledge" }), "Incident acknowledged.")}>Acknowledge</button>}
                                                 <button className="btn btn-quiet btn-small" style={{ marginRight: 8 }} disabled={busy} onClick={() => setDialog({ title: "Add an update", label: "Update", required: true, confirmLabel: "Add update", confirmClass: "btn-approve",
                                                     run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "update", note }), "Update added.") })}>Add update</button>
+                                                {(i.escalationLevel ?? 0) < 3 && <button className="btn btn-quiet btn-small" style={{ marginRight: 8 }} disabled={busy} onClick={() => setDialog({ title: `Escalate to the ${ESCALATION[(i.escalationLevel ?? 0) + 1]}`, label: "Why does this need a higher level?", required: true, confirmLabel: "Escalate", confirmClass: "btn-reject",
+                                                    run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "escalate", note }), "Incident escalated.") })}>Escalate</button>}
                                                 <button className="btn-approve" disabled={busy} onClick={() => setDialog({ title: "Resolve the incident", label: "How was it resolved?", required: true, confirmLabel: "Resolve", confirmClass: "btn-approve",
                                                     run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "resolve", note }), "Incident resolved.") })}>Resolve</button>
                                             </div>

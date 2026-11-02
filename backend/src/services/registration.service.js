@@ -5,6 +5,7 @@ import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
 import { pendingDuplicateKey, registrationDocumentKey, saveRegistration } from "../repositories/registration.repository.js";
 import { SEPARATE_DOCUMENTS, purgedDocumentMeta } from "../utils/form6.js";
 import { ApiError } from "../utils/ApiErrors.js";
+import { opsEvent, publishEvents, recordEvent } from "./events.service.js";
 
 /**
  * Picks a new EPIC number and claims it with SET NX, so two approvals running at the same
@@ -76,8 +77,11 @@ export const createVoterFromApplication = async (application, approver, assignme
     for (const category of SEPARATE_DOCUMENTS) tx.del(registrationDocumentKey(application._id, category));
     if (application.duplicateFingerprint) tx.del(pendingDuplicateKey(application.duplicateFingerprint));
     if (onTx) await onTx(tx, decided);
+    const liveEvent = recordEvent(opsEvent({ type: "REGISTRATION_DECIDED", jurisdiction: { state: application.state, district: application.district, constituency: application.assemblyConstituency },
+        payload: { kind: "form6", decision: "approved" }, actor: approver }), tx);
     try {
         await tx.exec();
+        await publishEvents(liveEvent);
     } catch (error) {
         // Nothing was written, so give the reserved number back.
         await redis().del(`epic:allocated:${epic}`).catch(() => {});

@@ -11,6 +11,7 @@ import { portalRoles, ROLES, ROLE_GROUPS } from "../config/roles.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { historyFor } from "../services/audit.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
 // EPIC format: three letters followed by seven digits.
 export const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
@@ -196,7 +197,9 @@ export const submitRegistration = asyncHandler(async (req, res) => {
                 }));
             }
             saveRegistration(application, tx);
+            const liveEvent = recordEvent(opsEvent({ type: "APPLICATION_SUBMITTED", jurisdiction: { state: application.state, district: application.district, constituency: application.assemblyConstituency }, payload: { kind: "form6" } }), tx);
             await tx.exec();
+            await publishEvents(liveEvent);
         } else {
             await saveRegistration(application);
         }
