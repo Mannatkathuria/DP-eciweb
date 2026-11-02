@@ -67,6 +67,7 @@ export default function Training() {
         <>
             <PageHead title="Training" crumbs={[{ label: "Training" }]}
                 lede="Practice modules for your role. Each walks through the screens you use and ends with a short knowledge check. Prototype material, not official ECI training." />
+            <section className="section" style={{ paddingBottom: 0 }}><div className="container"><p className="panel">Practise real situations step by step in the <Link to="/training/poll-day">poll-day training simulator</Link>.</p></div></section>
             <section className="section">
                 <div className="container stack">
                     {error && <div className="alert alert-error" role="alert">{error}</div>}

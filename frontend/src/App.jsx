@@ -43,6 +43,7 @@ import PresidingOfficer from "./pages/PresidingOfficer";
 import Counting from "./pages/Counting";
 import ControlRoom from "./pages/ControlRoom";
 import Training from "./pages/Training";
+import TrainingSimulator from "./pages/TrainingSimulator";
 import PhoneScreen from "./pages/PhoneScreen";
 import StepUpDialog from "./components/StepUpDialog";
 import AgentDesk from "./pages/AgentDesk";
@@ -100,6 +101,7 @@ function App() {
                     <Route path="/counting" element={<Counting />} />
                     <Route path="/control-room" element={<ControlRoom />} />
                     <Route path="/training" element={<Training />} />
+                    <Route path="/training/poll-day" element={<TrainingSimulator />} />
 
                     {/* Older addresses, kept so saved links keep working */}
                     <Route path="/login" element={<Navigate to="/signin/voter" replace />} />

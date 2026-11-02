@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import useGeography from "../hooks/useGeography";
@@ -9,25 +10,17 @@ import useGeography from "../hooks/useGeography";
 const apiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 const FACILITIES = [["ramp", "Ramp"], ["wheelchair", "Wheelchair"], ["drinkingWater", "Drinking water"], ["toilet", "Toilet"], ["shade", "Shade"], ["signage", "Signage"]];
 
-const QUEUE_TEXT = {
-    estimated: (e) => `${e.waiting} waiting, about ${e.minutes} minute${e.minutes === 1 ? "" : "s"}`,
-    insufficient_data: (e) => `${e.waiting} waiting (not enough recent voting to estimate the wait)`,
-    stale: () => "No recent queue report from this station",
-    unknown: () => "No queue report yet",
-    not_open: () => "The poll is not open yet",
-    closed: () => "The poll has closed",
-    no_poll_today: () => "There is no poll at this station today"
-};
-
 /** Poll day: the queue at the station, from the polling party's latest count and the recent pace. */
 function QueueNow({ id }) {
+    const { t } = useTranslation();
     const [q, setQ] = useState(null);
     const [err, setErr] = useState("");
-    const check = async () => { setErr(""); try { setQ((await api.get(`/public/stations/${id}/queue`)).data.data); } catch (e) { setErr(apiMessage(e, "Could not check the queue.")); } };
+    const check = async () => { setErr(""); try { setQ((await api.get(`/public/stations/${id}/queue`)).data.data); } catch (e) { setErr(apiMessage(e, t("voterExtra.queue.failed"))); } };
+    const e = q?.estimate;
     return (
         <p style={{ margin: "8px 0 0" }}>
-            <button className="btn btn-quiet btn-small" onClick={check}>{q ? "Check again" : "Check the queue now"}</button>{" "}
-            {q && <span aria-live="polite"><strong>{QUEUE_TEXT[q.estimate.status]?.(q.estimate) ?? q.estimate.status}</strong>{q.estimate.reportedAt && <small className="muted"> (reported {new Date(q.estimate.reportedAt).toLocaleTimeString()})</small>}<br /><small className="muted">{q.note}</small></span>}
+            <button className="btn btn-quiet btn-small" onClick={check}>{q ? t("voterExtra.queue.again") : t("voterExtra.queue.check")}</button>{" "}
+            {q && <span aria-live="polite"><strong>{t(`voterExtra.queue.${e.status}`, { waiting: e.waiting, minutes: e.minutes, defaultValue: e.status })}</strong>{e.reportedAt && <small className="muted"> ({t("voterExtra.queue.reported", { time: new Date(e.reportedAt).toLocaleTimeString() })})</small>}<br /><small className="muted">{t("voterExtra.queue.note")}</small></span>}
             {err && <small className="muted">{err}</small>}
         </p>
     );

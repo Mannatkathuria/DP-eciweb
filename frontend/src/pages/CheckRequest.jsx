@@ -36,7 +36,7 @@ export default function CheckRequest() {
             const fresh = await api.get(`/auth/register/${encodeURIComponent(referenceId.trim())}`);
             setResult(fresh.data.data);
         } catch (err) {
-            setReplyState({ busy: false, error: err.response?.data?.message || "Could not send your answer. Try again.", done: "" });
+            setReplyState({ busy: false, error: err.response?.data?.message || t("voterExtra.info.failed"), done: "" });
         }
     };
 
@@ -83,16 +83,16 @@ export default function CheckRequest() {
                     {replyState.done && <div className="portal-success" role="status">{replyState.done}</div>}
                     {result?.status === "information_required" && (
                         <div className="portal-notice" role="status">
-                            <p>Status: <strong>MORE INFORMATION NEEDED</strong>. The Electoral Registration Officer asked: “{result.informationRequest?.note}”</p>
+                            <p><strong>{t("voterExtra.info.status")}</strong>. {t("voterExtra.info.asked")} “{result.informationRequest?.note}”</p>
                             <form className="portal-form" onSubmit={sendReply}>
-                                <label>Your date of birth (to confirm it's you)
+                                <label>{t("voterExtra.info.dob")}
                                     <input type="date" value={reply.dateOfBirth} onChange={(ev) => setReply({ ...reply, dateOfBirth: ev.target.value })} required />
                                 </label>
-                                <label>Your answer
+                                <label>{t("voterExtra.info.answer")}
                                     <textarea rows={3} maxLength={1000} value={reply.response} onChange={(ev) => setReply({ ...reply, response: ev.target.value })} required minLength={5} />
                                 </label>
                                 {replyState.error && <div className="portal-error" role="alert">{replyState.error}</div>}
-                                <button disabled={replyState.busy}>{replyState.busy ? "Sending…" : "Send answer"}</button>
+                                <button disabled={replyState.busy}>{replyState.busy ? t("voterExtra.info.sending") : t("voterExtra.info.send")}</button>
                             </form>
                         </div>
                     )}
@@ -109,7 +109,7 @@ export default function CheckRequest() {
                     {result?.timeline?.length > 0 && (
                         <ol className="rows" aria-label="Application history">
                             {result.timeline.map((s) => (
-                                <li key={`${s.step}-${s.at}`}><small>{new Date(s.at).toLocaleString()} · {TIMELINE_TEXT[s.step] || s.step}</small></li>
+                                <li key={`${s.step}-${s.at}`}><small>{new Date(s.at).toLocaleString()} · {t(`voterExtra.timeline.${s.step}`, { defaultValue: TIMELINE_TEXT[s.step] || s.step })}</small></li>
                             ))}
                         </ol>
                     )}

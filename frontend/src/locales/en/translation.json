@@ -389,5 +389,48 @@
     "resetDone": "Your password was changed. Sign in with your new password.",
     "resetFailed": "Could not reset the password. Please try again.",
     "backToSignIn": "Back to sign in"
+  },
+  "voterExtra": {
+    "timeline": {
+      "submitted": "Application submitted",
+      "field_verified": "Verified in the field by your Booth Level Officer",
+      "approved": "Approved by the Electoral Registration Officer and added to the roll",
+      "rejected": "Rejected by the Electoral Registration Officer",
+      "information_requested": "The Electoral Registration Officer asked you for more information",
+      "information_provided": "You sent the information requested",
+      "reverification_requested": "Sent back to your Booth Level Officer to verify again"
+    },
+    "info": {
+      "status": "MORE INFORMATION NEEDED",
+      "asked": "The Electoral Registration Officer asked:",
+      "dob": "Your date of birth (to confirm it's you)",
+      "answer": "Your answer",
+      "send": "Send answer",
+      "sending": "Sending…",
+      "failed": "Could not send your answer. Try again."
+    },
+    "queue": {
+      "check": "Check the queue now",
+      "again": "Check again",
+      "estimated": "{{waiting}} waiting, about {{minutes}} minutes",
+      "insufficient_data": "{{waiting}} waiting (not enough recent voting to estimate the wait)",
+      "stale": "No recent queue report from this station",
+      "unknown": "No queue report yet",
+      "not_open": "The poll is not open yet",
+      "closed": "The poll has closed",
+      "no_poll_today": "There is no poll at this station today",
+      "reported": "reported {{time}}",
+      "note": "An estimate from the polling party's latest count and the station's recent pace. It is not official turnout.",
+      "failed": "Could not check the queue."
+    },
+    "slip": {
+      "pollOn": "poll on {{date}}",
+      "serial": "Serial number",
+      "part": "Part",
+      "ref": "Slip reference {{id}}. Show this to the polling officer. Bring an identity document.",
+      "print": "Print slip",
+      "clear": "Clear",
+      "label": "Voter slip"
+    }
   }
 }

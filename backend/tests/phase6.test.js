@@ -138,3 +138,50 @@ test("audit trail: every event carries a hash; an altered event is detected", ne
     } finally { await redis().set(`audit:event:${id}`, original); }
     assert.equal((await call("GET", "/audit/integrity", undefined, eci.token)).body.data.ok, true);
 });
+
+test("training simulator: role scenarios without answers, server-timed runs, feedback, one submission per run, certificate", needsRedis, async () => {
+    const { call, makeUser } = await setup();
+    const { SCENARIOS, scenariosFor } = await import("../src/config/scenarios.js");
+    const blo = await makeUser("blo");
+    const list = (await call("GET", "/training/scenarios", undefined, blo.token)).body.data;
+    const ids = list.items.map((x) => x.id);
+    assert.ok(ids.includes("elector-not-found") && ids.includes("verification-discrepancy"));
+    assert.equal(ids.includes("counting-discrepancy"), false, "not a BLO scenario");
+    assert.equal(JSON.stringify(list).includes("\"correct\""), false, "answers stay on the server");
+    assert.equal((await call("POST", "/training/scenarios/counting-discrepancy/start", {}, blo.token)).status, 404);
+
+    const right = (id) => SCENARIOS.find((x) => x.id === id).steps.map((st) => st.options.findIndex((o) => o.correct));
+    const run = (await call("POST", "/training/scenarios/elector-not-found/start", {}, blo.token)).body.data;
+    assert.equal((await call("POST", `/training/runs/${run.runId}/submit`, { answers: [0] }, blo.token)).status, 400);
+    const wrong = right("elector-not-found").map((a) => (a + 1) % 3);
+    const r1 = (await call("POST", `/training/runs/${run.runId}/submit`, { answers: wrong }, blo.token)).body.data;
+    assert.equal(r1.passed, false);
+    assert.ok(r1.steps.every((s) => !s.correct && s.rightAnswer && s.feedback));
+    assert.equal((await call("POST", `/training/runs/${run.runId}/submit`, { answers: right("elector-not-found") }, blo.token)).status, 404, "one submission per run");
+    const other = await makeUser("blo");
+    const theirs = (await call("POST", "/training/scenarios/elector-not-found/start", {}, other.token)).body.data;
+    assert.equal((await call("POST", `/training/runs/${theirs.runId}/submit`, { answers: right("elector-not-found") }, blo.token)).status, 404, "someone else's run");
+
+    assert.equal((await call("GET", "/training/report", undefined, blo.token)).body.data.certificate, null);
+    for (const sc of scenariosFor("blo")) {
+        const r = (await call("POST", `/training/scenarios/${sc.id}/start`, {}, blo.token)).body.data;
+        const done = (await call("POST", `/training/runs/${r.runId}/submit`, { answers: right(sc.id) }, blo.token)).body.data;
+        assert.equal(done.passed, true, sc.id);
+        assert.equal(done.score, 1);
+    }
+    const report = (await call("GET", "/training/report", undefined, blo.token)).body.data;
+    assert.equal(report.passed, report.total);
+    assert.match(report.certificate.id, /^[0-9a-f]{20}$/);
+    assert.match(report.certificate.note, /not an official certification/);
+});
+
+test("training scenarios: one right option per step, and every reference points to the procedure library", async () => {
+    const { SCENARIOS } = await import("../src/config/scenarios.js");
+    const { PROCEDURES } = await import("../src/config/procedures.js");
+    const known = new Set(PROCEDURES.map((p) => p.id));
+    assert.equal(new Set(SCENARIOS.map((s) => s.id)).size, SCENARIOS.length);
+    for (const sc of SCENARIOS) for (const st of sc.steps) {
+        assert.equal(st.options.filter((o) => o.correct).length, 1, `${sc.id}: ${st.prompt}`);
+        for (const o of st.options) { assert.ok(o.feedback, sc.id); if (o.ref) assert.ok(known.has(o.ref), `${sc.id} -> ${o.ref}`); }
+    }
+});
