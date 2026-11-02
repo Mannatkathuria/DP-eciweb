@@ -7,8 +7,8 @@ const router = express.Router();
 router.use(verifyJWT, requirePasswordChanged);
 
 router.get("/me", listMyAssignments);
-router.get("/", authorize("role:assign", "blo:assign", "audit:read"), listAssignments);
-router.post("/", authorize("role:assign", "blo:assign"), grantAssignment);
-router.post("/:id/revoke", authorize("role:assign", "blo:assign"), revokeAssignment);
+router.get("/", authorize("role:assign", "blo:assign", "staff:assign", "polling:arrange", "audit:read"), listAssignments);
+router.post("/", authorize("role:assign", "blo:assign", "staff:assign", "polling:arrange"), grantAssignment);
+router.post("/:id/revoke", authorize("role:assign", "blo:assign", "staff:assign", "polling:arrange"), revokeAssignment);
 
 export default router;

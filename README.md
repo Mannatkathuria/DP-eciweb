@@ -96,8 +96,11 @@ Run `npm run seed` to create these accounts. It is safe to run again: existing a
 | Voter | `ABC1234567` |
 | ECI official | `ECI1234567` |
 | Electoral registration officer (Ludhiana South) | `ERO1000001` |
+| District election officer (Ludhiana) | `DEO1000001` |
+| Returning officer (Ludhiana South) | `ROF1000001` |
+| Candidate (Ludhiana South) | `CAN1000001` |
 
-Voters and ECI officials sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. Voters go to `/dashboard`, ECI officials to `/eci/dashboard` and EROs/AEROs to `/ero`.
+Voters and ECI officials sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. Voters go to `/dashboard`, ECI officials to `/eci/dashboard`, EROs/AEROs to `/ero`, DEOs to `/deo`, ROs/AROs to `/ro` and candidates to `/candidate`.
 
 ### BLO accounts
 
@@ -136,6 +139,18 @@ Form 8 follows the same split (RP Act 1950, s. 22). The voter submits a correcti
 6. **The applicant's status page** (`/check-request`) shows a timeline of official steps (submitted, field verified, approved or rejected), without officers' identities.
 
 **Roll versions.** On `/ero` the ERO publishes the current roll of their constituency as a numbered, immutable version (`POST /api/v1/roll-versions`). Each version stores a snapshot (EPIC, name, gender, age, part, polling station; no addresses), a SHA-256 content hash, and the electors added, removed or changed since the previous version. Reading a version re-checks the hash. Publishing an unchanged roll is refused.
+
+## Elections, polling stations, staff and nominations (Phase 2)
+
+**Elections** (`/eci/elections`, ECI administrator). An election has a type, the States/UTs it covers and a full schedule: notification, last date of nominations, scrutiny, last date of withdrawal, poll and counting. Every date must come after the one before. The stage (nominations open, scrutiny and withdrawal, campaign, poll day and so on) follows the calendar in Indian Standard Time. A revised schedule needs a reason, and the earlier schedule is kept.
+
+**Polling stations** (RP Act 1951, s. 25: provided by the DEO with the Commission's approval). The DEO (`/deo`) proposes a station for a part of a constituency in their district (one station per part, name, address, optional location inside India, accessibility facilities) or a relocation with a reason. The ECI approves or rejects with a reason; the proposer can never approve their own change. Only approved stations are public or usable for staff. Each approval is a new version, and a relocation moves every elector of that part to the new station in the same transaction and shows voters a relocation notice. The public page `/booths` finds a station by EPIC (returns only the part and station) or by area.
+
+**Election staff.** The DEO (and CEO) appoints presiding, polling, counting and sector staff inside their own jurisdiction; the RO/ARO arranges presiding and polling officers inside their constituency. Once a constituency has approved stations, a station-level appointment must name one of them. Duplicate appointments are refused, and revoking needs a reason.
+
+**Nominations.** A candidate (`/candidate`) files for the constituency of their candidate assignment during the nomination period, with the Form 26 affidavit headline figures and a declaration; they must be at least 25 on the scrutiny date, and may have one live nomination per election. The RO or ARO of that constituency (`/ro`) accepts or rejects (with a reason the candidate sees) from the scrutiny date until the last date of withdrawal. The candidate may withdraw until the last date of withdrawal. After that the RO publishes the list of contesting candidates (party candidates, then independents, alphabetically), once every nomination is scrutinised; it cannot be changed. The public "Know your candidate" tab on `/candidates` reads that list.
+
+The seed adds a demo election with nominations open, a demo bye-election in its scrutiny period with three synthetic nominations, three approved stations in Ludhiana South (parts 18 to 20) and one proposal awaiting ECI approval (part 21).
 
 ## Roles, assignments and audit (Phase 0)
 
@@ -190,6 +205,13 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 /eci/login        ECI sign-in
 /eci/dashboard    ECI official dashboard
 /eci/voting-verification  Persona and demo fingerprint workflow
+/eci/integrations Approved data sources and imports (new-voter pipeline)
+/eci/elections    Elections, schedules and polling-station approvals
+/ero              ERO/AERO decisions, new-voter tasks and roll versions
+/deo              DEO: polling stations and election staff
+/ro               RO/ARO: scrutiny, list of contesting candidates, polling parties
+/candidate        Candidate: file, track and withdraw a nomination
+/booths           Public polling-station search
 ```
 
 ## Notes

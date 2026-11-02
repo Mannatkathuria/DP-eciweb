@@ -116,7 +116,9 @@ test("pipeline: approved source -> import -> BLO task -> Form 6 -> BLO verificat
     const { call, makeUser, saveElector, eci, area, runId } = await setup();
     const blo = await makeUser("blo");
     const ero = await makeUser("ero");
-    for (const [who, role, jurisdiction] of [[blo, "blo", { ...area, pollingStation: "Govt School, Ward 9", partNumber: "9" }], [ero, "ero", area]]) {
+    // A part of its own for this run, so earlier runs' BLOs in the same Redis never match.
+    const part = String(1 + (runId % 9999));
+    for (const [who, role, jurisdiction] of [[blo, "blo", { ...area, pollingStation: `Govt School, Ward ${part}`, partNumber: part }], [ero, "ero", area]]) {
         const granted = await call("POST", "/assignments", { epic: who.user.epic, role, jurisdiction }, eci.token);
         assert.equal(granted.status, 201, JSON.stringify(granted.body));
     }
@@ -136,8 +138,8 @@ test("pipeline: approved source -> import -> BLO task -> Form 6 -> BLO verificat
 
     const person = { name: `New Voter ${runId}`, dateOfBirth: yearsAgo(18, 200) };
     const records = [
-        { sourceReference: `R1-${runId}`, ...person, gender: "Female", ...area, partNumber: "9" },
-        { sourceReference: `R2-${runId}`, name: `Advance ${runId}`, dateOfBirth: yearsAgo(17, 30), ...area },
+        { sourceReference: `R1-${runId}`, ...person, gender: "Female", ...area, partNumber: part },
+        { sourceReference: `R2-${runId}`, name: `Advance ${runId}`, dateOfBirth: yearsAgo(17, 30), ...area, partNumber: part },
         { sourceReference: `R3-${runId}`, name: `Young ${runId}`, dateOfBirth: yearsAgo(15), ...area },
         { sourceReference: `R4-${runId}`, name: enrolledName, dateOfBirth: yearsAgo(19), ...area },
         { sourceReference: `R1-${runId}`, ...person, ...area },          // same reference again

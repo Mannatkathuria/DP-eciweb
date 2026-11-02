@@ -7,6 +7,7 @@ export const NAV = [
     items: [
       { label: "Register as a new voter", note: "Apply for inclusion in the roll", to: "/register" },
       { label: "Find your name in the roll", note: "Search by EPIC number or details", to: "/electoral-roll" },
+      { label: "Find your polling station", note: "Where you vote, with facilities and any relocation", to: "/booths" },
       { label: "Track an application", note: "Check a request with its reference ID", to: "/check-request" },
       { label: "Forms and services", note: "Which form do I need?", to: "/voters" }
     ]

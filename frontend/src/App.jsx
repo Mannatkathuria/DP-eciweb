@@ -33,6 +33,11 @@ import VotingVerification from "./pages/VotingVerification";
 import Workspace from "./pages/Workspace";
 import EroDecisions from "./pages/EroDecisions";
 import EciIntegrations from "./pages/EciIntegrations";
+import EciElections from "./pages/EciElections";
+import DeoDesk from "./pages/DeoDesk";
+import RoDesk from "./pages/RoDesk";
+import CandidateDesk from "./pages/CandidateDesk";
+import Booths from "./pages/Booths";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
@@ -59,6 +64,7 @@ function App() {
                     <Route path="/register" element={<Register />} />
                     <Route path="/check-request" element={<CheckRequest />} />
                     <Route path="/electoral-roll" element={<ElectoralRoll />} />
+                    <Route path="/booths" element={<Booths />} />
 
                     {/* Sign-in: one page per role */}
                     <Route path="/signin" element={<SignInHub />} />
@@ -77,6 +83,10 @@ function App() {
                     <Route path="/workspace" element={<Workspace />} />
                     <Route path="/ero" element={<EroDecisions />} />
                     <Route path="/eci/integrations" element={<EciIntegrations />} />
+                    <Route path="/eci/elections" element={<EciElections />} />
+                    <Route path="/deo" element={<DeoDesk />} />
+                    <Route path="/ro" element={<RoDesk />} />
+                    <Route path="/candidate" element={<CandidateDesk />} />
 
                     {/* Older addresses, kept so saved links keep working */}
                     <Route path="/login" element={<Navigate to="/signin/voter" replace />} />

@@ -52,6 +52,13 @@ export const PERMISSION_TEXT = {
   "observer:report": "File independent observer reports",
   "record:read": "Read records, without editing them",
   "expenditure:read": "Read expenditure records, without editing them",
-  "counting:read": "Read counting records, without editing them"
+  "counting:read": "Read counting records, without editing them",
+  "audit:read": "Read the audit log for your jurisdiction",
+  "integration:manage": "Manage approved data sources for the new-voter pipeline",
+  "election:manage": "Announce elections and revise their schedule",
+  "station:propose": "Propose polling stations and relocations",
+  "station:approve": "Approve polling stations and relocations",
+  "station:view": "View polling stations in your jurisdiction",
+  "candidates:publish": "Publish the list of contesting candidates"
 };
 export const permissionText = (id) => PERMISSION_TEXT[id] || id;

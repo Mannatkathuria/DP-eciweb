@@ -13,6 +13,8 @@ import { listAssignmentsForUser, saveAssignment } from "./repositories/assignmen
 import { validateJurisdiction } from "./services/authority.service.js";
 import { getDataSource, saveDataSource } from "./repositories/integration.repository.js";
 import { ingest } from "./services/ingestion.service.js";
+import { getElection, listStations, saveElection, saveNomination, saveStation } from "./repositories/election.repository.js";
+import { todayIST } from "./services/election.service.js";
 
 const electors = [
     ["ABC1234567","Mannat Kathuria","2006-11-23","Male","Punjab","Muktsar","Faridkot","42","Power House, Malout"],
@@ -352,6 +354,64 @@ const seedNewVoterPipeline = async () => {
     console.log(`Seeded synthetic new-voter feed: ${run.counts.tasksCreated} BLO tasks, ${run.counts.notYetEligible} not yet eligible.`);
 };
 
+// Phase 2 demo: an election with nominations open, a bye-election in its scrutiny period (with
+// synthetic nominations for the Returning Officer), and approved polling stations in Ludhiana South.
+const dayOffset = (days) => { const d = new Date(`${todayIST()}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+const seedElections = async () => {
+    const at = new Date().toISOString();
+    const elections = [
+        { _id: "demo-general-election", name: DEMO_JURISDICTION.election, type: "general_assembly", states: ["Punjab"],
+            schedule: { notificationDate: dayOffset(-3), lastDateOfNominations: dayOffset(4), scrutinyDate: dayOffset(5), lastDateOfWithdrawal: dayOffset(7), pollDate: dayOffset(28), countingDate: dayOffset(31) } },
+        { _id: "demo-bye-election", name: "Demo bye-election, Ludhiana South", type: "bye_election", states: ["Punjab"],
+            schedule: { notificationDate: dayOffset(-10), lastDateOfNominations: dayOffset(-3), scrutinyDate: dayOffset(-1), lastDateOfWithdrawal: dayOffset(2), pollDate: dayOffset(20), countingDate: dayOffset(23) } }
+    ];
+    for (const e of elections) {
+        if (await getElection(e._id)) continue;
+        const tx = redis().multi();
+        saveElection({ ...e, createdBy: "SEED", createdAt: at, scheduleHistory: [], demo: true }, tx);
+        if (e._id === "demo-bye-election") {
+            const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+            [["Gurpreet Sandhu", "Punjab Progress Party", "Tractor", 52, 0, 41000000, 3000000, "Graduate"],
+             ["Simran Arora", "Independent", "Kite", 38, 1, 8500000, 0, "Post graduate"],
+             ["Balwinder Kaur", "National Unity Party", "Lamp", 61, 0, 125000000, 20000000, "Class 12"]]
+                .forEach(([name, party, symbol, age, criminalCases, assets, liabilities, education], i) => saveNomination({
+                    _id: `demo-nomination-${i + 1}`, electionId: e._id, userId: null, epic: null, name, dateOfBirth: `${new Date().getUTCFullYear() - age}-01-15`, age,
+                    party, independent: party === "Independent", symbol, affidavit: { criminalCases, assets, liabilities, education },
+                    ...area, status: "filed", filedAt: at, scrutiny: null, withdrawnAt: null, demo: true
+                }, tx));
+        }
+        await tx.exec();
+        console.log(`Seeded demo election: ${e.name}.`);
+    }
+};
+
+const seedPollingStations = async () => {
+    if ((await listStations()).length) return;
+    const at = new Date().toISOString();
+    const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+    const all = { ramp: true, wheelchair: true, drinkingWater: true, toilet: true, shade: true, signage: true };
+    const rows = [
+        ["18", DEMO_JURISDICTION.pollingStation, "Civil Lines, near Bharat Nagar Chowk, Ludhiana 141001", { lat: 30.9051, lng: 75.8406 }, all, "ACTIVE"],
+        ["19", "Arya College Primary Wing, Ludhiana", "Arya College Road, Civil Lines, Ludhiana 141001", { lat: 30.9097, lng: 75.8463 }, { ...all, shade: false }, "ACTIVE"],
+        ["20", "Community Centre, Dugri Phase 1, Ludhiana", "Block A, Dugri Phase 1, Ludhiana 141013", { lat: 30.8739, lng: 75.8418 }, { ...all, wheelchair: false }, "ACTIVE"],
+        ["21", "Government Primary School, Shimlapuri, Ludhiana", "Street 4, Shimlapuri, Ludhiana 141003", null, { ...all, ramp: false, wheelchair: false }, "PROPOSED"]
+    ];
+    const tx = redis().multi();
+    for (const [partNumber, name, address, location, accessibility, status] of rows) {
+        const details = { name, address, location, accessibility };
+        saveStation({
+            _id: crypto.randomUUID(), stationCode: `PS-PUNJAB-LUDHIANA-SOUTH-${partNumber}`, ...area, partNumber, ...details, status,
+            pendingChange: status === "PROPOSED" ? { type: "create", proposed: details, reason: "New part after delimitation of Shimlapuri", by: "DEO1000001", at } : null,
+            history: status === "ACTIVE" ? [{ type: "create", from: null, to: details, reason: "Demo data", proposedBy: "DEO1000001", approvedBy: "SEED", at, version: 1 }] : [],
+            relocationNotice: null,
+            source: status === "ACTIVE" ? { authority: "Demo data (synthetic), shown as approved", version: 1, verifiedAt: at, approvedBy: "SEED" } : null,
+            createdBy: "SEED", createdAt: at, demo: true
+        }, tx);
+    }
+    await tx.exec();
+    console.log("Seeded demo polling stations in Ludhiana South (3 approved, 1 awaiting ECI approval).");
+};
+
 await connectRedis();
 
 // Existing roll records are left alone: they may have been corrected (Form 8) or marked as voted.
@@ -369,6 +429,8 @@ await seedVerificationCases();
 await seedChangeRequests();
 await seedRegistrationRequest();
 await seedNewVoterPipeline();
+await seedElections();
+await seedPollingStations();
 
 console.log("Redis seed complete with sample data for all voter, blo, and eci tabs.");
 await redis().quit();

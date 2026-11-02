@@ -18,6 +18,10 @@ import auditRoutes from "./routes/audit.routes.js";
 import integrationRoutes from "./routes/integration.routes.js";
 import registrationTaskRoutes from "./routes/registrationTask.routes.js";
 import rollVersionRoutes from "./routes/rollVersion.routes.js";
+import electionRoutes from "./routes/election.routes.js";
+import pollingStationRoutes from "./routes/pollingStation.routes.js";
+import nominationRoutes from "./routes/nomination.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 
 const app = express();
@@ -85,6 +89,10 @@ app.use("/api/v1/audit", auditRoutes);
 app.use("/api/v1/integrations", integrationRoutes);
 app.use("/api/v1/registration-tasks", registrationTaskRoutes);
 app.use("/api/v1/roll-versions", rollVersionRoutes);
+app.use("/api/v1/elections", electionRoutes);
+app.use("/api/v1/polling-stations", pollingStationRoutes);
+app.use("/api/v1/nominations", nominationRoutes);
+app.use("/api/v1/public", publicLimiter, publicRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

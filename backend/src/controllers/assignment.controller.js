@@ -5,6 +5,7 @@ import { getUserByEpic } from "../repositories/user.repository.js";
 import { getAssignment, listAllAssignments, saveAssignment } from "../repositories/assignment.repository.js";
 import { containsJurisdiction, effectiveAssignments, hasPermission, validateJurisdiction } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
+import { constituencyHasStations, findActiveStation } from "./pollingStation.controller.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -12,17 +13,39 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const ELECTION_MAX = 120;
 const sameRole = (accountRole, role) => accountRole === role || (accountRole === "admin" && role === "blo");
 
+// Election staff the District Election Officer (or CEO) appoints, and the polling parties the
+// Returning Officer arranges for each station.
+export const STAFF_ROLES = ["presiding_officer", "polling_officer", "counting_supervisor", "counting_assistant", "sector_officer", "sector_police_officer"];
+export const POLLING_PARTY_ROLES = ["presiding_officer", "polling_officer"];
+
 /**
  * Who may grant or revoke an assignment:
- *   role:assign (ECI administrator)  any role, anywhere
- *   blo:assign  (ERO)                BLO assignments inside the ERO's own jurisdiction only
+ *   role:assign     (ECI administrator)  any role, anywhere
+ *   blo:assign      (ERO)                BLOs inside the ERO's own jurisdiction
+ *   staff:assign    (DEO, CEO)           polling, counting and sector staff inside their jurisdiction
+ *   polling:arrange (RO, ARO)            presiding and polling officers inside their constituency
  */
 const assertMayManage = (req, role, jurisdiction) => {
     if (hasPermission(req.user, "role:assign")) return;
-    if (hasPermission(req.user, "blo:assign") && role === "blo" && containsJurisdiction(req.authority.assignments, jurisdiction)) return;
-    throw new ApiError(403, role === "blo"
-        ? "You can only assign BLOs inside your own jurisdiction."
+    const inside = containsJurisdiction(req.authority.assignments, jurisdiction);
+    if (hasPermission(req.user, "blo:assign") && role === "blo" && inside) return;
+    if (hasPermission(req.user, "staff:assign") && STAFF_ROLES.includes(role) && inside) return;
+    if (hasPermission(req.user, "polling:arrange") && POLLING_PARTY_ROLES.includes(role) && inside) return;
+    const mine = (hasPermission(req.user, "blo:assign") && role === "blo")
+        || (hasPermission(req.user, "staff:assign") && STAFF_ROLES.includes(role))
+        || (hasPermission(req.user, "polling:arrange") && POLLING_PARTY_ROLES.includes(role));
+    throw new ApiError(403, mine
+        ? "You can only make this assignment inside your own jurisdiction."
         : "Your role is not authorised to make this assignment.");
+};
+
+/** Once a constituency has approved polling stations, a station-level assignment must name one of them. */
+const assertKnownStation = async (role, jurisdiction) => {
+    if (!ROLE_BY_ID[role].scope.includes("pollingStation") || !jurisdiction.pollingStation) return;
+    if (!jurisdiction.constituency || !(await constituencyHasStations(jurisdiction))) return;
+    if (!(await findActiveStation(jurisdiction))) {
+        throw new ApiError(400, `"${jurisdiction.pollingStation}" is not an approved polling station in ${jurisdiction.constituency}${jurisdiction.partNumber ? `, part ${jurisdiction.partNumber}` : ""}.`);
+    }
 };
 
 export const listMyAssignments = asyncHandler(async (req, res) => {
@@ -48,11 +71,18 @@ export const grantAssignment = asyncHandler(async (req, res) => {
     const jurisdiction = validateJurisdiction(role, body.jurisdiction ?? {});
     const election = String(body.election ?? "").trim().slice(0, ELECTION_MAX) || null;
     assertMayManage(req, role, jurisdiction);
+    await assertKnownStation(role, jurisdiction);
 
     const target = await getUserByEpic(body.epic);
     if (!target) throw new ApiError(404, "No account found for that identifier.");
     if (!sameRole(target.role, role)) {
         throw new ApiError(409, `This account holds the role "${target.role}". An assignment must match the account's role.`);
+    }
+
+    const same = (a, b) => JSON.stringify(Object.entries(a ?? {}).sort()) === JSON.stringify(Object.entries(b ?? {}).sort());
+    if ((await listAllAssignments()).some((a) => a.status === "active" && a.userId === target._id && a.role === role
+        && (a.election ?? null) === election && same(a.jurisdiction, jurisdiction))) {
+        throw new ApiError(409, "This person already holds this assignment.");
     }
 
     const assignment = {

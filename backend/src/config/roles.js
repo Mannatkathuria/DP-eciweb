@@ -52,17 +52,17 @@ export const ROLES = [
 
     // Election conduct
     r("ro", "Returning officer", "conduct", 4, ["election", "constituency"], "ROF1000001",
-        ["nomination:scrutinise", "polling:arrange", "counting:supervise", "result:declare"]),
+        ["nomination:scrutinise", "candidates:publish", "polling:arrange", "counting:supervise", "result:declare", "station:view"]),
     r("aro", "Assistant returning officer", "conduct", 4, ["election", "constituency"], "ARO1000001",
-        ["nomination:scrutinise", "polling:arrange", "counting:assist"]),
+        ["nomination:scrutinise", "polling:arrange", "counting:assist", "station:view"]),
     r("sector_officer", "Sector officer", "conduct", 5, ["election", "constituency"], "SCO1000001",
-        ["polling:inspect", "logistics:track"]),
+        ["polling:inspect", "logistics:track", "station:view"]),
     r("sector_police_officer", "Sector police officer", "conduct", 5, ["election", "constituency"], "SPO1000001",
         ["security:coordinate", "logistics:track"]),
 
     // Polling and counting
     r("presiding_officer", "Presiding officer", "polling", 6, ["election", "pollingStation"], "PRO1000001",
-        ["polling:conduct", "polling:report"]),
+        ["polling:conduct", "polling:report", "station:view"]),
     r("polling_officer", "Polling officer", "polling", 6, ["election", "pollingStation"], "POL1000001",
         ["polling:identify-voter", "polling:mark-register", "polling:operate-evm"]),
     r("counting_supervisor", "Counting supervisor", "polling", 6, ["election", "constituency"], "CSU1000001",
@@ -72,9 +72,9 @@ export const ROLES = [
 
     // District administration
     r("deo", "District election officer", "district", 3, ["election", "district"], "DEO1000001",
-        ["district:manage", "staff:assign", "nodal:coordinate", "observer:view", "audit:read"]),
+        ["district:manage", "staff:assign", "nodal:coordinate", "observer:view", "audit:read", "station:propose"]),
     r("deputy_deo", "Deputy district election officer", "district", 3, ["election", "district"], "DDO1000001",
-        ["district:manage", "nodal:coordinate"]),
+        ["district:manage", "nodal:coordinate", "station:view"]),
     r("district_nodal_officer", "District nodal officer", "district", 3, ["election", "district"], "DNO1000001",
         ["nodal:function-manage"]),
     r("district_police_officer", "District police officer", "district", 3, ["election", "district"], "DPO1000001",
@@ -82,7 +82,7 @@ export const ROLES = [
 
     // State administration
     r("ceo", "Chief electoral officer", "state", 2, ["state"], "CEO1000001",
-        ["state:manage", "staff:assign", "nodal:coordinate", "report:state", "audit:read"]),
+        ["state:manage", "staff:assign", "nodal:coordinate", "report:state", "audit:read", "station:view"]),
     r("state_nodal_officer", "State nodal officer", "state", 2, ["state"], "SNO1000001",
         ["nodal:function-manage"]),
     r("state_police_nodal", "State police nodal officer", "state", 2, ["state"], "SPN1000001",
@@ -90,7 +90,7 @@ export const ROLES = [
 
     // National administration
     r("eci", "ECI administrator", "national", 1, [], "ECI1234567",
-        ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read", "integration:manage"]),
+        ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read", "integration:manage", "election:manage", "station:approve"]),
     r("cec", "Chief election commissioner", "national", 1, [], "CEC1000001",
         ["national:view", "report:national", "audit:read"]),
     r("election_commissioner", "Election commissioner", "national", 1, [], "ELC1000001",

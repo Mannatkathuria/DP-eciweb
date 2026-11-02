@@ -79,6 +79,9 @@ export const homeFor = (roleId) => {
   if (roleId === "blo" || roleId === "admin") return "/admin";
   if (roleId === "eci") return "/eci/dashboard";
   if (roleId === "ero" || roleId === "aero") return "/ero";
+  if (roleId === "deo") return "/deo";
+  if (roleId === "ro" || roleId === "aro") return "/ro";
+  if (roleId === "candidate") return "/candidate";
   return "/workspace";
 };
 

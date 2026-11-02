@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import Tabs from "../components/Tabs";
+import useGeography from "../hooks/useGeography";
+import { SCHEDULE_STEPS, STAGE_LABEL, apiMessage, rupees } from "../config/elections";
 
 const PERMISSIONS = [
   { id: "rally", title: "Public rallies and processions", depts: "Police, traffic, fire" },
@@ -15,11 +19,6 @@ const TRACKER = [
   { id: "CP-2026-00198", applicant: "Recognised party", category: "Public rallies and processions", venue: "District ground", applied: "31 Oct 2026", status: "With departments", queue: "4th in queue" }
 ];
 
-const CANDIDATES = [
-  { name: "Candidate A", party: "Party One", assets: "₹1.2 crore", cases: "None declared", education: "Graduate" },
-  { name: "Candidate B", party: "Party Two", assets: "₹86 lakh", cases: "1 declared", education: "Post graduate" },
-  { name: "Candidate C", party: "Independent", assets: "₹14 lakh", cases: "None declared", education: "Higher secondary" }
-];
 
 export default function Candidates() {
   const [tab, setTab] = useState("permissions");
@@ -27,15 +26,30 @@ export default function Candidates() {
   const [venue, setVenue] = useState("");
   const [date, setDate] = useState("");
   const [applied, setApplied] = useState(null);
-  const [nom, setNom] = useState({ name: "", party: "", constituency: "", deposit: "", affidavit: false });
-  const [nomId, setNomId] = useState("");
   const [search, setSearch] = useState("");
+  const { states, constituenciesOf } = useGeography();
+  const [elections, setElections] = useState([]);
+  const [lookup, setLookup] = useState({ electionId: "", state: "", constituency: "" });
+  const [list, setList] = useState(null);
+  const [lookupError, setLookupError] = useState("");
+
+  useEffect(() => {
+    api.get("/public/elections").then(({ data }) => {
+      setElections(data.data.items);
+      const first = data.data.items[0];
+      if (first) setLookup((l) => ({ ...l, electionId: first._id, state: first.states[0] }));
+    }).catch(() => setLookupError("Could not load elections."));
+  }, []);
 
   const selected = PERMISSIONS.find((p) => p.id === category);
   const apply = (e) => { e.preventDefault(); setApplied({ id: `CP-2026-${Math.floor(10000 + Math.random() * 90000)}`, title: selected.title, venue, date }); };
-  const nominate = (e) => { e.preventDefault(); setNomId(`NOM-2026-${Math.floor(100 + Math.random() * 900)}`); };
-  const set = (k) => (e) => setNom({ ...nom, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-  const found = CANDIDATES.filter((c) => !search.trim() || `${c.name} ${c.party}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const election = elections.find((e) => e._id === lookup.electionId);
+  const findCandidates = async (e) => {
+    e.preventDefault(); setLookupError("");
+    try { setList((await api.get("/public/candidates", { params: lookup })).data.data); }
+    catch (err) { setList(null); setLookupError(apiMessage(err, "Could not load the list.")); }
+  };
+  const found = (list?.candidates ?? []).filter((c) => !search.trim() || `${c.name} ${c.party}`.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
     <>
@@ -84,42 +98,67 @@ export default function Candidates() {
             </div>
           )}
 
-          {tab === "nomination" && (nomId ? (
-            <div className="panel" role="status" style={{ maxWidth: 640 }}>
-              <h2>Nomination {nomId} filed</h2>
-              <p>The returning officer will confirm a scrutiny slot. Keep this reference.</p>
-              <button type="button" className="btn btn-quiet" onClick={() => setNomId("")}>File another nomination</button>
+          {tab === "nomination" && (
+            <div className="split">
+              <div className="panel">
+                <h2>How nominations work</h2>
+                <ol>
+                  <li>Sign in with your candidate account. Your constituency comes from your registration as a candidate.</li>
+                  <li>File between the notification and the last date of nominations, with the Form 26 affidavit summary. You must be at least 25 on the date of scrutiny.</li>
+                  <li>The returning officer scrutinises every nomination on the scrutiny date. A rejection always carries a reason.</li>
+                  <li>You may withdraw until the last date of withdrawal. The returning officer then publishes the list of contesting candidates, which cannot be changed.</li>
+                </ol>
+                <Link className="btn btn-primary" to="/candidate">File or track a nomination</Link>
+              </div>
+              <div>
+                <h2>Election schedules</h2>
+                {elections.length === 0 && <p>No elections announced.</p>}
+                <ul className="rows">{elections.map((e) => (
+                  <li key={e._id} style={{ padding: "10px 0" }}><strong>{e.name}</strong> <span className="badge badge-progress">{STAGE_LABEL[e.stage]}</span><br />
+                    <small>{SCHEDULE_STEPS.map(([k, label]) => `${label}: ${e.schedule[k]}`).join(" · ")}</small></li>
+                ))}</ul>
+              </div>
             </div>
-          ) : (
-            <form className="panel portal-form" onSubmit={nominate} style={{ maxWidth: 640 }}>
-              <h2>File a nomination</h2>
-              <div className="form-row">
-                <div className="field"><label htmlFor="n-name">Candidate name</label><input id="n-name" value={nom.name} onChange={set("name")} required /></div>
-                <div className="field"><label htmlFor="n-party">Party or independent</label><input id="n-party" value={nom.party} onChange={set("party")} required /></div>
-              </div>
-              <div className="form-row">
-                <div className="field"><label htmlFor="n-ac">Constituency</label><input id="n-ac" value={nom.constituency} onChange={set("constituency")} required /></div>
-                <div className="field"><label htmlFor="n-dep">Security deposit</label><input id="n-dep" value={nom.deposit} onChange={set("deposit")} placeholder="Amount in rupees" required /></div>
-              </div>
-              <label className="check"><input type="checkbox" checked={nom.affidavit} onChange={set("affidavit")} /> The sworn affidavit is ready to upload</label>
-              <button className="btn btn-primary" type="submit" disabled={!nom.affidavit}>File nomination</button>
-            </form>
-          ))}
+          )}
 
           {tab === "lookup" && (
             <div className="stack">
-              <div className="field" style={{ maxWidth: 420 }}>
-                <label htmlFor="c-search">Search by name or party</label>
-                <input id="c-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <div className="table-wrap"><table>
-                <thead><tr><th>Candidate</th><th>Party</th><th>Declared assets</th><th>Criminal cases</th><th>Education</th></tr></thead>
-                <tbody>{found.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.party}</td><td>{c.assets}</td><td>{c.cases}</td><td>{c.education}</td></tr>)}
-                  {found.length === 0 && <tr><td colSpan={5}>No candidate matches “{search}”.</td></tr>}</tbody>
-              </table></div>
+              <form className="panel portal-form" onSubmit={findCandidates}>
+                <div className="form-row" style={{ flexWrap: "wrap" }}>
+                  <div className="field"><label htmlFor="c-el">Election</label>
+                    <select id="c-el" value={lookup.electionId} onChange={(e) => { const el = elections.find((x) => x._id === e.target.value); setLookup({ electionId: e.target.value, state: el?.states[0] ?? "", constituency: "" }); }}>
+                      {elections.map((e) => <option key={e._id} value={e._id}>{e.name}</option>)}
+                    </select></div>
+                  <div className="field"><label htmlFor="c-state">State or UT</label>
+                    <select id="c-state" value={lookup.state} onChange={(e) => setLookup({ ...lookup, state: e.target.value, constituency: "" })}>
+                      {(election?.states ?? states.map((s) => s.name)).map((s) => <option key={s}>{s}</option>)}
+                    </select></div>
+                  <div className="field"><label htmlFor="c-ac">Constituency</label>
+                    <select id="c-ac" value={lookup.constituency} onChange={(e) => setLookup({ ...lookup, constituency: e.target.value })} required>
+                      <option value="">Choose</option>
+                      {constituenciesOf(lookup.state).map((c) => <option key={c}>{c}</option>)}
+                    </select></div>
+                </div>
+                <button className="btn btn-primary" type="submit">Show candidates</button>
+              </form>
+              {lookupError && <div className="alert alert-error" role="alert">{lookupError}</div>}
+              {list && (list.publishedAt ? (
+                <>
+                  <p className="muted">List of contesting candidates for {list.constituency}, published by the returning officer on {new Date(list.publishedAt).toLocaleDateString()}. Figures are from each candidate's sworn affidavit.</p>
+                  <div className="field" style={{ maxWidth: 420 }}>
+                    <label htmlFor="c-search">Search by name or party</label>
+                    <input id="c-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
+                  </div>
+                  <div className="table-wrap"><table>
+                    <thead><tr><th>No.</th><th>Candidate</th><th>Party</th><th>Declared assets</th><th>Criminal cases</th><th>Education</th></tr></thead>
+                    <tbody>{found.map((c) => <tr key={c.nominationId}><td>{c.serial}</td><td>{c.name}{c.symbol ? <><br /><small>Symbol: {c.symbol}</small></> : null}</td><td>{c.party}</td><td>{rupees(c.affidavit.assets)}</td><td>{c.affidavit.criminalCases ? `${c.affidavit.criminalCases} declared` : "None declared"}</td><td>{c.affidavit.education}</td></tr>)}
+                      {found.length === 0 && <tr><td colSpan={6}>No candidate matches “{search}”.</td></tr>}</tbody>
+                  </table></div>
+                </>
+              ) : <p role="status">The returning officer has not published the list of contesting candidates for {list.constituency} yet. It is published after the last date of withdrawal.</p>)}
             </div>
           )}
-          <p className="muted" style={{ marginTop: 20 }}>Sample data for demonstration. Nothing filed here reaches an election office.</p>
+          <p className="muted" style={{ marginTop: 20 }}>Campaign permissions are sample data for demonstration. Elections and candidates come from this prototype's records, which are synthetic.</p>
         </div>
       </section>
     </>
