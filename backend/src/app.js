@@ -15,6 +15,9 @@ import changeRequestRoutes from "./routes/changeRequest.routes.js";
 import eciRoutes from "./routes/eci.routes.js";
 import assignmentRoutes from "./routes/assignment.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
+import integrationRoutes from "./routes/integration.routes.js";
+import registrationTaskRoutes from "./routes/registrationTask.routes.js";
+import rollVersionRoutes from "./routes/rollVersion.routes.js";
 
 
 const app = express();
@@ -79,6 +82,9 @@ app.use("/api/v1/changes", changeRequestRoutes);
 app.use("/api/v1/eci", eciRoutes);
 app.use("/api/v1/assignments", assignmentRoutes);
 app.use("/api/v1/audit", auditRoutes);
+app.use("/api/v1/integrations", integrationRoutes);
+app.use("/api/v1/registration-tasks", registrationTaskRoutes);
+app.use("/api/v1/roll-versions", rollVersionRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

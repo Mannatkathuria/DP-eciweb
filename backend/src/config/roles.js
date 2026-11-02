@@ -90,7 +90,7 @@ export const ROLES = [
 
     // National administration
     r("eci", "ECI administrator", "national", 1, [], "ECI1234567",
-        ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read"]),
+        ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read", "integration:manage"]),
     r("cec", "Chief election commissioner", "national", 1, [], "CEC1000001",
         ["national:view", "report:national", "audit:read"]),
     r("election_commissioner", "Election commissioner", "national", 1, [], "ELC1000001",

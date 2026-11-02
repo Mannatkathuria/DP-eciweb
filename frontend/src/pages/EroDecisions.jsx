@@ -1,10 +1,11 @@
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import ReasonDialog from "./ReasonDialog";
 import { homeFor } from "../config/roles";
+import { EroTasks, RollVersions } from "./EroRollAndTasks";
 
 // Electoral Registration Officer / Assistant ERO: decides Form 6 applications that the BLO has
 // verified in the field. Every request is checked again on the server for permission and for the
@@ -47,6 +48,11 @@ export default function EroDecisions() {
     const [dialogError, setDialogError] = useState("");
 
     const allowed = logged && DECIDING_ROLES.includes(userData?.role);
+    // Constituencies this officer is assigned to (stable between renders, for the roll section).
+    const rollAreas = useMemo(() => assignments
+        .filter((a) => a.jurisdiction?.state && a.jurisdiction?.constituency)
+        .map((a) => ({ state: a.jurisdiction.state, district: a.jurisdiction.district, constituency: a.jurisdiction.constituency })),
+    [assignments]);
 
     const load = useCallback(async () => {
         setError("");
@@ -313,6 +319,9 @@ export default function EroDecisions() {
                             </>
                         )}
                     </div>
+
+                    <EroTasks canAssign={userData?.role === "ero"} />
+                    <RollVersions areas={rollAreas} canPublish={userData?.role === "ero"} />
 
                     <p><Link to="/electoral-roll">Electoral roll search</Link> · <Link to="/check-request">Application status</Link></p>
                 </div>

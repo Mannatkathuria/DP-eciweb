@@ -120,6 +120,9 @@ function EciDashboard() {
                     <Link to="/eci/voting-verification" className="primary-btn">
                         🗳 On-Day Voting Verification
                     </Link>
+                    <Link to="/eci/integrations" className="secondary-btn">
+                        Data sources & new voters
+                    </Link>
                     <button className="secondary-btn" onClick={async () => { await logout(); navigate("/"); }}>
                         {t("common.signOut") || "Sign Out"}
                     </button>

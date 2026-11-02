@@ -4,6 +4,7 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import { Link, Navigate } from "react-router-dom";
 import ReasonDialog from "./ReasonDialog";
+import BloTasks from "./BloTasks";
 
 // Mirrors the backend checks in parseBoothAssignment (admin.controllers.js).
 // Returns what is wrong with the booth assignment, or "" when it can be submitted.
@@ -56,6 +57,7 @@ function Admin() {
     const [cases, setCases] = useState([]);
     const [registrations, setRegistrations] = useState([]);
     const [jurisdictionAssigned, setJurisdictionAssigned] = useState(true);
+    const [taskCount, setTaskCount] = useState(null);
     // The booth named in the BLO's own assignment, used to pre-fill field verification.
     const [myBooth, setMyBooth] = useState({});
     const [changeRequests, setChangeRequests] = useState([]);
@@ -281,6 +283,12 @@ function Admin() {
                         onClick={() => setActiveTab("registrations")}
                     >
                         👤 Form 6 field verification ({registrations.length})
+                    </button>
+                    <button
+                        className={`tab-btn ${activeTab === "tasks" ? "active" : ""}`}
+                        onClick={() => setActiveTab("tasks")}
+                    >
+                        🧭 New voter tasks{taskCount !== null ? ` (${taskCount})` : ""}
                     </button>
                     <button
                         className={`tab-btn ${activeTab === "stats" ? "active" : ""}`}
@@ -685,6 +693,9 @@ function Admin() {
                         )}
                     </section>
                 )}
+
+                {/* Kept mounted so the tab count is known before the tab is opened. */}
+                <div hidden={activeTab !== "tasks"}><BloTasks onCount={setTaskCount} /></div>
 
                 {/* TAB 4: STATISTICS & METRICS */}
                 {activeTab === "stats" && sectionErrors.stats && (

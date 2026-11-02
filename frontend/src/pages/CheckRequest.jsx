@@ -6,6 +6,13 @@ import SavedApplication from "./SavedApplication";
 
 
 /** Voter Services → "Check your request": look up a Form 6 application by its reference ID. */
+const TIMELINE_TEXT = {
+    submitted: "Application submitted",
+    field_verified: "Verified in the field by your Booth Level Officer",
+    approved: "Approved by the Electoral Registration Officer and added to the roll",
+    rejected: "Rejected by the Electoral Registration Officer"
+};
+
 export default function CheckRequest() {
     const { t } = useTranslation();
     const [params] = useSearchParams();
@@ -63,6 +70,13 @@ export default function CheckRequest() {
                     )}
                     {result?.status === "rejected" && (
                         <div className="portal-error" role="status">Application was rejected by the Electoral Registration Officer. Note: {result.note || "Criteria not met."}</div>
+                    )}
+                    {result?.timeline?.length > 0 && (
+                        <ol className="rows" aria-label="Application history">
+                            {result.timeline.map((s) => (
+                                <li key={`${s.step}-${s.at}`}><small>{new Date(s.at).toLocaleString()} · {TIMELINE_TEXT[s.step] || s.step}</small></li>
+                            ))}
+                        </ol>
                     )}
                     {result?.application && <SavedApplication application={result.application} />}
 

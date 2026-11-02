@@ -124,6 +124,19 @@ The workflow follows the Representation of the People Act, 1950: the **BLO verif
 
 Form 8 follows the same split (RP Act 1950, s. 22). The voter submits a correction with a proof document from their dashboard. The BLO verifies it on `/admin` (tab *Form 8 field verification*) and recommends approval or rejection; the ERO/AERO decides on `/ero`, and only an approval changes the roll. A request belongs to the area the elector will be in **after** the change, so a **shift of residence** to another constituency is verified by the BLO and decided by the ERO of the new constituency, and the BLO must record the new part number and polling station. The audit entry for an approval lists each corrected field before and after. Officials use `/api/v1/admin/changes`; the old unchecked review routes under `/api/v1/changes` were removed.
 
+## New-voter pipeline and published roll versions (Phase 1)
+
+**Young elector identification and registration assistance.** Nobody is ever enrolled automatically; the pipeline only finds people a BLO should help.
+
+1. **Approved data sources** (`/eci/integrations`, ECI administrator only). A source is `synthetic`, `approved_api` or `approved_export`. Real sources must record their legal basis and data-sharing agreement reference. Scraped websites or databases that merely happen to be reachable are not valid sources. The prototype seeds a synthetic feed of invented people.
+2. **Import** (`POST /api/v1/integrations/sources/:id/runs` with `{ records: [...] }`, up to 1,000 per run). Only the minimum fields are kept (`sourceReference, name, dateOfBirth, gender, state, district, constituency, partNumber, pollingStation, address`). Records are validated against the ECI constituency list, de-duplicated (same reference, same person from another run, already on the roll, already applied) and staged as *prospective electors*, kept apart from the roll. Every run is recorded with its counts and rejection reasons.
+3. **Eligibility by qualifying date** (`backend/src/services/eligibility.service.js`). Qualifying dates are 1 January, 1 April, 1 July and 1 October (RP Act 1950, s. 14(b), as amended in 2021). `ELIGIBLE` means 18 on a qualifying date that has passed; `ADVANCE` means 17 or older with the first qualifying date still ahead (advance application); `FUTURE` means younger. Future people get no task until `POST /api/v1/integrations/rescreen` finds they have come of age.
+4. **BLO task** for each eligible or advance person, routed to the BLO whose assignment names their part or polling station, or to the only BLO of the constituency. Otherwise the task is unassigned and the ERO or BLO supervisor assigns it. BLOs work tasks on `/admin` (tab *New voter tasks*): contacted, Form 6 filed (linked by reference ID, checked to be the same person), declined, not found or not eligible.
+5. The linked Form 6 then follows the normal workflow (BLO field verification, ERO decision). The task shows the result (`registered` with the EPIC, or `application_rejected`).
+6. **The applicant's status page** (`/check-request`) shows a timeline of official steps (submitted, field verified, approved or rejected), without officers' identities.
+
+**Roll versions.** On `/ero` the ERO publishes the current roll of their constituency as a numbered, immutable version (`POST /api/v1/roll-versions`). Each version stores a snapshot (EPIC, name, gender, age, part, polling station; no addresses), a SHA-256 content hash, and the electors added, removed or changed since the previous version. Reading a version re-checks the hash. Publishing an unchanged roll is refused.
+
 ## Roles, assignments and audit (Phase 0)
 
 - **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.

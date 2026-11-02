@@ -9,6 +9,7 @@ import { issueOtp } from "../services/otp.service.js";
 import { publicUser } from "../services/session.service.js";
 import { portalRoles, ROLES, ROLE_GROUPS } from "../config/roles.js";
 import { ApiError } from "../utils/ApiErrors.js";
+import { historyFor } from "../services/audit.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // EPIC format: three letters followed by seven digits.
@@ -227,6 +228,12 @@ const claimDuplicateKey = async (duplicateKey, applicationId) => {
     return true;
 };
 
+const APPLICANT_STEPS = {
+    "registration.field_verified": "field_verified",
+    "registration.approved": "approved",
+    "registration.rejected": "rejected"
+};
+
 /** Public. Lets an applicant check their request using the reference ID they were given. */
 export const getRegistrationStatus = asyncHandler(async (req, res) => {
     const id = clean(req.params.id);
@@ -242,7 +249,15 @@ export const getRegistrationStatus = asyncHandler(async (req, res) => {
             epic: application.status === "approved" ? application.epic : null,
             note: application.status === "rejected" ? application.decisionNote || null : null,
             // The saved application, with contact details and Aadhaar masked and no files.
-            application: publicApplicationView(application)
+            application: publicApplicationView(application),
+            // Official status history for the applicant: which step happened when. Officers'
+            // identities and internal notes are not shown.
+            timeline: [
+                { step: "submitted", at: application.submittedAt },
+                ...(await historyFor("registration", application._id))
+                    .filter((e) => APPLICANT_STEPS[e.action])
+                    .map((e) => ({ step: APPLICANT_STEPS[e.action], at: e.at }))
+            ]
         }
     });
 });

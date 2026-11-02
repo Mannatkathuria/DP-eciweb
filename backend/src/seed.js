@@ -11,6 +11,8 @@ import { EPIC_PATTERN } from "./controllers/auth.controller.js";
 import { ROLES, DEMO_JURISDICTION, jurisdictionFor } from "./config/roles.js";
 import { listAssignmentsForUser, saveAssignment } from "./repositories/assignment.repository.js";
 import { validateJurisdiction } from "./services/authority.service.js";
+import { getDataSource, saveDataSource } from "./repositories/integration.repository.js";
+import { ingest } from "./services/ingestion.service.js";
 
 const electors = [
     ["ABC1234567","Mannat Kathuria","2006-11-23","Male","Punjab","Muktsar","Faridkot","42","Power House, Malout"],
@@ -323,6 +325,33 @@ const seedRegistrationRequest = async () => {
     console.log("Seeded demo new registration request (Form 6).");
 };
 
+// New-voter pipeline demo: one synthetic data source and one import into Ludhiana South, so the
+// demo BLO has registration assistance tasks. Synthetic people only, never real records.
+const seedNewVoterPipeline = async () => {
+    const sourceId = "synthetic-demo-feed";
+    if (await getDataSource(sourceId)) return;
+    const tx = redis().multi();
+    saveDataSource({
+        _id: sourceId, name: "Synthetic demo feed", type: "synthetic",
+        purpose: "Prototype demonstration of the new-voter pipeline with invented people",
+        legalBasis: null, agreementReference: null, containsRealPersonalData: false, status: "active",
+        registeredBy: "SEED", registeredAt: new Date().toISOString()
+    }, tx);
+    await tx.exec();
+    const ago = (years, days) => {
+        const t = new Date(); t.setUTCFullYear(t.getUTCFullYear() - years); t.setUTCDate(t.getUTCDate() - days);
+        return t.toISOString().slice(0, 10);
+    };
+    const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+    const eci = await getUserByEpic("ECI1234567");
+    const run = await ingest({ sourceId, actor: eci, records: [
+        { sourceReference: "SYN-0001", name: "Harleen Gill", dateOfBirth: ago(18, 120), gender: "Female", ...area, partNumber: "18" },
+        { sourceReference: "SYN-0002", name: "Arjun Bedi", dateOfBirth: ago(17, 60), gender: "Male", ...area, partNumber: "18" },
+        { sourceReference: "SYN-0003", name: "Navya Sood", dateOfBirth: ago(15, 0), gender: "Female", ...area, partNumber: "18" }
+    ] });
+    console.log(`Seeded synthetic new-voter feed: ${run.counts.tasksCreated} BLO tasks, ${run.counts.notYetEligible} not yet eligible.`);
+};
+
 await connectRedis();
 
 // Existing roll records are left alone: they may have been corrected (Form 8) or marked as voted.
@@ -339,6 +368,7 @@ await ensureDemoAssignments();
 await seedVerificationCases();
 await seedChangeRequests();
 await seedRegistrationRequest();
+await seedNewVoterPipeline();
 
 console.log("Redis seed complete with sample data for all voter, blo, and eci tabs.");
 await redis().quit();
