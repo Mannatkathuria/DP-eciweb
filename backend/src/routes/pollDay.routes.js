@@ -1,8 +1,8 @@
 import express from "express";
-import { verifyJWT, requirePasswordChanged } from "../middlewares/verifyJWT.middleware.js";
+import { verifyJWT, requirePasswordChanged, requireRole } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
 import {
-    getRegister, getStation, listCases, markVoter, raiseCase, reportQueue, resolveCase, searchElectors, setPollStatus
+    getRegister, getStation, issueVabSlip, listCases, lookupVabSlip, markVoter, raiseCase, reportQueue, resolveCase, searchElectors, setPollStatus
 } from "../controllers/pollDay.controller.js";
 
 // Poll day at the caller's own polling station. Each controller resolves the station from the
@@ -20,6 +20,9 @@ router.post("/queue", authorize("polling:conduct", "polling:identify-voter"), re
 router.get("/cases", authorize(...STATION_TEAM), listCases);
 router.post("/cases", authorize("polling:conduct", "polling:identify-voter", "polling:mark-register", "polling:object"), raiseCase);
 router.post("/cases/:id/resolve", authorize("polling:conduct"), resolveCase);
+// Voter assistance booth: the BLO prints a slip; the polling party looks it up by its QR reference.
+router.post("/vab-slips/:epic", requireRole("blo", "admin"), authorize("roll:view-part"), issueVabSlip);
+router.get("/vab-slips/:slipId", authorize("polling:identify-voter", "polling:mark-register", "polling:conduct"), lookupVabSlip);
 router.get("/register", authorize("polling:conduct"), getRegister);
 
 export default router;

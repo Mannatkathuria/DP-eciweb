@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { redis, transaction } from "../config/redis.js";
-import { getElectorByEpic, saveElector } from "../repositories/elector.repository.js";
+import { getElectorByEpic, nextSerialNumber, saveElector } from "../repositories/elector.repository.js";
 import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
 import { pendingDuplicateKey, registrationDocumentKey, saveRegistration } from "../repositories/registration.repository.js";
 import { SEPARATE_DOCUMENTS, purgedDocumentMeta } from "../utils/form6.js";
@@ -45,6 +45,12 @@ export const createVoterFromApplication = async (application, approver, assignme
         assemblyConstituency: application.assemblyConstituency,
         address: application.address || null, pinCode: application.pinCode || null,
         partNumber: assignment.partNumber, pollingStation: assignment.pollingStation,
+        serialNumber: await nextSerialNumber({ state: application.state, assemblyConstituency: application.assemblyConstituency, partNumber: assignment.partNumber }),
+        // From Form 6: the relative named at item 2 and the house number, used to find the
+        // elector in the roll on poll day. Older applications without Form 6 data leave them empty.
+        relativeName: application.form6?.relative?.englishName ?? null,
+        relationType: application.form6?.relative?.relation ?? null,
+        houseNumber: application.form6?.address?.house ?? null,
         photoUrl: null, isActive: true, registeredAt: now,
         registrationId: application._id, approvedBy: approver.epic
     };

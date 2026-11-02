@@ -202,3 +202,47 @@ test("poll day: nothing can be done before the poll date", needsRedis, async () 
     assert.equal((await call("POST", "/poll-day/poll/status", { status: "mock_poll_done" }, pro.token)).status, 409);
     assert.equal((await call("POST", `/poll-day/electors/${electors[3]}/mark`, { idDocument: "epic", checks: { photoMatches: true, inkApplied: true } }, pro.token)).status, 409);
 });
+
+test("search: spelling variants, relative's name, house number and roll serial find the elector, only within the part", needsRedis, async () => {
+    const { call, team, A, B, runId } = await setup();
+    const { saveElector } = await import("../src/repositories/elector.repository.js");
+    const add = async (suffix, s, extra) => {
+        const epic = `PZ${suffix}${String(runId % 1e7).padStart(7, "0")}`;
+        await saveElector({ _id: crypto.randomUUID(), epic, dateOfBirth: "1980-01-01T00:00:00.000Z", gender: "Female", state: s.state, district: s.district,
+            assemblyConstituency: s.constituency, partNumber: s.partNumber, pollingStation: s.pollingStation, isActive: true, ...extra });
+        return epic;
+    };
+    const lakshmi = await add("A", A, { name: "Lakshmi Iyer", relativeName: "Venkatesh Iyer", relationType: "Husband", houseNumber: "14-B", serialNumber: 901 });
+    const rafi = await add("B", A, { name: "Mohammad Rafi", relativeName: "Abdul Rafi", relationType: "Father", houseNumber: "7" });
+    await add("C", B, { name: "Lakshmi Narayan", relativeName: "Hari Narayan", houseNumber: "14-B" });
+    const find = async (q, field) => (await call("GET", `/poll-day/electors?q=${encodeURIComponent(q)}${field ? `&field=${field}` : ""}`, undefined, team.po.token)).body.data.items;
+
+    assert.equal((await find("laxmi"))[0].epic, lakshmi, "spelling variant");
+    assert.equal((await find("Lakshmi")).length, 1, "the part B elector of the same name is not visible");
+    assert.equal((await find("mohd rafi"))[0].epic, rafi, "abbreviation");
+    const byRelative = await find("venkatesh", "relative");
+    assert.equal(byRelative[0].epic, lakshmi);
+    assert.equal(byRelative[0].matchedOn, "relative");
+    assert.equal(byRelative[0].relationType, "Husband");
+    assert.equal((await find("14-b", "house"))[0].epic, lakshmi);
+    assert.equal((await find("901", "serial"))[0].epic, lakshmi);
+    assert.equal((await find("venkatesh", "name")).length, 0, "a field limits the search");
+    assert.equal((await find("qqqzzz")).length, 0);
+});
+
+test("voter assistance booth: the BLO prints a slip whose QR holds only an opaque reference; only the station's polling party can look it up", needsRedis, async () => {
+    const { call, team, electors, makeUser, grant, B, election } = await setup();
+    assert.equal((await call("POST", `/poll-day/vab-slips/${electors[1]}`, {}, team.po.token)).status, 403, "only the BLO issues slips");
+    assert.equal((await call("POST", `/poll-day/vab-slips/${electors[4]}`, {}, team.blo.token)).status, 404, "another part's elector");
+    const slip = await call("POST", `/poll-day/vab-slips/${electors[1]}`, {}, team.blo.token);
+    assert.equal(slip.status, 201, JSON.stringify(slip.body));
+    assert.match(slip.body.data.qr, /^ECIWEB-SLIP:[A-Za-z0-9_-]+$/);
+    assert.ok(!slip.body.data.qr.includes(electors[1]), "no EPIC in the QR");
+    const look = await call("GET", `/poll-day/vab-slips/${encodeURIComponent(slip.body.data.qr)}`, undefined, team.po.token);
+    assert.equal(look.status, 200);
+    assert.equal(look.body.data.epic, electors[1]);
+    assert.equal(look.body.data.serial, slip.body.data.serial);
+    assert.equal((await call("GET", `/poll-day/vab-slips/${slip.body.data.slipId}`, undefined, team.poB.token)).status, 404, "not valid at another station");
+    assert.equal((await call("GET", `/poll-day/vab-slips/${slip.body.data.slipId}`, undefined, team.agent.token)).status, 403);
+    assert.equal((await call("GET", "/poll-day/vab-slips/not-a-real-slip", undefined, team.po.token)).status, 404);
+});

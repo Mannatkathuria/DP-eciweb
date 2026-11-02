@@ -26,18 +26,24 @@ const electors = [
     ["JKL9753186","Meera Kapoor","1995-12-03","Female","Delhi","South Delhi","Greater Kailash","11","Government Co-Educational Senior Secondary School, Delhi"],
     ["MNO1357924","Kabir Singh","2000-06-19","Male","Himachal Pradesh","Shimla","Shimla","33","Government Senior Secondary School, Shimla"],
     // Synthetic electors of part 18, Ludhiana South, for the poll-day demo (invented people).
-    ...[["Aman Dhillon","1984-02-11","Male"],["Baljit Kaur","1979-07-30","Female"],["Charanjit Singh","1962-12-05","Male"],["Deepika Malhotra","1993-03-18","Female"],
-        ["Ekam Grewal","2001-09-09","Male"],["Farah Khan","1988-05-22","Female"],["Gagandeep Sidhu","1975-01-14","Male"],["Harpreet Bains","1999-11-02","Female"],
-        ["Inderjit Chahal","1958-08-27","Male"],["Jasleen Mann","2004-04-04","Female"],["Kuldeep Rana","1990-10-19","Male"],["Lakshmi Iyer","1969-06-08","Female"]]
-        .map(([name, dob, gender], i) => [`LDS${String(1001 + i).padStart(7, "0")}`, name, dob, gender, "Punjab", "Ludhiana", "Ludhiana South", "18", "Government Girls Senior Secondary School, Ludhiana"])
+    // Each also has an invented relative and house number, so poll-day search can find them by those.
+    ...[["Aman Dhillon","1984-02-11","Male","Surjit Singh Dhillon","Father","12"],["Baljit Kaur","1979-07-30","Female","Harbhajan Singh","Husband","12"],
+        ["Charanjit Singh","1962-12-05","Male","Gurdev Singh","Father","27-A"],["Deepika Malhotra","1993-03-18","Female","Rakesh Malhotra","Father","41"],
+        ["Ekam Grewal","2001-09-09","Male","Navdeep Grewal","Mother","58"],["Farah Khan","1988-05-22","Female","Mohammad Imran Khan","Husband","63"],
+        ["Gagandeep Sidhu","1975-01-14","Male","Balwant Singh Sidhu","Father","7"],["Harpreet Bains","1999-11-02","Female","Gurmeet Singh Bains","Father","112"],
+        ["Inderjit Chahal","1958-08-27","Male","Kartar Singh Chahal","Father","90"],["Jasleen Mann","2004-04-04","Female","Paramjit Kaur Mann","Mother","14-B"],
+        ["Kuldeep Rana","1990-10-19","Male","Rajinder Rana","Father","33"],["Lakshmi Iyer","1969-06-08","Female","Venkatesh Iyer","Husband","101"]]
+        .map(([name, dob, gender, relativeName, relationType, houseNumber], i) => [`LDS${String(1001 + i).padStart(7, "0")}`, name, dob, gender, "Punjab", "Ludhiana", "Ludhiana South", "18", "Government Girls Senior Secondary School, Ludhiana",
+            { relativeName, relationType, houseNumber, serialNumber: i + 1 }])
 ];
 
-const makeElector = ([epic,name,dob,gender,state,district,assemblyConstituency,partNumber,pollingStation]) => ({
+const makeElector = ([epic,name,dob,gender,state,district,assemblyConstituency,partNumber,pollingStation,extra = {}]) => ({
     _id: crypto.randomUUID(), epic, name, dateOfBirth: new Date(dob).toISOString(),
     age: new Date().getFullYear() - new Date(dob).getFullYear(), gender, state, district,
     assemblyConstituency, partNumber, pollingStation, photoUrl: null, isActive: true,
     hasVoted: false, votedAt: null, votedBooth: null,
-    seededAt: new Date().toISOString()
+    seededAt: new Date().toISOString(),
+    ...extra
 });
 
 // Seeds a demo record only if it does not exist yet, so the seed never undoes real changes.

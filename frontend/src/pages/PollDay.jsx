@@ -4,6 +4,7 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import ReasonDialog from "./ReasonDialog";
+import VabSlip from "../components/VabSlip";
 import { apiMessage } from "../config/elections";
 
 // Poll day at the signed-in officer's own polling station. What each person can do is decided
@@ -15,6 +16,8 @@ const NEXT = { not_started: ["mock_poll_done", "Record mock poll held"], mock_po
 const INCIDENT_TYPES = { evm_malfunction: "EVM malfunction", vvpat_malfunction: "VVPAT malfunction", law_and_order: "Law and order", power_failure: "Power or lighting failure", staff_absent: "Polling staff absent", accessibility: "Accessibility problem", mcc_violation: "Model Code of Conduct violation near the station", other: "Other" };
 const INCIDENT_STATUS = { reported: "Reported", acknowledged: "Being handled", resolved: "Resolved" };
 const CASE_LABEL = { identity_doubt: "Identity doubt", challenged_vote: "Challenged vote", tendered_vote: "Tendered vote", assisted_voter: "Assisted voter (companion)", not_in_roll: "Name not in this part", other: "Other" };
+const SEARCH_FIELDS = { any: "Anything", name: "Elector's name", relative: "Relative's name", house: "House number", serial: "Serial number", epic: "EPIC number" };
+const MATCHED_ON = { name: "name", relative: "relative's name", house: "house number", serial: "serial number", epic: "EPIC" };
 const DECISION_LABEL = { allowed: "Allowed to vote", refused: "Refused", rejected: "Challenge failed", upheld: "Challenge upheld", closed: "Closed" };
 const DECISIONS = { identity_doubt: [["allowed", "Allow to vote", false], ["refused", "Refuse", true]], challenged_vote: [["rejected", "Challenge fails, allow", false], ["upheld", "Uphold challenge", true]], other: [["closed", "Close", false]] };
 
@@ -44,6 +47,9 @@ export default function PollDay() {
     const { logged, userData } = useContext(AuthContext);
     const [s, setS] = useState(null);
     const [q, setQ] = useState("");
+    const [field, setField] = useState("any");
+    const [slip, setSlip] = useState(null);
+    const [slipRef, setSlipRef] = useState("");
     const [results, setResults] = useState(null);
     const [verifying, setVerifying] = useState(null);
     const [cases, setCases] = useState([]);
@@ -83,10 +89,18 @@ export default function PollDay() {
     };
     const search = async (e) => {
         e?.preventDefault();
-        try { setResults((await api.get("/poll-day/electors", { params: { q } })).data.data.items); }
+        try { setResults((await api.get("/poll-day/electors", { params: { q, field } })).data.data.items); }
         catch (err) { setError(apiMessage(err, "Search failed.")); }
     };
     const refreshSearch = () => results && search();
+    const printSlip = (e) => act(() => api.post(`/poll-day/vab-slips/${e.epic}`), ({ data }) => { setSlip(data.data); return `Slip ready for ${e.name}.`; });
+    const lookupSlip = async (ev) => {
+        ev.preventDefault(); setError("");
+        try {
+            const { data } = await api.get(`/poll-day/vab-slips/${encodeURIComponent(slipRef.trim())}`);
+            setResults([{ ...data.data, partNumber: s?.station.partNumber, pollingStation: s?.station.name, matchedOn: "slip" }]); setSlipRef("");
+        } catch (err) { setError(apiMessage(err, "This slip could not be found.")); }
+    };
 
     const isVab = userData.role === "blo" || userData.role === "admin";
     const can = s?.can ?? {};
@@ -131,19 +145,33 @@ export default function PollDay() {
                         <div className="panel">
                             <h2>{isVab ? "Find an elector's serial number" : "Find the elector"}</h2>
                             <form style={{ display: "flex", gap: 8, alignItems: "end" }} onSubmit={search}>
-                                <div className="field" style={{ margin: 0, flex: 1 }}><label htmlFor="pd-q">Name or EPIC number</label><input id="pd-q" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+                                <div className="field" style={{ margin: 0, flex: 1 }}><label htmlFor="pd-q">Search the part's roll</label><input id="pd-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name (any spelling), relative's name, house number, serial or EPIC" /></div>
+                                <div className="field" style={{ margin: 0 }}><label htmlFor="pd-field">In</label>
+                                    <select id="pd-field" value={field} onChange={(e) => setField(e.target.value)}>
+                                        {Object.entries(SEARCH_FIELDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                    </select></div>
                                 <button className="btn btn-primary" type="submit">Search</button>
                             </form>
+                            {!isVab && (
+                                <form style={{ display: "flex", gap: 8, alignItems: "end", marginTop: 8 }} onSubmit={lookupSlip}>
+                                    <div className="field" style={{ margin: 0, flex: 1 }}><label htmlFor="pd-slip">Or enter the reference on a voter assistance slip</label><input id="pd-slip" value={slipRef} onChange={(e) => setSlipRef(e.target.value)} placeholder="ECIWEB-SLIP:… or the slip reference" /></div>
+                                    <button className="btn btn-secondary" type="submit">Look up slip</button>
+                                </form>
+                            )}
+                            {slip && isVab && <VabSlip slip={slip} onClose={() => setSlip(null)} />}
                             {results && (
                                 <div className="table-wrap" style={{ marginTop: 12 }}><table>
                                     <thead><tr><th>Serial</th><th>Elector</th><th>{isVab ? "Polling station" : "Status"}</th><th></th></tr></thead>
                                     <tbody>{results.map((e) => (
                                         <tr key={e.epic}>
                                             <td className="figure">{e.serial}</td>
-                                            <td><strong>{e.name}</strong><br /><small>{e.epic} · {e.gender} · {e.age}</small></td>
+                                            <td><strong>{e.name}</strong><br /><small>{e.epic} · {e.gender} · {e.age}</small>
+                                                {(e.relativeName || e.houseNumber) && <><br /><small>{e.relativeName ? `${e.relationType ? `${e.relationType}: ` : ""}${e.relativeName}` : ""}{e.relativeName && e.houseNumber ? " · " : ""}{e.houseNumber ? `House ${e.houseNumber}` : ""}</small></>}
+                                                {e.matchedOn && e.matchedOn !== "name" && <><br /><small className="muted">Matched on {e.matchedOn === "slip" ? "assistance slip" : MATCHED_ON[e.matchedOn]}</small></>}</td>
                                             <td>{isVab ? <small>Part {e.partNumber}, {e.pollingStation}</small>
                                                 : e.voted ? <span className="badge badge-ok">Voted</span> : e.openCase ? <span className="badge badge-warn">{CASE_LABEL[e.openCase]} open</span> : <span className="badge">Not voted</span>}</td>
-                                            <td>{!isVab && can.mark && pollOpen && !e.voted && !e.openCase && <button className="btn-approve" onClick={() => setVerifying(e)}>Verify</button>}</td>
+                                            <td>{!isVab && can.mark && pollOpen && !e.voted && !e.openCase && <button className="btn-approve" onClick={() => setVerifying(e)}>Verify</button>}
+                                                {isVab && <button className="btn btn-secondary" disabled={busy} onClick={() => printSlip(e)}>Slip</button>}</td>
                                         </tr>
                                     ))}
                                     {results.length === 0 && <tr><td colSpan={4}>No elector of this part matches.</td></tr>}</tbody>

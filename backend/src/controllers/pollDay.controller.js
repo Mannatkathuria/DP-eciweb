@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { transaction } from "../config/redis.js";
+import { redis, transaction } from "../config/redis.js";
 import { listElections, listStations } from "../repositories/election.repository.js";
 import { getElectorByEpic, listElectors, saveElector } from "../repositories/elector.repository.js";
 import {
@@ -8,6 +8,7 @@ import {
 import { assignmentInElection, electionStage, todayIST } from "../services/election.service.js";
 import { hasPermission } from "../services/authority.service.js";
 import { auditEvent, recordAudit } from "../services/audit.service.js";
+import { rankElectors } from "../services/search.service.js";
 import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -94,17 +95,27 @@ export const getStation = asyncHandler(async (req, res) => {
     } });
 });
 
+const SEARCH_FIELDS = ["any", "name", "relative", "house", "serial", "epic"];
+
 /** Station-scoped elector search (polling party, and the BLO at the voter assistance booth). */
 export const searchElectors = asyncHandler(async (req, res) => {
     const { station, election } = await stationContext(req);
-    const q = norm(req.query.q);
+    const field = SEARCH_FIELDS.includes(req.query.field) ? req.query.field : "any";
     const pollingStaff = hasPermission(req.user, "polling:identify-voter") || hasPermission(req.user, "polling:mark-register") || hasPermission(req.user, "polling:conduct");
     const part = (await listElectors()).filter(inPart(station)).sort((a, b) => a.name.localeCompare(b.name));
-    const serial = new Map(part.map((e, i) => [e.epic, i + 1])); // serial in the part, by name (prototype)
-    const matches = part.filter((e) => !q || norm(e.name).includes(q) || norm(e.epic) === q).slice(0, 50);
+    // The serial number on the roll; electors seeded or added before serial numbers existed fall
+    // back to their place in name order after the numbered ones.
+    const highest = part.reduce((m, e) => Math.max(m, Number(e.serialNumber) || 0), 0);
+    let extra = highest;
+    const serial = new Map(part.map((e) => [e.epic, Number(e.serialNumber) || ++extra]));
+    const ranked = rankElectors(part, req.query.q, { field, serialOf: (e) => serial.get(e.epic) }).slice(0, 50);
+    const matches = ranked.map((r) => r.elector);
+    const why = new Map(ranked.map((r) => [r.elector.epic, { matchedOn: r.matchedOn, score: Number(r.score.toFixed(2)) }]));
     const cases = pollingStaff ? await listPollCases(election._id, station._id) : [];
     const items = await Promise.all(matches.map(async (e) => ({
         epic: e.epic, name: e.name, age: ageOf(e.dateOfBirth), gender: e.gender, serial: serial.get(e.epic),
+        relativeName: e.relativeName ?? null, relationType: e.relationType ?? null, houseNumber: e.houseNumber ?? null,
+        ...why.get(e.epic),
         partNumber: station.partNumber, pollingStation: station.name,
         ...(pollingStaff ? {
             voted: Boolean(await votedAt(election._id, e.epic)),
@@ -274,4 +285,50 @@ export const getRegister = asyncHandler(async (req, res) => {
     const { station, election } = await stationContext(req);
     const items = await listRegister(election._id, station._id);
     res.json({ success: true, data: { items: items.map((e) => ({ ...e, idDocumentLabel: ID_DOCUMENTS[e.idDocument] })) } });
+});
+
+// ---- Voter assistance booth slips ----
+// The BLO at the voter assistance booth prints a slip with the elector's serial number, part and
+// polling station. Its QR code carries only an opaque, random slip reference, never the EPIC or
+// any personal data. A polling officer of the same station can look the slip up; references expire
+// at the end of the day after the poll.
+
+const SLIP_PREFIX = "ECIWEB-SLIP:";
+const slipKey = (id) => `vab-slip:${id}`;
+
+export const issueVabSlip = asyncHandler(async (req, res) => {
+    const { station, election } = await stationContext(req);
+    const epic = String(req.params.epic ?? "").trim().toUpperCase();
+    const elector = await getElectorByEpic(epic);
+    if (!elector || !inPart(station)(elector)) throw new ApiError(404, "This elector is not on the roll of this part.");
+    const part = (await listElectors()).filter(inPart(station)).sort((a, b) => a.name.localeCompare(b.name));
+    const highest = part.reduce((m, e) => Math.max(m, Number(e.serialNumber) || 0), 0);
+    let extra = highest;
+    const serial = Number(elector.serialNumber) || (part.filter((e) => !Number(e.serialNumber)).findIndex((e) => e.epic === epic) + 1 + extra);
+    const id = crypto.randomBytes(9).toString("base64url");
+    const slip = { id, epic, electionId: election._id, stationId: station._id, serial, issuedBy: req.user.epic, issuedAt: new Date().toISOString() };
+    const expiresAt = new Date(`${election.schedule.pollDate}T23:59:59+05:30`).getTime() + 86400000;
+    const ttl = Math.max(3600, Math.floor((expiresAt - Date.now()) / 1000));
+    const tx = transaction();
+    tx.set(slipKey(id), JSON.stringify(slip), { EX: ttl });
+    await recordAudit(auditEvent({ actor: req.user, action: "vab.slip_issued", resource: { type: "polling-station", id: station._id },
+        jurisdiction: stationRecord(station), after: { slipId: id, serial } }), tx);
+    await tx.exec();
+    res.status(201).json({ success: true, data: {
+        qr: `${SLIP_PREFIX}${id}`, slipId: id, serial, name: elector.name, partNumber: station.partNumber, pollingStation: station.name,
+        address: station.address ?? null, constituency: station.constituency, election: election.name, pollDate: election.schedule.pollDate
+    } });
+});
+
+/** Polling party: resolve a slip reference (typed or scanned) to the elector, at their own station only. */
+export const lookupVabSlip = asyncHandler(async (req, res) => {
+    const { station, election } = await stationContext(req);
+    const id = String(req.params.slipId ?? "").replace(SLIP_PREFIX, "").trim();
+    const slip = /^[A-Za-z0-9_-]{8,24}$/.test(id) ? await redis().get(slipKey(id)).then((v) => v && JSON.parse(v)) : null;
+    // The slip identifies the elector and serial at this station; it is not tied to who issued it.
+    if (!slip || slip.stationId !== station._id) throw new ApiError(404, "This slip is not valid at your polling station.");
+    const elector = await getElectorByEpic(slip.epic);
+    if (!elector || !inPart(station)(elector)) throw new ApiError(404, "This slip is not valid at your polling station.");
+    res.json({ success: true, data: { epic: elector.epic, name: elector.name, serial: slip.serial, age: ageOf(elector.dateOfBirth), gender: elector.gender,
+        voted: Boolean(await votedAt(election._id, elector.epic)) } });
 });

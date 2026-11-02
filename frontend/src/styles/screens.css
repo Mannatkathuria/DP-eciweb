@@ -189,3 +189,11 @@
   .f6-page .f6-nav { flex-direction: column-reverse; }
   .f6-page .f6-btn { width: 100%; }
 }
+
+/* Voter assistance booth slip: print only the slip. */
+@media print {
+  body * { visibility: hidden; }
+  .vab-slip, .vab-slip * { visibility: visible; }
+  .vab-slip { position: absolute; left: 0; top: 0; border: 1px solid #000; }
+  .vab-slip .no-print { display: none; }
+}

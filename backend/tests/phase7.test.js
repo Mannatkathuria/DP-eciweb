@@ -149,3 +149,14 @@ test("agents: the candidate appoints their election, polling and counting agents
         assert.equal((await appoint(ea, { type: "polling", epic: pa2.user.epic, stationId: station._id })).status, 403, "a revoked election agent can no longer appoint");
     } finally { process.env.STEP_UP_REQUIRED = "true"; }
 });
+
+test("search service: phonetic variants, abbreviations and typos rank, unrelated names do not", async () => {
+    const { rankElectors, phonetic } = await import("../src/services/search.service.js");
+    assert.equal(phonetic("lakshmi"), phonetic("laxmi"));
+    const E = [{ epic: "A", name: "Harpreet Bains" }, { epic: "B", name: "Harprit Kaur" }, { epic: "C", name: "Farah Khan" }, { epic: "D", name: "Ram Kumar" }];
+    assert.deepEqual(rankElectors(E, "harpreet").map((r) => r.elector.epic), ["A", "B"]);
+    assert.equal(rankElectors(E, "fara kan")[0].elector.epic, "C");
+    assert.equal(rankElectors(E, "ram kr")[0].elector.epic, "D");
+    assert.equal(rankElectors(E, "Harpret Bains")[0].elector.epic, "A", "one typo");
+    assert.equal(rankElectors(E, "zebra").length, 0);
+});

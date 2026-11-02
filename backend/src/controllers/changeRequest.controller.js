@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getElectorByEpic, saveElector } from "../repositories/elector.repository.js";
+import { getElectorByEpic, nextSerialNumber, saveElector } from "../repositories/elector.repository.js";
 import { getUserByEpic, saveUser } from "../repositories/user.repository.js";
 import {
     saveChangeRequest, getChangeRequest, listChangeRequests,
@@ -289,6 +289,9 @@ export const approveChangeRequest = asyncHandler(async (req, res) => {
 
         const now = new Date().toISOString();
         const changes = { ...request.requestedChanges, ...(booth ?? {}) };
+        const movesPart = changes.partNumber !== undefined && (String(changes.partNumber) !== String(elector.partNumber)
+            || (changes.assemblyConstituency ?? elector.assemblyConstituency) !== elector.assemblyConstituency);
+        if (movesPart) changes.serialNumber = await nextSerialNumber({ ...elector, ...changes });
         const updatedElector = { ...elector, ...changes, updatedAt: now };
         const decided = {
             ...request,
