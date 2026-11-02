@@ -205,3 +205,14 @@ test("suspension: a suspended account loses its session and assignments at once;
         assert.equal(coversAny([pc.body.data], { state: "Punjab", assemblyConstituency: "Ludhiana South" }), false);
     } finally { process.env.STEP_UP_REQUIRED = "true"; }
 });
+
+test("security: a voter cannot read other people's applications, records, registers or events", needsRedis, async () => {
+    const { call, makeUser } = await setup();
+    const voter = await makeUser("voter");
+    for (const path of ["/admin/registrations", "/admin/changes", "/admin/registrations/x/documents/proof", "/poll-day/electors?q=a", "/poll-day/register",
+        "/registration-tasks", "/audit/integrity", "/events", "/control-room", "/assignments", "/users/ECI1234567", "/counting/x?state=Punjab&district=Ludhiana&constituency=Ludhiana%20South"]) {
+        const r = await call("GET", path, undefined, voter.token);
+        assert.equal(r.status, 403, `${path} → ${r.status}`);
+    }
+    assert.equal((await call("POST", "/changes/not-mine/information", { response: "hello there" }, voter.token)).status === 404, true, "another person's request is not found");
+});

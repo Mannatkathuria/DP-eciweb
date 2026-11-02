@@ -70,7 +70,7 @@ const setup = async () => {
     }
     team.otherRo = await makeUser("ro");
     await grant(team.otherRo, "ro", { ...ac, constituency: ludhiana.constituencies[1] }, election._id);
-    ctx = { redis, server, call, runId, ac, election, team, stations };
+    ctx = { redis, server, call, makeUser, runId, ac, election, team, stations };
     return ctx;
 };
 test.after(async () => { if (ctx) { ctx.server.close(); await ctx.redis().quit(); } });
@@ -84,6 +84,8 @@ test("counting: RO plans, staff are randomised to tables, rounds advance in orde
 
     const plan = { ...ac, centre: { name: "Govt College for Women", address: "Ferozepur Road, Ludhiana 141001" }, halls: [{ name: "Hall A", tables: 2 }] };
     assert.equal((await call("POST", `${url}/plan`, plan, team.s1.token)).status, 403);
+    assert.equal((await call("POST", `${url}/plan`, plan, team.obs.token)).status, 403, "an observer can view, not plan");
+    assert.equal((await call("POST", `${url}/plan`, plan, team.agent.token)).status, 403, "a counting agent cannot edit counting records");
     const saved = await call("POST", `${url}/plan`, plan, team.ro.token);
     assert.equal(saved.status, 200, JSON.stringify(saved.body));
     const rounds = saved.body.data.rounds;
@@ -102,6 +104,8 @@ test("counting: RO plans, staff are randomised to tables, rounds advance in orde
     const myNo = mine.no; const otherNo = myNo === 1 ? 2 : 1;
     const record = (round, table, who, body = { form17cPart2Signed: true }) => call("POST", `${url}/rounds/${round}/tables/${table}`, { ...ac, ...body }, who.token);
     assert.equal((await record(1, otherNo, team.s1)).status, 403, "not their table");
+    assert.equal((await record(1, myNo, team.agent)).status, 403, "a counting agent cannot record a table");
+    assert.equal((await record(1, myNo, team.obs)).status, 403, "an observer cannot record a table");
     assert.equal((await record(1, myNo, team.s1, {})).status, 400, "Form 17C Part II confirmation required");
     assert.equal((await record(2, 1, team.ro)).status, 409, "round 1 first");
     assert.equal((await record(1, myNo, team.s1)).status, 200);
@@ -117,6 +121,7 @@ test("counting: RO plans, staff are randomised to tables, rounds advance in orde
     assert.equal((await call("POST", `${url}/rounds/1/complete`, ac, team.ro.token)).status, 409);
     assert.equal((await call("POST", `${url}/discrepancies/${d.body.data._id}/decide`, { ...ac, decision: "rejected", note: "Seal checked with the presiding officer's diary" }, team.s1.token)).status, 403);
     assert.equal((await call("POST", `${url}/discrepancies/${d.body.data._id}/decide`, { ...ac, decision: "rejected", note: "Seal checked against the presiding officer's diary; matches" }, team.ro.token)).status, 200);
+    assert.equal((await call("POST", `${url}/rounds/1/complete`, ac, team.obs.token)).status, 403);
     const done = await call("POST", `${url}/rounds/1/complete`, ac, team.ro.token);
     assert.equal(done.status, 200, JSON.stringify(done.body));
     assert.equal(done.body.data.status, "completed");
@@ -128,6 +133,15 @@ test("counting: RO plans, staff are randomised to tables, rounds advance in orde
     assert.equal(view.observerReports.length, 1);
     assert.equal(view.discrepancies[0].decision, "rejected");
     assert.equal(/"votes"|"voteCount"|"candidateVotes"/.test(JSON.stringify(view)), false, "no vote figures anywhere");
+});
+
+test("results: a candidate or counting agent cannot register sources or send result entries", needsRedis, async () => {
+    const { call, team, makeUser } = await setup();
+    const candidate = await makeUser("candidate");
+    for (const who of [candidate, team.agent, team.ro]) {
+        assert.equal((await call("POST", "/results/sources", { name: "x", kind: "mock" }, who.token)).status, 403);
+        assert.equal((await call("POST", "/results/sources/anything/entries", { kind: "round", round: 1, votes: { 1: 5 } }, who.token)).status, 403);
+    }
 });
 
 test("counting: the VVPAT draw is by lot, witnessed, recorded with its seed and made once", needsRedis, async () => {

@@ -23,7 +23,7 @@ Status key: ✅ works and is tested · 🟡 partly works · ❌ missing · 🧪 
 | --- | --- | --- |
 | Public site (home, voters, states, media, roles) | 🧪 | Static content and navigation. `Media`, `Home` and `Roles` use content arrays in the page, which is appropriate for static information. |
 | Sign-in | 🟡 | Officials and voters sign in with EPIC + OTP. BLOs use BLO ID + password (scrypt) + mobile OTP and must change a temporary password. **OTPs are only printed to the backend log** (no SMS gateway) and are kept in process memory (see S3). |
-| Roles and authority | ✅ | 34 roles in one registry (`backend/src/config/roles.js`), assignments with jurisdiction, election and validity window, immediate revocation, server-side `authorize()` plus jurisdiction checks on every protected route. |
+| Roles and authority | ✅ | 33 roles in one registry (plus the legacy `admin` account type) (`backend/src/config/roles.js`), assignments with jurisdiction, election and validity window, immediate revocation, server-side `authorize()` plus jurisdiction checks on every protected route. |
 | Form 6 registration | ✅ | Full Form 6 fields with documents, Aadhaar encrypted (AES-256-GCM) when a key is set, duplicate guard, AI document review (rule engine, Gemini optional). BLO field verification, ERO/AERO decision, information requests and re-verification. |
 | Form 8 corrections and shifts | ✅ | Same split of authority; shifts are decided in the new constituency. |
 | Electoral roll | ✅ | Public search with the address hidden, voter's own record, roll versions with hashes and diffs, roll serial numbers per part. |
@@ -140,3 +140,20 @@ All records are JSON strings under one key each; sets act as indexes; lists are 
 
 - S1, S2 and S5 fixed, with tests.
 - The rest of the findings are carried into [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+
+## H. After the audit (3 November 2026)
+
+The phases that followed this audit added these screens and fixed one more defect. Module details are in the workflow documents listed in [README.md](README.md).
+
+| Route | Page | Backend |
+| --- | --- | --- |
+| `/poll-day` (device panel, offline desk) | Device registration, heartbeats, station package, offline marking, conflicts | `/devices/*`, `/poll-day/package`, `/poll-day/sync`, `/poll-day/sync-conflicts` |
+| `/poll-day/presiding-officer` | Presiding officer assistant | `/poll-day/assistant`, `/poll-day/checklists/:kind`, `/poll-day/procedures` |
+| `/control-room` (live, connectivity, filters, escalation) | Control room | `/control-room`, `/events`, Socket.IO |
+| `/counting` | Counting operations | `/counting/*` |
+| `/training/poll-day` | Training simulator | `/training/scenarios`, `/training/runs/:id/submit`, `/training/report` |
+| `/booths` (queue button) | Public queue estimate | `/public/stations/:id/queue` |
+
+| # | Finding | Severity | Status |
+| --- | --- | --- | --- |
+| S14 | The audit integrity check read the event list and the event counter in two separate commands, so an event written between them made the check report the trail as tampered while the system was busy. | Medium (false alarm, would erode trust in the check) | **Fixed**: both are read in one transaction. |

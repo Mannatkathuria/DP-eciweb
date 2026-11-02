@@ -24,7 +24,7 @@ Base URL: `/api/v1`. All bodies are JSON. Responses have the shape `{ "success":
 
 ## Endpoints
 
-Generated from the route files on 2 November 2026 (`docs` script in the audit). Request and response fields for each module are described in the module documents: [ELECTORAL_ROLL_WORKFLOW.md](ELECTORAL_ROLL_WORKFLOW.md), [NEW_ELECTOR_PIPELINE.md](NEW_ELECTOR_PIPELINE.md), [ELECTION_MANAGEMENT.md](ELECTION_MANAGEMENT.md), [POLLING_STATION_MANAGEMENT.md](POLLING_STATION_MANAGEMENT.md), [POLL_DAY_OPERATIONS.md](POLL_DAY_OPERATIONS.md), [CONTROL_ROOM.md](CONTROL_ROOM.md), [COUNTING_AND_RESULTS.md](COUNTING_AND_RESULTS.md).
+Generated from the route files on 3 November 2026 (161 endpoints). Request and response fields for each module are described in the module documents: [ELECTORAL_ROLL_WORKFLOW.md](ELECTORAL_ROLL_WORKFLOW.md), [NEW_ELECTOR_PIPELINE.md](NEW_ELECTOR_PIPELINE.md), [ELECTION_MANAGEMENT.md](ELECTION_MANAGEMENT.md), [POLLING_STATION_MANAGEMENT.md](POLLING_STATION_MANAGEMENT.md), [POLL_DAY_OPERATIONS.md](POLL_DAY_OPERATIONS.md), [CONTROL_ROOM.md](CONTROL_ROOM.md), [COUNTING_AND_RESULTS.md](COUNTING_AND_RESULTS.md).
 
 | Method | Path | Route file → handler | Auth | Permission (any of) | Step-up | Rate limit |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -67,14 +67,14 @@ Generated from the route files on 2 November 2026 (`docs` script in the audit). 
 | POST | `/api/v1/admin/changes/:id/reject` | admin → `rejectChangeRequest` | session | application:decide | yes |  |
 | POST | `/api/v1/admin/changes/:id/request-information` | admin → `requestInformation("change_request")` | session | application:decide |  |  |
 | POST | `/api/v1/admin/changes/:id/request-reverification` | admin → `requestReverification("change_request")` | session | application:decide |  |  |
-| POST | `/api/v1/voting-verification/start` | votingVerification → `startVotingVerification` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/persona/start` | votingVerification → `startVotingPersona` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/persona/sync` | votingVerification → `syncVotingPersona` | session | role: eci, admin |  |  |
-| GET | `/api/v1/voting-verification/:id/reference-photo` | votingVerification → `getVotingReferencePhoto` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/document` | votingVerification → `submitVotingDocument` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/face/challenge` | votingVerification → `issueVotingChallenge` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/face` | votingVerification → `submitVotingFace` | session | role: eci, admin |  |  |
-| POST | `/api/v1/voting-verification/:id/fingerprint` | votingVerification → `verifyFingerprint` | session | role: eci, admin |  |  |
+| POST | `/api/v1/voting-verification/start` | votingVerification → `startVotingVerification` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/persona/start` | votingVerification → `startVotingPersona` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/persona/sync` | votingVerification → `syncVotingPersona` | session | role: eci |  |  |
+| GET | `/api/v1/voting-verification/:id/reference-photo` | votingVerification → `getVotingReferencePhoto` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/document` | votingVerification → `submitVotingDocument` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/face/challenge` | votingVerification → `issueVotingChallenge` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/face` | votingVerification → `submitVotingFace` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/fingerprint` | votingVerification → `verifyFingerprint` | session | role: eci |  |  |
 | POST | `/api/v1/persona/start` | persona → `async (req, res) => {
   try {
     await connectRedis(` | session | — |  |  |
@@ -91,10 +91,10 @@ Generated from the route files on 2 November 2026 (`docs` script in the audit). 
 | POST | `/api/v1/changes` | changeRequest → `submitChangeRequest` | session | role: voter |  |  |
 | GET | `/api/v1/changes/my` | changeRequest → `getMyChangeRequests` | session | role: voter |  |  |
 | POST | `/api/v1/changes/:id/information` | changeRequest → `respondToInformationRequest("change_request", ownRequest)` | session | role: voter |  |  |
-| GET | `/api/v1/eci/blo-list` | eci → `listBloOfficers` | session | role: eci, admin |  |  |
-| POST | `/api/v1/eci/blo/assign` | eci → `assignBloRole` | session | role: eci, admin |  |  |
-| POST | `/api/v1/eci/blo/remove` | eci → `removeBloRole` | session | role: eci, admin |  |  |
-| GET | `/api/v1/eci/voters` | eci → `searchEciVoters` | session | role: eci, admin |  |  |
+| GET | `/api/v1/eci/blo-list` | eci → `listBloOfficers` | session | role:assign |  |  |
+| POST | `/api/v1/eci/blo/assign` | eci → `assignBloRole` | session | role:assign |  |  |
+| POST | `/api/v1/eci/blo/remove` | eci → `removeBloRole` | session | role:assign |  |  |
+| GET | `/api/v1/eci/voters` | eci → `searchEciVoters` | session | role:assign |  |  |
 | GET | `/api/v1/assignments/me` | assignment → `listMyAssignments` | session | — |  |  |
 | GET | `/api/v1/assignments` | assignment → `listAssignments` | session | role:assign, blo:assign, staff:assign, polling:arrange, audit:read |  |  |
 | POST | `/api/v1/assignments` | assignment → `grantAssignment` | session | role:assign, blo:assign, staff:assign, polling:arrange | yes |  |
@@ -135,6 +135,7 @@ Generated from the route files on 2 November 2026 (`docs` script in the audit). 
 | GET | `/api/v1/public/elections` | public → `listAllElections` | public | — |  |  |
 | GET | `/api/v1/public/stations` | public → `searchPublicStations` | public | — |  |  |
 | GET | `/api/v1/public/stations/epic/:epic` | public → `lookupStationByEpic` | public | — |  |  |
+| GET | `/api/v1/public/stations/:id/queue` | public → `publicQueue` | public | — |  |  |
 | GET | `/api/v1/public/candidates` | public → `publicCandidates` | public | — |  |  |
 | GET | `/api/v1/public/results` | public → `publicResults` | public | — |  |  |
 | GET | `/api/v1/public/turnout` | public → `publicTurnout` | public | — |  |  |
@@ -149,6 +150,14 @@ Generated from the route files on 2 November 2026 (`docs` script in the audit). 
 | POST | `/api/v1/poll-day/vab-slips/:epic` | pollDay → `issueVabSlip` | session | roll:view-part |  |  |
 | GET | `/api/v1/poll-day/vab-slips/:slipId` | pollDay → `lookupVabSlip` | session | polling:identify-voter, polling:mark-register, polling:conduct |  |  |
 | GET | `/api/v1/poll-day/register` | pollDay → `getRegister` | session | polling:conduct |  |  |
+| GET | `/api/v1/poll-day/procedures` | pollDay → `getProcedures` | session | STATION_TEAM |  |  |
+| GET | `/api/v1/poll-day/assistant` | pollDay → `getAssistant` | session | polling:conduct |  |  |
+| POST | `/api/v1/poll-day/checklists/:kind` | pollDay → `tickChecklist` | session | polling:conduct |  |  |
+| GET | `/api/v1/poll-day/package/public-key` | pollDay → `publicKey` | session | STATION_TEAM |  |  |
+| GET | `/api/v1/poll-day/package` | pollDay → `downloadPackage` | session | polling:conduct, polling:identify-voter, polling:mark-register |  |  |
+| POST | `/api/v1/poll-day/sync` | pollDay → `sync` | session | polling:conduct, polling:mark-register |  |  |
+| GET | `/api/v1/poll-day/sync-conflicts` | pollDay → `listConflicts` | session | polling:conduct |  |  |
+| POST | `/api/v1/poll-day/sync-conflicts/:id/resolve` | pollDay → `resolveConflict` | session | polling:conduct |  |  |
 | GET | `/api/v1/control-room` | controlRoom → `overview` | session | control:view |  |  |
 | POST | `/api/v1/control-room/incidents` | controlRoom → `reportIncident` | session | incident:report |  |  |
 | POST | `/api/v1/control-room/incidents/:id` | controlRoom → `updateIncident` | session | incident:manage |  |  |
@@ -160,9 +169,39 @@ Generated from the route files on 2 November 2026 (`docs` script in the audit). 
 | POST | `/api/v1/results/sources/:sourceId/mock` | result → `generateMock` | session | integration:manage |  |  |
 | GET | `/api/v1/training/modules` | training → `myModules` | session | — |  |  |
 | POST | `/api/v1/training/modules/:id/attempts` | training → `attempt` | session | — |  |  |
+| GET | `/api/v1/training/scenarios` | training → `listScenarios` | session | — |  |  |
+| POST | `/api/v1/training/scenarios/:id/start` | training → `startScenario` | session | — |  |  |
+| POST | `/api/v1/training/runs/:runId/submit` | training → `submitScenario` | session | — |  |  |
+| GET | `/api/v1/training/report` | training → `scenarioReport` | session | — |  |  |
 | GET | `/api/v1/training/team` | training → `teamProgress` | session | blo:assign, blo:supervise, staff:assign, polling:arrange |  |  |
 | GET | `/api/v1/agents/mine` | agent → `myAgents` | session | agent:appoint |  |  |
 | POST | `/api/v1/agents` | agent → `appointAgent` | session | agent:appoint |  |  |
 | POST | `/api/v1/agents/:id/revoke` | agent → `revokeAgent` | session | agent:appoint |  |  |
 | GET | `/api/v1/agents` | agent → `agentsInConstituency` | session | nomination:scrutinise |  |  |
+| GET | `/api/v1/users/:epic` | user → `getUserStatus` | session | role:assign |  |  |
+| POST | `/api/v1/users/:epic/suspend` | user → `suspendUser` | session | role:assign | yes |  |
+| POST | `/api/v1/users/:epic/reinstate` | user → `reinstateUser` | session | role:assign | yes |  |
+| GET | `/api/v1/events` | events → `listEvents` | session | control:view, polling:conduct, polling:identify-voter, polling:mark-register, incident:manage, application:decide, roll:view-part |  |  |
+| GET | `/api/v1/devices/mine` | device → `listMyStationDevices` | session | — |  |  |
+| POST | `/api/v1/devices/register` | device → `registerDevice` | session | — |  |  |
+| POST | `/api/v1/devices/heartbeat` | device → `heartbeat` | session | — |  |  |
+| POST | `/api/v1/devices/:id/revoke` | device → `revokeDevice` | session | polling:conduct, incident:manage |  |  |
+| GET | `/api/v1/counting/:electionId` | counting → `getCounting` | session | COUNTING |  |  |
+| GET | `/api/v1/counting/:electionId/staff` | counting → `staffPool` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/plan` | counting → `savePlan` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/randomise` | counting → `randomise` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/vvpat-draw` | counting → `vvpatDraw` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/rounds/:round/tables/:table` | counting → `recordTable` | session | counting:supervise, result:declare, counting:supervise-table |  |  |
+| POST | `/api/v1/counting/:electionId/rounds/:round/complete` | counting → `completeRound` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/discrepancies` | counting → `reportDiscrepancy` | session | counting:object, counting:supervise-table, observer:report |  |  |
+| POST | `/api/v1/counting/:electionId/discrepancies/:id/decide` | counting → `decideDiscrepancy` | session | counting:supervise, result:declare |  |  |
+| POST | `/api/v1/counting/:electionId/observer-reports` | counting → `observerReport` | session | observer:report |  |  |
 | GET | `/api/v1/health` | app.js → `inline` | public | — |  |  |
+
+## Device headers
+
+Polling-station device routes (`/devices/heartbeat`, `/poll-day/package`, `/poll-day/sync`) also need `X-Device-Id` and `X-Device-Token` from `POST /devices/register`. The token is shown once; the server keeps only its SHA-256 hash. See [OFFLINE_ARCHITECTURE.md](OFFLINE_ARCHITECTURE.md).
+
+## Live events
+
+`GET /events?since=<ms or ISO>&types=A,B&limit=` returns operational events visible to the caller's assignments, oldest first. On a long-running server the same events arrive over Socket.IO (`path /socket.io`, handshake `auth.token` = session token; event name `event`, acknowledge with `ack`). See [CONTROL_ROOM.md](CONTROL_ROOM.md).
