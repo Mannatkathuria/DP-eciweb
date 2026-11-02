@@ -4,8 +4,15 @@ import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const verifyJWT = asyncHandler(async (req, res, next) => {
-    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+    const bearer = req.header("Authorization")?.replace("Bearer ", "");
+    const token = bearer || req.cookies?.accessToken;
     if (!token) throw new ApiError(401, "Unauthorized request: no token provided.");
+    // CSRF: a session carried only by the cookie (which is SameSite=None in production) must come
+    // with a custom header for any state-changing request. Browsers send custom headers only after
+    // a CORS preflight, which the origin allow-list refuses for other sites.
+    if (!bearer && !["GET", "HEAD", "OPTIONS"].includes(req.method) && req.header("X-Requested-With") !== "XMLHttpRequest") {
+        throw new ApiError(403, "This request is missing its anti-forgery header.");
+    }
 
     let decoded;
     try { decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); }

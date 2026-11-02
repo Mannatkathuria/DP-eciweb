@@ -4,7 +4,9 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1",
     withCredentials: true,
     headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        // Anti-forgery header the backend requires when the session travels in the cookie.
+        "X-Requested-With": "XMLHttpRequest"
     }
 });
 

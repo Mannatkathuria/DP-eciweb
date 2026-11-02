@@ -191,7 +191,8 @@ export const searchEciVoters = asyncHandler(async (req, res) => {
         return {
             epic: e.epic,
             name: e.name,
-            dateOfBirth: e.dateOfBirth,
+            // Data minimisation: the national technical administrator sees age, not date of birth.
+            age: e.dateOfBirth ? Math.floor((Date.now() - new Date(e.dateOfBirth)) / 31557600000) : null,
             gender: e.gender,
             state: e.state,
             district: e.district,

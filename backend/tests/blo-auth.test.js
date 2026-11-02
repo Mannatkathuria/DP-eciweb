@@ -66,7 +66,7 @@ test("end-to-end: BLO ID + password -> 2-minute mobile OTP -> forced password ch
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
     const call = async (method, path, body, cookie) => {
         const res = await fetch(`${base}${path}`, {
-            method, headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+            method, headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(cookie ? { Cookie: cookie } : {}) },
             body: body ? JSON.stringify(body) : undefined
         });
         return { status: res.status, body: await res.json().catch(() => null), cookie: res.headers.get("set-cookie")?.split(";")[0] };

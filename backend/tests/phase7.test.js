@@ -25,8 +25,8 @@ const setup = async () => {
     const { connectRedis, redis } = await import("../src/config/redis.js");
     const { saveUser } = await import("../src/repositories/user.repository.js");
     await connectRedis();
-    const makeUser = async (role) => {
-        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role, mustChangePassword: false };
+    const makeUser = async (role, extra = {}) => {
+        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role, mustChangePassword: false, ...extra };
         await saveUser(user);
         return { user, token: jwt.sign({ _id: user._id, epic: user.epic, role }, "test") };
     };
@@ -159,4 +159,21 @@ test("search service: phonetic variants, abbreviations and typos rank, unrelated
     assert.equal(rankElectors(E, "ram kr")[0].elector.epic, "D");
     assert.equal(rankElectors(E, "Harpret Bains")[0].elector.epic, "A", "one typo");
     assert.equal(rankElectors(E, "zebra").length, 0);
+});
+
+test("security: cookie-only sessions need the anti-forgery header to change anything; the legacy admin cannot use ECI routes", needsRedis, async () => {
+    const { makeUser, server } = await setup();
+    const base = `http://127.0.0.1:${server.address().port}/api/v1`;
+    const voter = await makeUser("voter");
+    const viaCookie = (method, path, headers = {}) => fetch(`${base}${path}`, { method, headers: { Cookie: `accessToken=${voter.token}`, "Content-Type": "application/json", ...headers }, body: method === "GET" ? undefined : "{}" });
+    assert.equal((await viaCookie("GET", "/auth/me")).status, 200, "reading with the cookie works");
+    assert.equal((await viaCookie("POST", "/auth/step-up/request")).status, 403, "no anti-forgery header");
+    assert.equal((await viaCookie("POST", "/auth/step-up/request", { "X-Requested-With": "XMLHttpRequest" })).status, 200);
+
+    const admin = await makeUser("admin", { mustChangePassword: false });
+    const res = await fetch(`${base}/eci/voters`, { headers: { Authorization: `Bearer ${admin.token}` } });
+    assert.equal(res.status, 403);
+    const eci = await makeUser("eci");
+    const list = await (await fetch(`${base}/eci/voters`, { headers: { Authorization: `Bearer ${eci.token}` } })).json();
+    assert.ok(list.data.items.every((e) => e.dateOfBirth === undefined), "no dates of birth for the national administrator");
 });
