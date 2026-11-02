@@ -21,7 +21,12 @@ const electors = [
     ["DEF7654321","Ananya Verma","1998-09-22","Female","Punjab","Ludhiana","Ludhiana South","18","Government Girls Senior Secondary School, Ludhiana"],
     ["GHI2468135","Rohan Mehta","2003-01-08","Male","Haryana","Gurugram","Gurugram","27","Government Model Senior Secondary School, Gurugram"],
     ["JKL9753186","Meera Kapoor","1995-12-03","Female","Delhi","South Delhi","Greater Kailash","11","Government Co-Educational Senior Secondary School, Delhi"],
-    ["MNO1357924","Kabir Singh","2000-06-19","Male","Himachal Pradesh","Shimla","Shimla","33","Government Senior Secondary School, Shimla"]
+    ["MNO1357924","Kabir Singh","2000-06-19","Male","Himachal Pradesh","Shimla","Shimla","33","Government Senior Secondary School, Shimla"],
+    // Synthetic electors of part 18, Ludhiana South, for the poll-day demo (invented people).
+    ...[["Aman Dhillon","1984-02-11","Male"],["Baljit Kaur","1979-07-30","Female"],["Charanjit Singh","1962-12-05","Male"],["Deepika Malhotra","1993-03-18","Female"],
+        ["Ekam Grewal","2001-09-09","Male"],["Farah Khan","1988-05-22","Female"],["Gagandeep Sidhu","1975-01-14","Male"],["Harpreet Bains","1999-11-02","Female"],
+        ["Inderjit Chahal","1958-08-27","Male"],["Jasleen Mann","2004-04-04","Female"],["Kuldeep Rana","1990-10-19","Male"],["Lakshmi Iyer","1969-06-08","Female"]]
+        .map(([name, dob, gender], i) => [`LDS${String(1001 + i).padStart(7, "0")}`, name, dob, gender, "Punjab", "Ludhiana", "Ludhiana South", "18", "Government Girls Senior Secondary School, Ludhiana"])
 ];
 
 const makeElector = ([epic,name,dob,gender,state,district,assemblyConstituency,partNumber,pollingStation]) => ({
@@ -130,6 +135,9 @@ const ensureDemoBlo = async () => {
 // jurisdiction (Ludhiana South, Punjab), so the permission and jurisdiction checks have
 // something to check against. Accounts that already hold an assignment are left alone.
 const DEMO_BOOTH = { partNumber: "18" };
+// The station team is assigned to an election that polls today, so poll day can be demonstrated.
+const DEMO_POLL_ELECTION = { _id: "demo-poll-day", name: "Demo poll-day election, Ludhiana South" };
+const POLL_DAY_ROLES = ["presiding_officer", "polling_officer", "polling_agent", "micro_observer"];
 const ensureDemoAssignments = async () => {
     const accounts = [
         ...ROLES.filter((role) => role.demoEpic && role.scope.length).map((role) => [role.demoEpic, role.id]),
@@ -150,7 +158,7 @@ const ensureDemoAssignments = async () => {
         });
         await saveAssignment({
             _id: crypto.randomUUID(), userId: user._id, epic: user.epic, role: roleId,
-            election: role.scope.includes("election") ? DEMO_JURISDICTION.election : null,
+            election: role.scope.includes("election") ? (POLL_DAY_ROLES.includes(roleId) ? DEMO_POLL_ELECTION.name : DEMO_JURISDICTION.election) : null,
             jurisdiction, status: "active", grantedBy: "SEED", grantedAt: new Date().toISOString(),
             revokedBy: null, revokedAt: null, revokeReason: null, demo: true
         });
@@ -363,7 +371,9 @@ const seedElections = async () => {
         { _id: "demo-general-election", name: DEMO_JURISDICTION.election, type: "general_assembly", states: ["Punjab"],
             schedule: { notificationDate: dayOffset(-3), lastDateOfNominations: dayOffset(4), scrutinyDate: dayOffset(5), lastDateOfWithdrawal: dayOffset(7), pollDate: dayOffset(28), countingDate: dayOffset(31) } },
         { _id: "demo-bye-election", name: "Demo bye-election, Ludhiana South", type: "bye_election", states: ["Punjab"],
-            schedule: { notificationDate: dayOffset(-10), lastDateOfNominations: dayOffset(-3), scrutinyDate: dayOffset(-1), lastDateOfWithdrawal: dayOffset(2), pollDate: dayOffset(20), countingDate: dayOffset(23) } }
+            schedule: { notificationDate: dayOffset(-10), lastDateOfNominations: dayOffset(-3), scrutinyDate: dayOffset(-1), lastDateOfWithdrawal: dayOffset(2), pollDate: dayOffset(20), countingDate: dayOffset(23) } },
+        { ...DEMO_POLL_ELECTION, type: "bye_election", states: ["Punjab"],
+            schedule: { notificationDate: dayOffset(-30), lastDateOfNominations: dayOffset(-23), scrutinyDate: dayOffset(-22), lastDateOfWithdrawal: dayOffset(-20), pollDate: dayOffset(0), countingDate: dayOffset(3) } }
     ];
     for (const e of elections) {
         if (await getElection(e._id)) continue;

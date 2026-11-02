@@ -82,6 +82,7 @@ export const homeFor = (roleId) => {
   if (roleId === "deo") return "/deo";
   if (roleId === "ro" || roleId === "aro") return "/ro";
   if (roleId === "candidate") return "/candidate";
+  if (["presiding_officer", "polling_officer", "polling_agent", "micro_observer"].includes(roleId)) return "/poll-day";
   return "/workspace";
 };
 

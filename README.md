@@ -152,6 +152,18 @@ Form 8 follows the same split (RP Act 1950, s. 22). The voter submits a correcti
 
 The seed adds a demo election with nominations open, a demo bye-election in its scrutiny period with three synthetic nominations, three approved stations in Ludhiana South (parts 18 to 20) and one proposal awaiting ECI approval (part 21).
 
+## Poll day at the polling station (Phase 3)
+
+`/poll-day` is the station screen for the presiding officer, polling officers, polling agents and micro observers; the BLO uses it as the voter assistance booth. The station always comes from the signed-in person's own assignment, so nobody can act on another station by changing an id.
+
+- **Order of the poll.** Only the presiding officer moves it forward, and only on the poll date: mock poll held, poll open, poll closed. Closing records how many electors are in the register.
+- **Station-scoped search.** Polling officers see only the electors of their part, with a serial number and whether they have voted. The BLO at the voter assistance booth sees the serial and station, not who has voted. Agents and observers cannot search.
+- **Guided marking.** The polling officer records which identity document was shown (the EPIC or one of the alternatives ECI notifies), confirms the photo match and the indelible ink, and marks the elector. An elector is marked once per election, even when two officers try at the same moment; the register keeps a serial, the document type, the time and the officer (no document numbers). The register is shown only to the presiding officer.
+- **Exceptions.** A polling officer can raise an identity doubt; a polling agent can challenge an elector's identity. Either stops marking until the presiding officer decides; refusing or upholding needs a reason. The presiding officer records tendered votes (only for an elector already marked) and companions for assisted voters (Rule 49N). Every step is audited.
+- **Queue and turnout.** Officers report how many people are waiting while the poll is open; the station shows turnout so far.
+
+The seed adds a "Demo poll-day election, Ludhiana South" whose poll date is the day you run the seed, twelve synthetic electors in part 18, and assigns the demo presiding officer (`PRO1000001`), polling officer (`POL1000001`), polling agent (`PAG1000001`) and micro observer (`MOB1000001`) to it.
+
 ## Roles, assignments and audit (Phase 0)
 
 - **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.
@@ -212,6 +224,7 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 /ro               RO/ARO: scrutiny, list of contesting candidates, polling parties
 /candidate        Candidate: file, track and withdraw a nomination
 /booths           Public polling-station search
+/poll-day         Poll day at the officer's own polling station (and the BLO's voter assistance booth)
 ```
 
 ## Notes

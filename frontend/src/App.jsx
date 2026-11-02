@@ -38,6 +38,7 @@ import DeoDesk from "./pages/DeoDesk";
 import RoDesk from "./pages/RoDesk";
 import CandidateDesk from "./pages/CandidateDesk";
 import Booths from "./pages/Booths";
+import PollDay from "./pages/PollDay";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/deo" element={<DeoDesk />} />
                     <Route path="/ro" element={<RoDesk />} />
                     <Route path="/candidate" element={<CandidateDesk />} />
+                    <Route path="/poll-day" element={<PollDay />} />
 
                     {/* Older addresses, kept so saved links keep working */}
                     <Route path="/login" element={<Navigate to="/signin/voter" replace />} />

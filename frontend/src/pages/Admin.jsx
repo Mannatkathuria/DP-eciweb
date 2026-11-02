@@ -257,6 +257,7 @@ function Admin() {
                     <div className="admin-actions">
                         <Link to="/" className="secondary-btn">{t("common.home") || "Home"}</Link>
                         <Link to="/electoral-roll" className="secondary-btn">Electoral Roll</Link>
+                        <Link to="/poll-day" className="secondary-btn">Voter assistance booth</Link>
                         <button className="back-button" onClick={logout}>{t("common.signOut") || "Sign Out"}</button>
                     </div>
                 </header>
