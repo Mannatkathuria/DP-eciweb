@@ -85,3 +85,67 @@ test("step-up: sensitive approvals need a fresh code; the token is bound to the 
     const audit = (await call("GET", `/audit/user/${eci.user._id}`, undefined, eci.token)).body.data.items.map((e) => e.action);
     assert.ok(audit.includes("auth.step-up"));
 });
+
+test("agents: the candidate appoints their election, polling and counting agents; the election agent appoints polling agents only", needsRedis, async () => {
+    const { call, makeUser } = await setup();
+    process.env.STEP_UP_REQUIRED = "false"; // appointments by the ECI below are not what this test is about
+    try {
+        const { todayIST } = await import("../src/services/election.service.js");
+        const { saveStation } = await import("../src/repositories/election.repository.js");
+        const { transaction } = await import("../src/config/redis.js");
+        const day = (o) => { const d = new Date(`${todayIST()}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + o); return d.toISOString().slice(0, 10); };
+        const eci = await makeUser("eci");
+        const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana North" };
+        const created = await call("POST", "/elections", { name: `Agents ${crypto.randomUUID()}`, type: "general_assembly", states: ["Punjab"],
+            schedule: { notificationDate: day(-1), lastDateOfNominations: day(6), scrutinyDate: day(7), lastDateOfWithdrawal: day(9), pollDate: day(30), countingDate: day(33) } }, eci.token);
+        assert.equal(created.status, 201, JSON.stringify(created.body));
+        const election = created.body.data;
+        const cand = await makeUser("candidate");
+        assert.equal((await call("POST", "/assignments", { epic: cand.user.epic, role: "candidate", jurisdiction: area, election: election._id }, eci.token)).status, 201);
+        const filed = await call("POST", "/nominations", { electionId: election._id, name: "Agent Test", dateOfBirth: "1975-01-01", party: "Demo Party", symbol: "Lamp",
+            affidavit: { criminalCases: 0, assets: 1, liabilities: 0, education: "Graduate", declarationAccepted: true } }, cand.token);
+        assert.equal(filed.status, 201, JSON.stringify(filed.body));
+        const station = { _id: crypto.randomUUID(), code: `T-${crypto.randomUUID().slice(0, 6)}`, name: "Agent Test School", partNumber: String(crypto.randomInt(5000, 9999)), ...area, status: "ACTIVE", version: 1 };
+        const tx = transaction(); saveStation(station, tx); await tx.exec();
+
+        const ea = await makeUser("election_agent");
+        const pa1 = await makeUser("polling_agent");
+        const pa2 = await makeUser("polling_agent");
+        const ca = await makeUser("counting_agent");
+        const appoint = (who, body) => call("POST", "/agents", { electionId: election._id, ...body }, who.token);
+
+        assert.equal((await appoint(ea, { type: "polling", epic: pa1.user.epic, stationId: station._id })).status, 403, "not yet an election agent");
+        assert.equal((await appoint(cand, { type: "election", epic: pa1.user.epic })).status, 409, "account must be an election agent account");
+        const eaAppt = await appoint(cand, { type: "election", epic: ea.user.epic });
+        assert.equal(eaAppt.status, 201, JSON.stringify(eaAppt.body));
+        assert.equal((await appoint(cand, { type: "election", epic: (await makeUser("election_agent")).user.epic })).status, 409, "only one election agent");
+        assert.equal((await appoint(ea, { type: "election", epic: ea.user.epic })).status, 403, "only the candidate appoints the election agent");
+
+        assert.equal((await appoint(ea, { type: "polling", epic: pa1.user.epic, stationId: "nope" })).status, 400);
+        assert.equal((await appoint(ea, { type: "polling", epic: pa1.user.epic, stationId: station._id })).status, 201);
+        assert.equal((await appoint(cand, { type: "polling", epic: pa2.user.epic, stationId: station._id })).status, 409, "one per station");
+        assert.equal((await appoint(cand, { type: "counting", epic: ca.user.epic })).status, 201);
+
+        const me = (await call("GET", "/assignments/me", undefined, pa1.token)).body.data.assignments;
+        assert.equal(me.length, 1);
+        assert.equal(me[0].jurisdiction.partNumber, station.partNumber);
+
+        const mine = (await call("GET", `/agents/mine?electionId=${election._id}`, undefined, cand.token)).body.data.items;
+        assert.equal(mine.length, 3);
+        const eaSees = (await call("GET", `/agents/mine?electionId=${election._id}`, undefined, ea.token)).body.data.items;
+        assert.equal(eaSees.length, 3);
+        const other = await makeUser("candidate");
+        assert.equal((await call("POST", `/agents/${eaAppt.body.data._id}/revoke`, { reason: "Changed" }, other.token)).status, 409, "no nomination of their own");
+        assert.equal((await call("POST", `/agents/${eaAppt.body.data._id}/revoke`, { reason: "Changed" }, ea.token)).status, 403);
+
+        const ro = await makeUser("ro");
+        assert.equal((await call("POST", "/assignments", { epic: ro.user.epic, role: "ro", jurisdiction: area, election: election._id }, eci.token)).status, 201);
+        const roSees = (await call("GET", `/agents?electionId=${election._id}`, undefined, ro.token)).body.data.items;
+        assert.equal(roSees.length, 3);
+        assert.equal(roSees[0].userId, undefined);
+
+        assert.equal((await call("POST", `/agents/${eaAppt.body.data._id}/revoke`, { reason: "Changed my election agent" }, cand.token)).status, 200);
+        assert.equal((await call("GET", "/assignments/me", undefined, ea.token)).body.data.assignments.length, 0);
+        assert.equal((await appoint(ea, { type: "polling", epic: pa2.user.epic, stationId: station._id })).status, 403, "a revoked election agent can no longer appoint");
+    } finally { process.env.STEP_UP_REQUIRED = "true"; }
+});

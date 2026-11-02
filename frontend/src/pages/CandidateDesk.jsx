@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
+import AgentAppointments from "../components/AgentAppointments";
 import { NOMINATION_STATUS, STAGE_LABEL, apiMessage, rupees } from "../config/elections";
 
 // Candidate: file a nomination for the constituency of their assignment during the nomination
@@ -80,6 +81,10 @@ export default function CandidateDesk() {
                             );
                         })}
                     </div>
+
+                    {mine.filter((n) => ["filed", "accepted"].includes(n.status)).map((n) => (
+                        <AgentAppointments key={`agents-${n._id}`} electionId={n.electionId} isCandidate />
+                    ))}
 
                     {area && (open.length === 0 ? <p className="panel">No election in your State is accepting nominations today.</p> : (
                         <form className="panel portal-form" onSubmit={file}>

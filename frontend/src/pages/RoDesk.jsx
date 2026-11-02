@@ -29,6 +29,7 @@ export default function RoDesk() {
     const [delegation, setDelegation] = useState(null);
     const [delegateForm, setDelegateForm] = useState({ aroEpic: "", reason: "" });
     const [revoking, setRevoking] = useState(false);
+    const [agents, setAgents] = useState([]);
 
     const isRo = logged && ["ro", "aro"].includes(userData?.role);
     const isReturningOfficer = userData?.role === "ro";
@@ -49,11 +50,13 @@ export default function RoDesk() {
         if (!electionId || !area) return;
         try {
             const where = { electionId, state: area.state, district: area.district, constituency: area.constituency };
-            const [n, c, d] = await Promise.all([
+            const [n, c, d, ag] = await Promise.all([
                 api.get("/nominations", { params: { electionId } }),
                 api.get("/public/candidates", { params: where }),
-                api.get("/nominations/scrutiny-delegation", { params: where })
+                api.get("/nominations/scrutiny-delegation", { params: where }),
+                api.get("/agents", { params: { electionId } })
             ]);
+            setAgents(ag.data.data.items);
             setNominations(n.data.data.items); setContesting(c.data.data); setDelegation(d.data.data);
         } catch (err) { setError(apiMessage(err, "Could not load nominations.")); }
     }, [electionId, area]);
@@ -157,6 +160,20 @@ export default function RoDesk() {
                                         {isReturningOfficer && <button className="btn btn-primary" onClick={publish} disabled={busy}>Publish the list</button>}
                                     </>
                                 )}
+                            </div>
+
+                            <div className="panel">
+                                <h2>Candidates' agents ({agents.length})</h2>
+                                <p className="muted">Appointed by the candidates (election agents) or by them or their election agents (polling and counting agents).</p>
+                                <div className="table-wrap"><table>
+                                    <thead><tr><th>Candidate</th><th>Agent</th><th>Type</th><th>Where</th><th>Appointed</th></tr></thead>
+                                    <tbody>{agents.map((a) => (
+                                        <tr key={a._id}><td>{a.candidateName}<br /><small>{a.party}</small></td><td>{a.epic}</td><td>{a.agentType}</td>
+                                            <td><small>{a.jurisdiction.pollingStation ? `Part ${a.jurisdiction.partNumber}: ${a.jurisdiction.pollingStation}` : a.jurisdiction.constituency}</small></td>
+                                            <td><small>{new Date(a.grantedAt).toLocaleDateString()} by {a.grantedBy}</small></td></tr>
+                                    ))}
+                                    {agents.length === 0 && <tr><td colSpan={5}>No agents appointed for this election.</td></tr>}</tbody>
+                                </table></div>
                             </div>
 
                             <StaffAssignments roles={PARTY_ROLES} stations={stations} constituencies={[area.constituency]} election={assignedElection} area={area} />

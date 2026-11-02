@@ -43,6 +43,7 @@ import ControlRoom from "./pages/ControlRoom";
 import Training from "./pages/Training";
 import PhoneScreen from "./pages/PhoneScreen";
 import StepUpDialog from "./components/StepUpDialog";
+import AgentDesk from "./pages/AgentDesk";
 
 function App() {
     return (
@@ -91,6 +92,7 @@ function App() {
                     <Route path="/deo" element={<DeoDesk />} />
                     <Route path="/ro" element={<RoDesk />} />
                     <Route path="/candidate" element={<CandidateDesk />} />
+                    <Route path="/agent" element={<AgentDesk />} />
                     <Route path="/poll-day" element={<PollDay />} />
                     <Route path="/control-room" element={<ControlRoom />} />
                     <Route path="/training" element={<Training />} />
