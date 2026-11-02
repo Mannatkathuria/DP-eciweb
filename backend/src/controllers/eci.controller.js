@@ -5,7 +5,10 @@ import {
     createBlo, generateTemporaryPassword, hashPassword,
     STATE_CODE_PATTERN, MOBILE_PATTERN, normaliseBloId
 } from "../services/blo.service.js";
-import { redis } from "../config/redis.js";
+import { redis, transaction } from "../config/redis.js";
+import { listAssignmentsForUser, saveAssignment } from "../repositories/assignment.repository.js";
+import { validateJurisdiction } from "../services/authority.service.js";
+import { auditEvent, recordAudit } from "../services/audit.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -77,6 +80,33 @@ export const assignBloRole = asyncHandler(async (req, res) => {
     await saveUser(bloUser);
     await redis().set(`user:${bloId}`, JSON.stringify(bloUser));
 
+    // A BLO acts only inside an assignment. Use the jurisdiction the ECI official gave, or else
+    // the constituency the person is enrolled in. If neither names a real constituency, the BLO
+    // account exists but sees no applications until an assignment is granted.
+    let assignment = null;
+    let assignmentWarning = null;
+    try {
+        const jurisdiction = validateJurisdiction("blo", req.body?.jurisdiction ?? {
+            state: elector.state, district: elector.district, constituency: elector.assemblyConstituency
+        });
+        assignment = {
+            _id: crypto.randomUUID(), userId: bloUser._id, epic: bloUser.epic, role: "blo", election: null,
+            jurisdiction, status: "active", grantedBy: req.user.epic, grantedAt: new Date().toISOString(),
+            revokedBy: null, revokedAt: null, revokeReason: null
+        };
+        const tx = transaction();
+        saveAssignment(assignment, tx);
+        await recordAudit(auditEvent({
+            actor: req.user, action: "assignment.granted",
+            resource: { type: "assignment", id: assignment._id }, jurisdiction,
+            after: { epic: bloUser.epic, bloId, role: "blo", jurisdiction }
+        }), tx);
+        await tx.exec();
+    } catch (error) {
+        if (!error.statusCode) throw error;
+        assignmentWarning = `No jurisdiction assigned: ${error.message}`;
+    }
+
     res.status(201).json({
         success: true,
         message: `BLO role assigned to ${elector.name} (${cleanEpic}).`,
@@ -86,7 +116,9 @@ export const assignBloRole = asyncHandler(async (req, res) => {
             name: elector.name,
             temporaryPassword,
             mobile: cleanMobile,
-            state: stateCode
+            state: stateCode,
+            assignment,
+            assignmentWarning
         }
     });
 });
@@ -114,6 +146,22 @@ export const removeBloRole = asyncHandler(async (req, res) => {
     await saveUser(user);
     if (identifier.startsWith("BLO-")) {
         await redis().del(`user:${identifier}`);
+    }
+
+    // Revoke (never delete) the BLO's assignments, with an audit record for each.
+    const now = new Date().toISOString();
+    const active = (await listAssignmentsForUser(user._id)).filter((a) => a.role === "blo" && a.status === "active");
+    if (active.length) {
+        const tx = transaction();
+        for (const a of active) {
+            saveAssignment({ ...a, status: "revoked", revokedBy: req.user.epic, revokedAt: now, revokeReason: "BLO role removed by ECI" }, tx);
+            await recordAudit(auditEvent({
+                actor: req.user, action: "assignment.revoked",
+                resource: { type: "assignment", id: a._id }, jurisdiction: a.jurisdiction,
+                before: { status: "active" }, after: { status: "revoked" }, note: "BLO role removed by ECI"
+            }), tx);
+        }
+        await tx.exec();
     }
 
     res.json({

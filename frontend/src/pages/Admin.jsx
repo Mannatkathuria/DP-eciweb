@@ -10,10 +10,10 @@ import ReasonDialog from "./ReasonDialog";
 const assignmentProblem = ({ partNumber, pollingStation }) => {
     const part = (partNumber || "").trim();
     const station = (pollingStation || "").trim().replace(/\s+/g, " ");
-    if (!part && !station) return "Enter a part number and a polling station before approving.";
-    if (!part) return "Enter a part number before approving.";
+    if (!part && !station) return "Enter a part number and a polling station before recommending approval.";
+    if (!part) return "Enter a part number before recommending approval.";
     if (!/^[1-9]\d{0,3}$/.test(part)) return "Part number must be a whole number from 1 to 9999.";
-    if (!station) return "Enter the polling station before approving.";
+    if (!station) return "Enter the polling station before recommending approval.";
     if (station.length < 3) return "Polling station must be at least 3 characters.";
     if (station.length > 200) return "Polling station must be 200 characters or fewer.";
     return "";
@@ -23,10 +23,10 @@ const apiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 
 // Text for the reason dialog, per kind of decision.
 const DIALOGS = {
-    rejectRegistration: (r) => ({
-        title: `Reject application: ${r.name}`, label: "Reason for rejection (shown to the applicant)",
-        hint: "The applicant sees this reason when they check their application status.",
-        required: true, confirmLabel: "Reject application"
+    recommendRejection: (r) => ({
+        title: `Recommend rejection: ${r.name}`, label: "What you found during field verification",
+        hint: "The Electoral Registration Officer reads this before deciding. Only the ERO/AERO can reject an application.",
+        required: true, confirmLabel: "Send to ERO"
     }),
     rejectChange: (cr) => ({
         title: `Reject correction request: ${cr.currentRecord?.name || cr.epic}`, label: "Reason for rejection (shown to the voter)",
@@ -54,6 +54,9 @@ function Admin() {
     const [stats, setStats] = useState(null);
     const [cases, setCases] = useState([]);
     const [registrations, setRegistrations] = useState([]);
+    const [jurisdictionAssigned, setJurisdictionAssigned] = useState(true);
+    // The booth named in the BLO's own assignment, used to pre-fill field verification.
+    const [myBooth, setMyBooth] = useState({});
     const [changeRequests, setChangeRequests] = useState([]);
 
     const [loading, setLoading] = useState(false);
@@ -86,19 +89,27 @@ function Admin() {
             verificationParams.status = caseFilter;
         }
 
-        const [sRes, vRes, rRes, cRes] = await Promise.allSettled([
+        const [sRes, vRes, rRes, cRes, aRes] = await Promise.allSettled([
             api.get("/admin/stats"),
             api.get("/admin/verifications", { params: verificationParams }),
             api.get("/admin/registrations", { params: { status: "pending" } }),
-            api.get("/admin/changes", { params: { status: "pending" } })
+            api.get("/admin/changes", { params: { status: "pending" } }),
+            api.get("/assignments/me")
         ]);
+        if (aRes.status === "fulfilled") {
+            const withBooth = (aRes.value.data.data?.assignments || []).find((a) => a.jurisdiction?.pollingStation);
+            setMyBooth(withBooth ? { partNumber: withBooth.jurisdiction.partNumber, pollingStation: withBooth.jurisdiction.pollingStation } : {});
+        }
 
         const errors = {};
         if (sRes.status === "fulfilled") setStats(sRes.value.data.data);
         else errors.stats = apiMessage(sRes.reason, "Could not load statistics.");
         if (vRes.status === "fulfilled") setCases(vRes.value.data.data?.items || []);
         else errors.cases = apiMessage(vRes.reason, "Could not load verification cases.");
-        if (rRes.status === "fulfilled") setRegistrations(rRes.value.data.data?.items || []);
+        if (rRes.status === "fulfilled") {
+            setRegistrations(rRes.value.data.data?.items || []);
+            setJurisdictionAssigned(rRes.value.data.data?.jurisdictionAssigned !== false);
+        }
         else errors.registrations = apiMessage(rRes.reason, "Could not load registration applications.");
         if (cRes.status === "fulfilled") setChangeRequests(cRes.value.data.data?.items || []);
         else errors.changes = apiMessage(cRes.reason, "Could not load change requests.");
@@ -141,8 +152,8 @@ function Admin() {
 
     // Registration assignment helpers
     const assignmentFor = (r) => ({
-        partNumber: assignments[r._id]?.partNumber ?? r.partNumber ?? "",
-        pollingStation: assignments[r._id]?.pollingStation ?? r.pollingStation ?? ""
+        partNumber: assignments[r._id]?.partNumber ?? r.partNumber ?? myBooth.partNumber ?? "",
+        pollingStation: assignments[r._id]?.pollingStation ?? r.pollingStation ?? myBooth.pollingStation ?? ""
     });
 
     const updateAssignment = (r, field, value) => {
@@ -150,17 +161,18 @@ function Admin() {
         setRowError(r._id, "");
     };
 
-    const approveRegistration = async (r) => {
+    // Field verification: the BLO records the booth and recommends approval. The ERO/AERO decides.
+    const recommendApproval = async (r) => {
         if (busyIds[r._id]) return;
         clearMessages(r._id);
         const assignment = assignmentFor(r);
         const problem = assignmentProblem(assignment);
         if (problem) { setRowError(r._id, problem); return; }
-        const body = { partNumber: assignment.partNumber.trim(), pollingStation: assignment.pollingStation.trim() };
+        const body = { recommendation: "approve", partNumber: assignment.partNumber.trim(), pollingStation: assignment.pollingStation.trim() };
         try {
             await runDecision(r._id,
-                () => api.post(`/admin/registrations/${r._id}/approve`, body),
-                ({ data }) => `Approved ${r.name}. EPIC ${data.data?.epic} issued for part ${body.partNumber}, ${body.pollingStation}.`);
+                () => api.post(`/admin/registrations/${r._id}/field-verification`, body),
+                () => `Field verification for ${r.name} sent to the ERO with part ${body.partNumber}, ${body.pollingStation}.`);
             setAssignments((a) => { const next = { ...a }; delete next[r._id]; return next; });
         } catch {
             // The row stays visible with the entered assignment and its error message.
@@ -195,7 +207,7 @@ function Admin() {
     const confirmDialog = async (reason) => {
         const { kind, item } = dialog;
         const requests = {
-            rejectRegistration: [() => api.post(`/admin/registrations/${item._id}/reject`, { note: reason }), () => `Application from ${item.name} rejected.`],
+            recommendRejection: [() => api.post(`/admin/registrations/${item._id}/field-verification`, { recommendation: "reject", note: reason }), () => `Rejection recommended for ${item.name}. The ERO will decide.`],
             rejectChange: [() => api.post(`/admin/changes/${item._id}/reject`, { note: reason }), () => "Change request rejected."],
             clearCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "cleared", note: reason }), () => "Case cleared: voter identity verified."],
             escalateCase: [() => api.patch(`/admin/verifications/${item._id}/resolve`, { decision: "escalated", note: reason }), () => "Case escalated for manual field inspection."]
@@ -259,7 +271,7 @@ function Admin() {
                         className={`tab-btn ${activeTab === "registrations" ? "active" : ""}`}
                         onClick={() => setActiveTab("registrations")}
                     >
-                        👤 New Registrations (Form 6) ({registrations.length})
+                        👤 Form 6 field verification ({registrations.length})
                     </button>
                     <button
                         className={`tab-btn ${activeTab === "stats" ? "active" : ""}`}
@@ -530,13 +542,18 @@ function Admin() {
                             <div>
                                 <h2>New Voter Registration Applications (Form 6)</h2>
                                 <p style={{ color: "var(--text-secondary)", fontSize: "13px", margin: "4px 0 0" }}>
-                                    Assign Part Number and Polling Station to approve new voters and generate their official EPIC.
+                                    Verify each applicant in the field, record their part number and polling station, and send your recommendation to the Electoral Registration Officer, who decides.
                                 </p>
                             </div>
                         </div>
 
                         {sectionErrors.registrations && <div className="verification-error" role="alert">{sectionErrors.registrations}</div>}
-                        {!sectionErrors.registrations && registrations.length === 0 && (
+                        {!sectionErrors.registrations && !jurisdictionAssigned && (
+                            <div className="alert alert-warn" role="status">
+                                You have no jurisdiction assignment yet, so no applications are shown. Ask your ERO to assign you to a constituency and polling station.
+                            </div>
+                        )}
+                        {!sectionErrors.registrations && jurisdictionAssigned && registrations.length === 0 && (
                             <p style={{ padding: "20px", textAlign: "center", color: "var(--text-secondary)" }}>
                                 {t("admin.noRequests") || "No pending registration applications found."}
                             </p>
@@ -623,17 +640,17 @@ function Admin() {
                                                     <div className="row-actions">
                                                         <button
                                                             className="btn-approve"
-                                                            onClick={() => approveRegistration(r)}
+                                                            onClick={() => recommendApproval(r)}
                                                             disabled={Boolean(busyIds[r._id])}
                                                         >
-                                                            {busyIds[r._id] ? "Saving…" : (t("admin.approve") || "Approve & Issue EPIC")}
+                                                            {busyIds[r._id] ? "Saving…" : "Verified: recommend approval"}
                                                         </button>
                                                         <button
                                                             className="btn-reject"
-                                                            onClick={() => openDialog("rejectRegistration", r)}
+                                                            onClick={() => openDialog("recommendRejection", r)}
                                                             disabled={Boolean(busyIds[r._id])}
                                                         >
-                                                            {t("admin.reject") || "Reject"}
+                                                            Recommend rejection
                                                         </button>
                                                     </div>
                                                     {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}

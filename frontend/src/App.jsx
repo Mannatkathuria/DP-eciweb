@@ -31,6 +31,7 @@ import Admin from "./pages/Admin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
 import Workspace from "./pages/Workspace";
+import EroDecisions from "./pages/EroDecisions";
 import PhoneScreen from "./pages/PhoneScreen";
 
 function App() {
@@ -73,6 +74,7 @@ function App() {
                     <Route path="/eci/dashboard" element={<EciDashboard />} />
                     <Route path="/eci/voting-verification" element={<VotingVerification />} />
                     <Route path="/workspace" element={<Workspace />} />
+                    <Route path="/ero" element={<EroDecisions />} />
 
                     {/* Older addresses, kept so saved links keep working */}
                     <Route path="/login" element={<Navigate to="/signin/voter" replace />} />

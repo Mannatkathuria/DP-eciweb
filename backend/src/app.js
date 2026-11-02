@@ -13,6 +13,8 @@ import personaRoutes from "./routes/persona.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import changeRequestRoutes from "./routes/changeRequest.routes.js";
 import eciRoutes from "./routes/eci.routes.js";
+import assignmentRoutes from "./routes/assignment.routes.js";
+import auditRoutes from "./routes/audit.routes.js";
 
 
 const app = express();
@@ -75,6 +77,8 @@ app.use("/api/v1/persona", personaRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/changes", changeRequestRoutes);
 app.use("/api/v1/eci", eciRoutes);
+app.use("/api/v1/assignments", assignmentRoutes);
+app.use("/api/v1/audit", auditRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

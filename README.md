@@ -95,8 +95,9 @@ Run `npm run seed` to create these accounts. It is safe to run again: existing a
 | --- | --- |
 | Voter | `ABC1234567` |
 | ECI official | `ECI1234567` |
+| Electoral registration officer (Ludhiana South) | `ERO1000001` |
 
-Voters and ECI officials sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. Voters go to `/dashboard` and ECI officials to `/eci/dashboard`.
+Voters and ECI officials sign in with the EPIC only. The backend generates an OTP and prints it in the backend terminal; no SMS is sent. Voters go to `/dashboard`, ECI officials to `/eci/dashboard` and EROs/AEROs to `/ero`.
 
 ### BLO accounts
 
@@ -110,11 +111,25 @@ The command prints the BLO ID (for example `BLO-UP-000001`) and a one-time tempo
 
 A BLO who forgets their password uses **Forgot password?** on the sign-in page: an OTP (valid 2 minutes) is sent to the mobile number registered for that BLO ID, and after entering it plus the new password twice, the stored password is replaced. A reset also clears a lockout and signs out existing sessions.
 
-## Voter registration and booth assignment
+## Voter registration (Form 6): BLO verifies, ERO decides
 
-1. **Voter applies** at `/register` with name, date of birth, gender, **State/UT -> District -> Assembly constituency** (dependent dropdowns: choosing a state lists only its districts, choosing a district lists only its constituencies, and changing a choice clears the ones below it), **full address**, a **six-digit PIN code** and an **identity / address proof document** (required; a JPEG, PNG or WebP image up to 4 MB, checked again by the backend). The voter does not enter a part number or polling station. The request gets a reference ID for checking its status. An identical application cannot be submitted again while the first one is still pending.
-2. **BLO reviews** the request on `/admin`, which shows the address and PIN code, and enters the **part number** (1-9999) and **polling station** for that address. If either is missing or invalid, **Approve** explains what to fix on that row, and the API refuses the approval. **Reject** opens a dialog for the reason, which is required and shown to the applicant; **Cancel** sends nothing. An application leaves the pending list only after the backend has saved the decision, and each application can be decided only once.
-3. **On approval** the voter receives an EPIC number. The assigned part number and polling station are saved on the request and the electoral-roll record, shown on the voter's dashboard ("Your polling booth"), and returned by the electoral-roll search.
+The workflow follows the Representation of the People Act, 1950: the **BLO verifies in the field and recommends**, and only the **ERO or AERO decides** (ss. 13B, 13C, 23).
+
+1. **Voter applies** at `/register` with name, date of birth, gender, **State/UT -> District -> Assembly constituency** (dependent dropdowns), **full address**, a **six-digit PIN code** and an **identity / address proof document** (required; JPEG, PNG or WebP up to 4 MB, checked again by the backend). The voter does not enter a part number or polling station. The request gets a reference ID for checking its status at `/check-request`. An identical application cannot be submitted again while the first one is still open.
+2. **BLO field verification** on `/admin` (tab *Form 6 field verification*). The BLO sees only applications in their assigned constituency. They record the **part number** (1-9999) and **polling station** (pre-filled from their own assignment) and choose **Verified: recommend approval**, or **Recommend rejection** with a reason. The status becomes `field_verified`. Nothing is added to the roll at this step.
+3. **ERO/AERO decision** on `/ero`. The officer sees field-verified applications in their constituency, the BLO's recommendation, note and history. They can correct the booth, then **Approve & add to roll** (issues the EPIC, creates the electoral-roll record and the voter account in one transaction) or **Reject** with a reason shown to the applicant. They can also reject an application that is still waiting for the BLO.
+4. Every step is written to the **audit trail** with who acted, under which role and assignment, and what changed.
+
+## Roles, assignments and audit (Phase 0)
+
+- **Permissions** come from `backend/src/config/roles.js`. Routes use `authorize("<permission>")` (`backend/src/middlewares/authorize.middleware.js`), not role names, so a dashboard showing a record never implies the right to change it.
+- **Assignments** tie an account to its role for an optional election and a jurisdiction (State/UT, district, constituency, polling station, part number). They are never deleted, only revoked. Every write endpoint checks that one of the caller's active assignments covers the record it is about to change. National roles (ECI, CEC, ECs) cover the whole country. An account with no assignment sees no applications.
+  - `GET /api/v1/assignments/me`: the caller's own assignments.
+  - `POST /api/v1/assignments` `{ epic, role, election?, jurisdiction }`: the ECI administrator (`role:assign`) can assign any role; an ERO (`blo:assign`) can assign BLOs inside their own constituency only.
+  - `POST /api/v1/assignments/:id/revoke` `{ reason }`.
+  - Promoting a voter to BLO from the ECI dashboard assigns them to the constituency they are enrolled in.
+- **Audit trail**: append-only, in Redis (`audit:event:*`). There is no endpoint to change or delete an event. `GET /api/v1/audit` and `GET /api/v1/audit/:type/:id` (for example `/audit/registration/<id>`) need `audit:read` (ERO, AERO, BLO supervisor, DEO, CEO, ECI, CEC, ECs, general observer) and only return events from inside the caller's jurisdiction.
+- `npm run seed` gives every seeded staff account an assignment in the demo jurisdiction (Ludhiana South, Ludhiana, Punjab). The demo BLO `BLO-PB-000001` is assigned to part 18, Government Girls Senior Secondary School, and the demo ERO is `ERO1000001`. A BLO created with `npm run create-blo` has no jurisdiction until one is assigned through the API.
 
 ### State, district and constituency data
 

@@ -26,7 +26,7 @@ export const ROLES = [
   role("ero", "Electoral registration officer", "roll", "Prepares, revises and maintains the electoral roll for a constituency."),
   role("aero", "Assistant electoral registration officer", "roll", "Assists the electoral registration officer."),
   role("blo_supervisor", "BLO supervisor", "roll", "Supervises and coordinates booth level officers."),
-  role("blo", "Booth level officer", "roll", "Field-level roll work: reviews applications and verifies electors. Appointed by the government.", { mode: "blo" }),
+  role("blo", "Booth level officer", "roll", "Field-level roll work: verifies applicants in the field and recommends a decision to the ERO. Appointed by the government.", { mode: "blo" }),
 
   role("ro", "Returning officer", "conduct", "Legally responsible for conducting the election: nomination, scrutiny, polling arrangements and counting."),
   role("aro", "Assistant returning officer", "conduct", "Assists the returning officer with assigned election duties."),
@@ -78,6 +78,7 @@ export const homeFor = (roleId) => {
   if (roleId === "voter") return "/dashboard";
   if (roleId === "blo" || roleId === "admin") return "/admin";
   if (roleId === "eci") return "/eci/dashboard";
+  if (roleId === "ero" || roleId === "aero") return "/ero";
   return "/workspace";
 };
 

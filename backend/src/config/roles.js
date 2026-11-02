@@ -42,11 +42,11 @@ export const ROLES = [
 
     // Electoral roll
     r("ero", "Electoral registration officer", "roll", 4, ["constituency"], "ERO1000001",
-        ["roll:manage", "roll:publish", "application:decide", "blo:assign"]),
+        ["roll:manage", "roll:publish", "application:decide", "blo:assign", "audit:read"]),
     r("aero", "Assistant electoral registration officer", "roll", 4, ["constituency"], "AER1000001",
-        ["roll:manage", "application:decide"]),
+        ["roll:manage", "application:decide", "audit:read"]),
     r("blo_supervisor", "BLO supervisor", "roll", 5, ["constituency"], "BLS1000001",
-        ["blo:supervise", "roll:view-part", "verification:field-report"]),
+        ["blo:supervise", "roll:view-part", "verification:field-report", "audit:read"]),
     r("blo", "Booth level officer", "roll", 5, ["constituency", "pollingStation"], null,
         ["application:review", "verification:field-report", "roll:view-part"]),
 
@@ -72,7 +72,7 @@ export const ROLES = [
 
     // District administration
     r("deo", "District election officer", "district", 3, ["election", "district"], "DEO1000001",
-        ["district:manage", "staff:assign", "nodal:coordinate", "observer:view"]),
+        ["district:manage", "staff:assign", "nodal:coordinate", "observer:view", "audit:read"]),
     r("deputy_deo", "Deputy district election officer", "district", 3, ["election", "district"], "DDO1000001",
         ["district:manage", "nodal:coordinate"]),
     r("district_nodal_officer", "District nodal officer", "district", 3, ["election", "district"], "DNO1000001",
@@ -82,7 +82,7 @@ export const ROLES = [
 
     // State administration
     r("ceo", "Chief electoral officer", "state", 2, ["state"], "CEO1000001",
-        ["state:manage", "staff:assign", "nodal:coordinate", "report:state"]),
+        ["state:manage", "staff:assign", "nodal:coordinate", "report:state", "audit:read"]),
     r("state_nodal_officer", "State nodal officer", "state", 2, ["state"], "SNO1000001",
         ["nodal:function-manage"]),
     r("state_police_nodal", "State police nodal officer", "state", 2, ["state"], "SPN1000001",
@@ -90,16 +90,16 @@ export const ROLES = [
 
     // National administration
     r("eci", "ECI administrator", "national", 1, [], "ECI1234567",
-        ["national:manage", "role:assign", "blo:assign", "verification:review"]),
+        ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read"]),
     r("cec", "Chief election commissioner", "national", 1, [], "CEC1000001",
-        ["national:view", "report:national"]),
+        ["national:view", "report:national", "audit:read"]),
     r("election_commissioner", "Election commissioner", "national", 1, [], "ELC1000001",
-        ["national:view", "report:national"]),
+        ["national:view", "report:national", "audit:read"]),
 
     // Independent oversight: observers get an independent reporting permission, never write access
     // to the records of the officers they observe.
     r("general_observer", "General observer", "observer", 0, ["election", "constituency"], "GOB1000001",
-        ["observer:report", "record:read"]),
+        ["observer:report", "record:read", "audit:read"]),
     r("police_observer", "Police observer", "observer", 0, ["election", "constituency"], "POB1000001",
         ["observer:report", "record:read"]),
     r("expenditure_observer", "Expenditure observer", "observer", 0, ["election", "constituency"], "EOB1000001",
@@ -112,6 +112,14 @@ export const ROLES = [
 
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((role) => [role.id, role]));
 export const isKnownRole = (id) => Object.hasOwn(ROLE_BY_ID, id);
+
+/**
+ * The permissions a stored account role carries. The legacy "admin" account type from the
+ * original prototype signs in through the BLO portal and is treated exactly like a BLO.
+ * An unknown role has no permissions at all.
+ */
+export const permissionsFor = (roleId) =>
+    ROLE_BY_ID[roleId === "admin" ? "blo" : roleId]?.permissions ?? [];
 
 /**
  * Which stored account roles may use which portal's sign-in page. Each portal admits its own role;

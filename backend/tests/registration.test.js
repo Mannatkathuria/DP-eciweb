@@ -126,7 +126,7 @@ test("HTTP: geography endpoint and registration validation (no DB needed)", asyn
     }
 });
 
-test("end-to-end: register -> BLO assigns booth on approval -> voter dashboard data and electoral roll",
+test("end-to-end: register -> BLO field verification with booth -> ERO approval -> voter dashboard data and electoral roll",
     { skip: TEST_REDIS_URL ? false : "set TEST_REDIS_URL to a disposable Redis to run" }, async () => {
     const { connectRedis, redis } = await import("../src/config/redis.js");
     const { saveUser } = await import("../src/repositories/user.repository.js");
@@ -134,12 +134,14 @@ test("end-to-end: register -> BLO assigns booth on approval -> voter dashboard d
     const { getRegistration } = await import("../src/repositories/registration.repository.js");
     await connectRedis();
 
-    const makeUser = async (role) => {
-        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role };
+    const DADRI = { state: "Uttar Pradesh", district: "Gautam Buddha Nagar", constituency: "Dadri" };
+    const makeUser = async (role, extra = {}) => {
+        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role, ...extra };
         await saveUser(user);
         return { user, token: jwt.sign({ _id: user._id, epic: user.epic, role }, "test") };
     };
-    const blo = await makeUser("blo");
+    const blo = await makeUser("blo", { jurisdiction: DADRI });
+    const ero = await makeUser("ero", { jurisdiction: DADRI });
     const otherVoter = await makeUser("voter");
 
     const { default: app } = await import("../src/app.js");
@@ -172,18 +174,21 @@ test("end-to-end: register -> BLO assigns booth on approval -> voter dashboard d
         assert.equal(row.address, req.address);
         assert.equal(row.pinCode, "201301");
 
-        // 3. Only a BLO/admin can approve.
+        // 3. Only the ERO/AERO can approve; a BLO verifies.
         const assignment = { partNumber: "57", pollingStation: "Government Inter College, Dadri - Room 2" };
         assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, assignment)).status, 401);
         assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, assignment, otherVoter.token)).status, 403);
+        assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, assignment, blo.token)).status, 403);
 
-        // 4. Approval without a complete, valid assignment is refused and leaves the request pending.
-        assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, {}, blo.token)).status, 400);
-        assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, { partNumber: "57" }, blo.token)).status, 400);
+        // 4. Field verification without a complete, valid booth is refused and leaves the request pending.
+        const verify = (body) => call("POST", `/admin/registrations/${referenceId}/field-verification`, { recommendation: "approve", ...body }, blo.token);
+        assert.equal((await verify({})).status, 400);
+        assert.equal((await verify({ partNumber: "57" })).status, 400);
         assert.equal((await getRegistration(referenceId)).status, "pending");
+        assert.equal((await verify(assignment)).status, 200);
 
-        // 5. Approval with the assignment persists it on the request and the elector record.
-        const approved = await call("POST", `/admin/registrations/${referenceId}/approve`, assignment, blo.token);
+        // 5. The ERO's approval persists the booth on the request and the elector record.
+        const approved = await call("POST", `/admin/registrations/${referenceId}/approve`, {}, ero.token);
         assert.equal(approved.status, 200);
         const { epic } = (await approved.json()).data;
         const decided = await getRegistration(referenceId);
@@ -196,7 +201,7 @@ test("end-to-end: register -> BLO assigns booth on approval -> voter dashboard d
         assert.equal(elector.assemblyConstituency, "Dadri");
 
         // 6. A second approval is refused (no duplicate voter).
-        assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, assignment, blo.token)).status, 409);
+        assert.equal((await call("POST", `/admin/registrations/${referenceId}/approve`, assignment, ero.token)).status, 409);
 
         // 7. The new voter signs in again (fresh session) and their dashboard lookup returns the booth.
         const voterUser = (await redis().get(`user:${epic}`)) && JSON.parse(await redis().get(`user:${epic}`));
@@ -215,9 +220,10 @@ test("end-to-end: register -> BLO assigns booth on approval -> voter dashboard d
             district: req.district, assemblyConstituency: req.assemblyConstituency });
         assert.equal((await byDetails.json()).data.epic, epic);
 
-        // 9. Rejection still works without any booth assignment.
-        const second = await (await call("POST", "/auth/register", validRequest({ name: `Second Applicant ${runId}` }))).json();
-        const rejected = await call("POST", `/admin/registrations/${second.data.referenceId}/reject`, { note: "Duplicate" }, blo.token);
+        // 9. The ERO can reject without field verification or a booth assignment.
+        const second = await (await call("POST", "/auth/register", validRequest({ name: `Second Applicant ${runId}`,
+            state: "Uttar Pradesh", district: "Gautam Buddha Nagar", assemblyConstituency: "Dadri" }))).json();
+        const rejected = await call("POST", `/admin/registrations/${second.data.referenceId}/reject`, { note: "Duplicate" }, ero.token);
         assert.equal(rejected.status, 200);
         const status = await (await call("GET", `/auth/register/${second.data.referenceId}`)).json();
         assert.equal(status.data.status, "rejected");

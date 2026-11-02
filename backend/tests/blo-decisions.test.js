@@ -70,12 +70,17 @@ const setup = async () => {
         assert.equal(res.status, 201, JSON.stringify(res.body));
         return res.body.data.referenceId;
     };
+    // Every application in these tests is filed in this constituency; the BLO and the ERO are
+    // assigned to it.
+    const area = { state: state.name, district: district.name, constituency: district.constituencies[0] };
 
     ctx = {
         redis, jsonGet, call, application, submit, makeUser, server,
         getRegistration, listRegistrations, getElectorByEpic, listElectors, saveElector,
         getUserByEpic, getChangeRequest, saveVerification, getVerification,
-        blo: await makeUser("blo", { mustChangePassword: false }),
+        area,
+        blo: await makeUser("blo", { mustChangePassword: false, jurisdiction: area }),
+        ero: await makeUser("ero", { jurisdiction: area }),
         voter: await makeUser("voter"),
         eci: await makeUser("eci")
     };
@@ -89,16 +94,25 @@ test.after(async () => {
 });
 
 const assignment = { partNumber: "42", pollingStation: "Govt Senior Secondary School, Model Town" };
+
+// BLO field verification recommending approval, then the ERO's decision.
+const fieldVerify = (id, booth = assignment) =>
+    ctx.call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "approve", ...booth }, ctx.blo.token);
+const approveAsEro = async (id, booth = assignment) => {
+    const verified = await fieldVerify(id, booth);
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    return ctx.call("POST", `/admin/registrations/${id}/approve`, {}, ctx.ero.token);
+};
 const electorsFor = async (registrationId) =>
     (await ctx.listElectors()).filter((e) => e.registrationId === registrationId);
 
 // ---------------------------------------------------------------- Form 6: rejection
 
 test("reject: a blank or whitespace-only reason is refused and nothing changes", needsRedis, async () => {
-    const { call, submit, getRegistration, blo } = await setup();
+    const { call, submit, getRegistration, blo, ero } = await setup();
     const id = await submit();
     for (const body of [{}, { note: "" }, { note: "   \n\t " }, { note: null }]) {
-        const res = await call("POST", `/admin/registrations/${id}/reject`, body, blo.token);
+        const res = await call("POST", `/admin/registrations/${id}/reject`, body, ero.token);
         assert.equal(res.status, 400, JSON.stringify(body));
         assert.match(res.body.message, /reason/i);
     }
@@ -111,15 +125,16 @@ test("reject: a blank or whitespace-only reason is refused and nothing changes",
 });
 
 test("reject: a valid reason is saved, shown to the applicant, and the item leaves the pending list", needsRedis, async () => {
-    const { call, submit, getRegistration, blo } = await setup();
+    const { call, submit, getRegistration, blo, ero } = await setup();
     const id = await submit();
-    const res = await call("POST", `/admin/registrations/${id}/reject`, { note: "  Address proof is unreadable.  " }, blo.token);
+    const res = await call("POST", `/admin/registrations/${id}/reject`, { note: "  Address proof is unreadable.  " }, ero.token);
     assert.equal(res.status, 200);
 
     const stored = await getRegistration(id);
     assert.equal(stored.status, "rejected");
     assert.equal(stored.decisionNote, "Address proof is unreadable.");
-    assert.equal(stored.decidedBy, blo.user.epic);
+    assert.equal(stored.decidedBy, ero.user.epic);
+    assert.equal(stored.decidedByRole, "ero");
     assert.equal(stored.referenceImage, null);
 
     const status = await call("GET", `/auth/register/${id}`);
@@ -133,37 +148,37 @@ test("reject: a valid reason is saved, shown to the applicant, and the item leav
 });
 
 test("reject: repeated or simultaneous rejections are processed once", needsRedis, async () => {
-    const { call, submit, getRegistration, blo } = await setup();
+    const { call, submit, getRegistration, ero } = await setup();
     const id = await submit();
     const results = await Promise.all([1, 2, 3].map((n) =>
-        call("POST", `/admin/registrations/${id}/reject`, { note: `Reason ${n}` }, blo.token)));
+        call("POST", `/admin/registrations/${id}/reject`, { note: `Reason ${n}` }, ero.token)));
     const statuses = results.map((r) => r.status).sort();
     assert.deepEqual(statuses, [200, 409, 409]);
     const winner = results.find((r) => r.status === 200);
     assert.equal((await getRegistration(id)).decisionNote, winner.body.data.decisionNote);
 
-    const again = await call("POST", `/admin/registrations/${id}/reject`, { note: "Again" }, blo.token);
+    const again = await call("POST", `/admin/registrations/${id}/reject`, { note: "Again" }, ero.token);
     assert.equal(again.status, 409);
     assert.match(again.body.message, /already been rejected/);
 });
 
 test("reject/approve: the lock is released after each attempt, so retries are not blocked", needsRedis, async () => {
-    const { call, submit, redis, blo } = await setup();
+    const { call, submit, redis, ero } = await setup();
     const id = await submit();
     // A decision that fails after taking the lock (unknown application -> 404) releases it.
     const unknownId = crypto.randomUUID();
-    assert.equal((await call("POST", `/admin/registrations/${unknownId}/reject`, { note: "x" }, blo.token)).status, 404);
+    assert.equal((await call("POST", `/admin/registrations/${unknownId}/reject`, { note: "x" }, ero.token)).status, 404);
     assert.equal(await redis().exists(`registration:lock:${unknownId}`), 0);
-    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "Ok" }, blo.token)).status, 200);
+    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "Ok" }, ero.token)).status, 200);
     assert.equal(await redis().exists(`registration:lock:${id}`), 0);
-    const retry = await call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token);
+    const retry = await call("POST", `/admin/registrations/${id}/approve`, assignment, ero.token);
     assert.equal(retry.status, 409);
     assert.match(retry.body.message, /already been rejected/); // not "being processed"
 });
 
 // ---------------------------------------------------------------- Form 6: approval
 
-test("approve: missing or invalid booth assignment is refused and nothing is created", needsRedis, async () => {
+test("field verification: missing or invalid booth assignment is refused and nothing is created", needsRedis, async () => {
     const { call, submit, getRegistration, blo } = await setup();
     const id = await submit();
     const bad = [
@@ -173,22 +188,25 @@ test("approve: missing or invalid booth assignment is refused and nothing is cre
         { partNumber: "12", pollingStation: "x".repeat(201) }
     ];
     for (const body of bad) {
-        assert.equal((await call("POST", `/admin/registrations/${id}/approve`, body, blo.token)).status, 400, JSON.stringify(body));
+        const res = await call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "approve", ...body }, blo.token);
+        assert.equal(res.status, 400, JSON.stringify(body));
     }
     assert.equal((await getRegistration(id)).status, "pending");
     assert.equal((await electorsFor(id)).length, 0);
 });
 
 test("approve: saves status, booth, EPIC, electoral-roll record (with address) and account together", needsRedis, async () => {
-    const { call, submit, getRegistration, getElectorByEpic, getUserByEpic, blo, redis } = await setup();
+    const { call, submit, getRegistration, getElectorByEpic, getUserByEpic, blo, ero, redis } = await setup();
     const id = await submit();
-    const res = await call("POST", `/admin/registrations/${id}/approve`, { partNumber: " 42 ", pollingStation: assignment.pollingStation }, blo.token);
+    const res = await approveAsEro(id, { partNumber: " 42 ", pollingStation: assignment.pollingStation });
     assert.equal(res.status, 200);
     const { epic } = res.body.data;
     assert.match(epic, /^[A-Z]{3}\d{7}$/);
 
     const stored = await getRegistration(id);
     assert.equal(stored.status, "approved");
+    assert.equal(stored.decidedBy, ero.user.epic);
+    assert.equal(stored.fieldVerification.by, blo.user.epic);
     assert.equal(stored.epic, epic);
     assert.equal(stored.partNumber, "42");
     assert.equal(stored.pollingStation, assignment.pollingStation);
@@ -210,31 +228,37 @@ test("approve: saves status, booth, EPIC, electoral-roll record (with address) a
 });
 
 test("approve: simultaneous approvals create exactly one voter and one EPIC", needsRedis, async () => {
-    const { call, submit, blo } = await setup();
+    const { call, submit, ero } = await setup();
     const id = await submit();
+    assert.equal((await fieldVerify(id)).status, 200);
     const results = await Promise.all([1, 2, 3].map(() =>
-        call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)));
+        call("POST", `/admin/registrations/${id}/approve`, {}, ero.token)));
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409, 409]);
     assert.equal((await electorsFor(id)).length, 1);
     // An approved application cannot be approved or rejected afterwards.
-    assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)).status, 409);
-    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "Too late" }, blo.token)).status, 409);
+    assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, ero.token)).status, 409);
+    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "Too late" }, ero.token)).status, 409);
 });
 
 test("approve: many approvals at once never share an EPIC", needsRedis, async () => {
-    const { call, submit, blo } = await setup();
+    const { call, submit, ero } = await setup();
     const ids = [];
     for (let i = 0; i < 12; i += 1) ids.push(await submit());
-    const results = await Promise.all(ids.map((id) => call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)));
+    for (const id of ids) assert.equal((await fieldVerify(id)).status, 200);
+    const results = await Promise.all(ids.map((id) => call("POST", `/admin/registrations/${id}/approve`, {}, ero.token)));
     assert.ok(results.every((r) => r.status === 200));
     const epics = results.map((r) => r.body.data.epic);
     assert.equal(new Set(epics).size, epics.length);
 });
 
-test("authorization: only signed-in BLOs (with a permanent password) can decide applications", needsRedis, async () => {
-    const { call, submit, makeUser, getRegistration, voter, eci } = await setup();
+test("authorization: only an ERO/AERO can decide applications; a BLO can only verify", needsRedis, async () => {
+    const { call, submit, makeUser, getRegistration, voter, eci, blo, area } = await setup();
     const id = await submit();
-    const newBlo = await makeUser("blo", { mustChangePassword: true });
+    const newBlo = await makeUser("blo", { mustChangePassword: true, jurisdiction: area });
+    // A BLO sees the application but cannot decide it.
+    assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)).status, 403);
+    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "No" }, blo.token)).status, 403);
+    assert.equal((await call("GET", "/admin/registrations", undefined, blo.token)).status, 200);
     const forged = jwt.sign({ _id: crypto.randomUUID(), epic: "BLO0000009", role: "blo" }, "wrong-secret");
     for (const [token, expected] of [[undefined, 401], [forged, 401], [voter.token, 403], [eci.token, 403], [newBlo.token, 403]]) {
         assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, token)).status, expected);
@@ -296,16 +320,19 @@ test("registration: an identical application cannot be queued twice while the fi
     assert.deepEqual(results.map((r) => r.status).sort(), [201, 409, 409]);
     // Once decided, the same person may apply again.
     const first = results.find((r) => r.status === 201).body.data.referenceId;
-    assert.equal((await call("POST", `/admin/registrations/${first}/reject`, { note: "Wrong constituency" }, blo.token)).status, 200);
+    // Still blocked after field verification, while the ERO has not decided.
+    assert.equal((await fieldVerify(first)).status, 200);
+    assert.equal((await call("POST", "/auth/register", body)).status, 409);
+    assert.equal((await call("POST", `/admin/registrations/${first}/reject`, { note: "Wrong constituency" }, ctx.ero.token)).status, 200);
     assert.equal((await call("POST", "/auth/register", body)).status, 201);
 });
 
 // ---------------------------------------------------------------- Form 8 change requests
 
 const makeVoterWithRecord = async () => {
-    const { submit, call, blo, getUserByEpic } = await setup();
+    const { submit, getUserByEpic } = await setup();
     const id = await submit();
-    const { epic } = (await call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)).body.data;
+    const { epic } = (await approveAsEro(id)).body.data;
     const user = await getUserByEpic(epic);
     return { epic, token: jwt.sign({ _id: user._id, epic, role: "voter" }, "test") };
 };
@@ -352,9 +379,9 @@ test("electoral roll: public search hides the address; the voter sees their own"
     const own = await call("POST", "/electors/search", { method: "epic", epic: voter.epic }, voter.token);
     assert.ok(own.body.data.address.includes("Model Town"));
     // Pending and rejected applications are not on the roll.
-    const { submit, blo } = ctx;
+    const { submit, ero } = ctx;
     const id = await submit();
-    await call("POST", `/admin/registrations/${id}/reject`, { note: "Not eligible" }, blo.token);
+    await call("POST", `/admin/registrations/${id}/reject`, { note: "Not eligible" }, ero.token);
     assert.equal((await electorsFor(id)).length, 0);
 });
 
@@ -472,4 +499,133 @@ test("seed: running it again does not duplicate demo data or undo real changes",
     const after = await getElectorByEpic("ABC1234567");
     assert.equal(after.hasVoted, true);
     assert.equal(after.address, "Changed by Form 8");
+});
+
+// ---------------------------------------------------------------- Phase 0: authority, jurisdiction, audit
+
+test("field verification: a BLO recommends; the application waits for the ERO and nothing reaches the roll", needsRedis, async () => {
+    const { call, submit, getRegistration, blo, ero } = await setup();
+    const id = await submit();
+    // The ERO cannot decide before field verification.
+    const early = await call("POST", `/admin/registrations/${id}/approve`, assignment, ero.token);
+    assert.equal(early.status, 409);
+    assert.match(early.body.message, /not submitted field verification/);
+
+    assert.equal((await call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "maybe" }, blo.token)).status, 400);
+    // A rejection recommendation needs a reason.
+    assert.equal((await call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "reject" }, blo.token)).status, 400);
+
+    const res = await fieldVerify(id);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const stored = await getRegistration(id);
+    assert.equal(stored.status, "field_verified");
+    assert.equal(stored.fieldVerification.recommendation, "approve");
+    assert.equal(stored.fieldVerification.partNumber, "42");
+    assert.equal(stored.fieldVerification.by, blo.user.epic);
+    assert.equal((await electorsFor(id)).length, 0);
+    assert.equal((await call("GET", `/auth/register/${id}`)).body.data.status, "field_verified");
+
+    // A second verification is refused; the ERO's queue shows it.
+    assert.equal((await fieldVerify(id)).status, 409);
+    const queue = await call("GET", "/admin/registrations?status=field_verified", undefined, ero.token);
+    assert.ok(queue.body.data.items.some((r) => r._id === id));
+
+    // The ERO may correct the booth when approving.
+    const approved = await call("POST", `/admin/registrations/${id}/approve`, { partNumber: "43", pollingStation: "Primary School, Model Town" }, ero.token);
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
+    assert.equal((await getRegistration(id)).partNumber, "43");
+});
+
+test("jurisdiction: officers outside the application's constituency can neither see nor act on it", needsRedis, async () => {
+    const { call, submit, makeUser, getRegistration, area } = await setup();
+    const id = await submit();
+    const elsewhere = { state: area.state, district: area.district, constituency: "Somewhere Else" };
+    const otherBlo = await makeUser("blo", { mustChangePassword: false, jurisdiction: elsewhere });
+    const otherEro = await makeUser("ero", { jurisdiction: elsewhere });
+    const unassignedBlo = await makeUser("blo", { mustChangePassword: false });
+
+    for (const officer of [otherBlo, unassignedBlo, otherEro]) {
+        const list = await call("GET", "/admin/registrations?status=all", undefined, officer.token);
+        assert.equal(list.status, 200);
+        assert.ok(!list.body.data.items.some((r) => r._id === id));
+    }
+    assert.equal((await call("GET", "/admin/registrations", undefined, unassignedBlo.token)).body.data.jurisdictionAssigned, false);
+    for (const officer of [otherBlo, unassignedBlo]) {
+        const res = await call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "approve", ...assignment }, officer.token);
+        assert.equal(res.status, 403);
+        assert.match(res.body.message, /outside your assigned jurisdiction/);
+        assert.equal((await call("GET", `/admin/registrations/${id}/documents/addressProof`, undefined, officer.token)).status, 403);
+    }
+    assert.equal((await fieldVerify(id)).status, 200);
+    assert.equal((await call("POST", `/admin/registrations/${id}/approve`, {}, otherEro.token)).status, 403);
+    assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "No" }, otherEro.token)).status, 403);
+    assert.equal((await getRegistration(id)).status, "field_verified");
+});
+
+test("audit: every step of the registration is recorded, append-only, and visible only inside the jurisdiction", needsRedis, async () => {
+    const { call, submit, makeUser, blo, ero, area } = await setup();
+    const id = await submit();
+    const approved = await approveAsEro(id);
+    assert.equal(approved.status, 200);
+
+    const supervisor = await makeUser("blo_supervisor", { jurisdiction: area });
+    const history = await call("GET", `/audit/registration/${id}`, undefined, supervisor.token);
+    assert.equal(history.status, 200, JSON.stringify(history.body));
+    const events = history.body.data.items;
+    assert.deepEqual(events.map((e) => e.action), ["registration.field_verified", "registration.approved"]);
+    assert.equal(events[0].actor.epic, blo.user.epic);
+    assert.equal(events[0].actor.role, "blo");
+    assert.equal(events[1].actor.epic, ero.user.epic);
+    assert.equal(events[1].after.epic, approved.body.data.epic);
+    assert.equal(events[1].before.status, "field_verified");
+    // No documents or secrets in the trail.
+    assert.ok(!JSON.stringify(events).includes("base64"));
+
+    // Outside the jurisdiction: no events. Without audit:read: refused. No write endpoints exist.
+    const otherSupervisor = await makeUser("blo_supervisor", { jurisdiction: { ...area, constituency: "Somewhere Else" } });
+    assert.equal((await call("GET", `/audit/registration/${id}`, undefined, otherSupervisor.token)).body.data.items.length, 0);
+    assert.equal((await call("GET", `/audit/registration/${id}`, undefined, blo.token)).status, 403);
+    assert.equal((await call("POST", "/audit", {}, ero.token)).status, 404);
+    assert.equal((await call("DELETE", `/audit/registration/${id}`, undefined, ero.token)).status, 404);
+});
+
+test("assignments: an ERO assigns BLOs only inside their constituency; the ECI may assign any role; revoking is audited", needsRedis, async () => {
+    const { call, submit, makeUser, ero, eci, area } = await setup();
+    const newBlo = await makeUser("blo", { mustChangePassword: false });
+    const id = await submit();
+
+    const booth = { ...area, pollingStation: "Govt School, Ward 4", partNumber: "7" };
+    // Outside the ERO's constituency, or a role other than BLO: refused.
+    const geo = (await call("GET", "/auth/geography")).body.data;
+    const sameDistrict = geo.states.find((st) => st.name === area.state).districts.find((d) => d.name === area.district);
+    const ludhianaOther = { ...area, constituency: sameDistrict.constituencies.find((c) => c !== area.constituency) };
+    assert.equal((await call("POST", "/assignments", { epic: newBlo.user.epic, role: "blo", jurisdiction: ludhianaOther }, ero.token)).status, 403);
+    assert.equal((await call("POST", "/assignments", { epic: ero.user.epic, role: "ero", jurisdiction: area }, ero.token)).status, 403);
+    // Invalid jurisdiction or mismatched role: refused.
+    assert.equal((await call("POST", "/assignments", { epic: newBlo.user.epic, role: "blo", jurisdiction: { state: "Atlantis" } }, eci.token)).status, 400);
+    assert.equal((await call("POST", "/assignments", { epic: newBlo.user.epic, role: "ero", jurisdiction: area }, eci.token)).status, 409);
+
+    const granted = await call("POST", "/assignments", { epic: newBlo.user.epic, role: "blo", jurisdiction: booth }, ero.token);
+    assert.equal(granted.status, 201, JSON.stringify(granted.body));
+    assert.equal(granted.body.data.jurisdiction.pollingStation, "Govt School, Ward 4");
+
+    // The new BLO now sees the application and, with no booth in the request, the booth comes from the assignment.
+    const mine = await call("GET", "/assignments/me", undefined, newBlo.token);
+    assert.equal(mine.body.data.assignments.length, 1);
+    const verified = await call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "approve" }, newBlo.token);
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    assert.equal(verified.body.data.fieldVerification.partNumber, "7");
+    assert.equal(verified.body.data.fieldVerification.assignmentId, granted.body.data._id);
+
+    // Revoking needs a reason, then removes the BLO's access.
+    const assignmentId = granted.body.data._id;
+    assert.equal((await call("POST", `/assignments/${assignmentId}/revoke`, {}, ero.token)).status, 400);
+    assert.equal((await call("POST", `/assignments/${assignmentId}/revoke`, { reason: "Transferred" }, ero.token)).status, 200);
+    assert.equal((await call("POST", `/assignments/${assignmentId}/revoke`, { reason: "Again" }, ero.token)).status, 409);
+    const after = await call("GET", "/admin/registrations?status=all", undefined, newBlo.token);
+    assert.ok(!after.body.data.items.some((r) => r._id === id));
+
+    const trail = await call("GET", `/audit/assignment/${assignmentId}`, undefined, ero.token);
+    assert.deepEqual(trail.body.data.items.map((e) => e.action), ["assignment.granted", "assignment.revoked"]);
+    assert.equal(trail.body.data.items[1].note, "Transferred");
 });

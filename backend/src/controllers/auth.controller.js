@@ -208,7 +208,7 @@ export const submitRegistration = asyncHandler(async (req, res) => {
 
     res.status(201).json({
         success: true,
-        message: "Registration request submitted. A Booth Level Officer will review it.",
+        message: "Registration request submitted. Your Booth Level Officer will verify it and the Electoral Registration Officer will decide.",
         data: { referenceId: application._id, status: application.status, aiReview }
     });
 });
@@ -221,7 +221,8 @@ const claimDuplicateKey = async (duplicateKey, applicationId) => {
     if ((await redis().set(duplicateKey, applicationId, { NX: true })) === "OK") return true;
     const existingId = await redis().get(duplicateKey);
     const existing = existingId ? await getRegistration(existingId) : null;
-    if (existing?.status === "pending") return false;
+    // Still awaiting field verification or the ERO/AERO decision.
+    if (["pending", "field_verified"].includes(existing?.status)) return false;
     await redis().set(duplicateKey, applicationId);
     return true;
 };

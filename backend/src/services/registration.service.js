@@ -25,13 +25,14 @@ const reserveUniqueEpic = async (registrationId) => {
 /**
  * Turns an approved registration application into an electoral-roll record plus a
  * sign-in account. This is the ONLY place voter accounts are created, and it is
- * only reachable from the BLO approval endpoint. The part number and polling station come
- * from the approving BLO's assignment, not from the applicant.
+ * only reachable from the ERO/AERO approval endpoint. The part number and polling station come
+ * from the BLO's field verification (or the officer's correction), not from the applicant.
  *
  * The elector, the account and the decided application are written in one transaction:
- * either all three are saved or none are. The caller must hold the registration lock.
+ * either all three are saved or none are. `onTx(tx, decided)` may queue more writes into the
+ * same transaction (the audit event). The caller must hold the registration lock.
  */
-export const createVoterFromApplication = async (application, approver, assignment) => {
+export const createVoterFromApplication = async (application, approver, assignment, onTx = null) => {
     const epic = await reserveUniqueEpic(application._id);
     const now = new Date().toISOString();
     const dob = new Date(application.dateOfBirth);
@@ -57,7 +58,7 @@ export const createVoterFromApplication = async (application, approver, assignme
         ...application,
         status: "approved", epic,
         partNumber: assignment.partNumber, pollingStation: assignment.pollingStation,
-        decidedBy: approver.epic, decidedAt: now, referenceImage: null,
+        decidedBy: approver.epic, decidedByRole: approver.role, decidedAt: now, referenceImage: null,
         // Form 6 documents follow the same rule as referenceImage: deleted once decided.
         ...(application.documents ? { documents: purgedDocumentMeta(application.documents, now) } : {})
     };
@@ -68,6 +69,7 @@ export const createVoterFromApplication = async (application, approver, assignme
     saveRegistration(decided, tx);
     for (const category of SEPARATE_DOCUMENTS) tx.del(registrationDocumentKey(application._id, category));
     if (application.duplicateFingerprint) tx.del(pendingDuplicateKey(application.duplicateFingerprint));
+    if (onTx) await onTx(tx, decided);
     try {
         await tx.exec();
     } catch (error) {

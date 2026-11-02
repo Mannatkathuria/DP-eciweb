@@ -41,7 +41,7 @@ export default function CheckRequest() {
                 <section className="portal-card portal-wide f6-card">
                     <p className="eyebrow">{t("service.voter.eyebrow")}</p>
                     <h1>{t("register.checkRequest")}</h1>
-                    <p className="portal-muted f6-intro">Enter the reference ID shown after you submitted Form 6 to see whether your Booth Level Officer has reviewed it.</p>
+                    <p className="portal-muted f6-intro">Enter the reference ID shown after you submitted Form 6 to see where it is: field verification by your Booth Level Officer, then a decision by the Electoral Registration Officer.</p>
 
                     <form onSubmit={checkStatus} className="portal-form f6-status-form">
                         <label>{t("register.referenceId")}
@@ -54,12 +54,15 @@ export default function CheckRequest() {
                     {result?.status === "pending" && (
                         <div className="portal-notice" role="status">Status: <strong>PENDING REVIEW</strong>. Assigned to your constituency's Booth Level Officer.</div>
                     )}
+                    {result?.status === "field_verified" && (
+                        <div className="portal-notice" role="status">Status: <strong>FIELD VERIFIED</strong>. Your Booth Level Officer has verified your application. The Electoral Registration Officer will now decide.</div>
+                    )}
                     {result?.status === "approved" && (
                         <div className="portal-success" role="status">{t("register.approvedEpic")} <strong>{result.epic}</strong>.{" "}
                             <Link to="/signin/voter">{t("common.signIn")}</Link></div>
                     )}
                     {result?.status === "rejected" && (
-                        <div className="portal-error" role="status">Application was rejected by BLO. Note: {result.note || "Criteria not met."}</div>
+                        <div className="portal-error" role="status">Application was rejected by the Electoral Registration Officer. Note: {result.note || "Criteria not met."}</div>
                     )}
                     {result?.application && <SavedApplication application={result.application} />}
 

@@ -8,7 +8,9 @@ import { getRegistration, saveRegistration } from "./repositories/registration.r
 import { getChangeRequest, saveChangeRequest } from "./repositories/changeRequest.repository.js";
 import { hashPassword } from "./services/blo.service.js";
 import { EPIC_PATTERN } from "./controllers/auth.controller.js";
-import { ROLES, jurisdictionFor } from "./config/roles.js";
+import { ROLES, DEMO_JURISDICTION, jurisdictionFor } from "./config/roles.js";
+import { listAssignmentsForUser, saveAssignment } from "./repositories/assignment.repository.js";
+import { validateJurisdiction } from "./services/authority.service.js";
 
 const electors = [
     ["ABC1234567","Mannat Kathuria","2006-11-23","Male","Punjab","Muktsar","Faridkot","42","Power House, Malout"],
@@ -118,6 +120,38 @@ const ensureDemoBlo = async () => {
     await saveUser(bloUser);
     await redis().set(`user:${bloId}`, JSON.stringify(bloUser));
     console.log(`Created demo BLO account: ${bloId} (Password: Password123)`);
+};
+
+// Every seeded staff account below national level gets one active assignment in the demo
+// jurisdiction (Ludhiana South, Punjab), so the permission and jurisdiction checks have
+// something to check against. Accounts that already hold an assignment are left alone.
+const DEMO_BOOTH = { partNumber: "18" };
+const ensureDemoAssignments = async () => {
+    const accounts = [
+        ...ROLES.filter((role) => role.demoEpic && role.scope.length).map((role) => [role.demoEpic, role.id]),
+        ["BLO-PB-000001", "blo"],
+        [process.env.ADMIN_EPIC || "ADM0000001", "blo"]
+    ];
+    for (const [epic, roleId] of accounts) {
+        const user = await getUserByEpic(epic);
+        if (!user || (await listAssignmentsForUser(user._id)).length) continue;
+        const role = ROLES.find((r) => r.id === roleId);
+        const wanted = Object.fromEntries(role.scope.filter((f) => f !== "election").map((f) => [f, DEMO_JURISDICTION[f]]));
+        const jurisdiction = validateJurisdiction(roleId, {
+            state: DEMO_JURISDICTION.state,
+            ...(wanted.constituency || wanted.pollingStation
+                ? { district: DEMO_JURISDICTION.district, constituency: DEMO_JURISDICTION.constituency } : {}),
+            ...wanted,
+            ...(wanted.pollingStation ? DEMO_BOOTH : {})
+        });
+        await saveAssignment({
+            _id: crypto.randomUUID(), userId: user._id, epic: user.epic, role: roleId,
+            election: role.scope.includes("election") ? DEMO_JURISDICTION.election : null,
+            jurisdiction, status: "active", grantedBy: "SEED", grantedAt: new Date().toISOString(),
+            revokedBy: null, revokedAt: null, revokeReason: null, demo: true
+        });
+        console.log(`Assigned ${epic} as ${role.label} for ${Object.values(jurisdiction).join(", ")}`);
+    }
 };
 
 const seedVerificationCases = async () => {
@@ -284,6 +318,7 @@ await ensureDemoVoter();
 await ensureEci();
 await ensureDemoBlo();
 await ensureRoleAccounts();
+await ensureDemoAssignments();
 await seedVerificationCases();
 await seedChangeRequests();
 await seedRegistrationRequest();

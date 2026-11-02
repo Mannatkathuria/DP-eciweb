@@ -40,12 +40,14 @@ const setup = async () => {
         const type = res.headers.get("content-type") || "";
         return { status: res.status, type, headers: res.headers, body: type.includes("json") ? await res.json() : Buffer.from(await res.arrayBuffer()) };
     };
+    // The BLO and ERO are assigned to Dharamshala, where every application in this file is filed.
+    const DHARAMSHALA = { state: "Himachal Pradesh", district: "KANGRA", constituency: "DHARAMSHALA" };
     const makeUser = async (role) => {
-        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role, mustChangePassword: false };
+        const user = { _id: crypto.randomUUID(), epic: `TST${String(crypto.randomInt(0, 1e7)).padStart(7, "0")}`, role, name: role, mustChangePassword: false, jurisdiction: DHARAMSHALA };
         await saveUser(user);
         return jwt.sign({ _id: user._id, epic: user.epic, role }, "test");
     };
-    ctx = { redis, jsonGet, call, server, getRegistration, listRegistrations, blo: await makeUser("blo"), voter: await makeUser("voter") };
+    ctx = { redis, jsonGet, call, server, getRegistration, listRegistrations, blo: await makeUser("blo"), ero: await makeUser("ero"), voter: await makeUser("voter") };
     return ctx;
 };
 test.after(async () => { if (ctx) { ctx.server.close(); await ctx.redis().quit(); } });
@@ -288,8 +290,15 @@ test("Form 6: a repeated submission is refused while the first is pending", need
     assert.deepEqual(await orphanDocuments(redis), []);
 });
 
-test("Form 6: documents are available to BLOs only, and are deleted after the decision", needsRedis, async () => {
-    const { call, redis, getRegistration, blo, voter } = await setup();
+// BLO field verification, then the ERO's approval.
+const verifyAndApprove = async (id, booth) => {
+    const verified = await ctx.call("POST", `/admin/registrations/${id}/field-verification`, { recommendation: "approve", ...booth }, ctx.blo);
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    return ctx.call("POST", `/admin/registrations/${id}/approve`, {}, ctx.ero);
+};
+
+test("Form 6: documents are available to assigned officials only, and are deleted after the decision", needsRedis, async () => {
+    const { call, redis, getRegistration, blo, ero, voter } = await setup();
     const id = (await call("POST", "/auth/register", { form6: form(), documents: docs() })).body.data.referenceId;
     const path = `/admin/registrations/${id}/documents`;
 
@@ -311,8 +320,9 @@ test("Form 6: documents are available to BLOs only, and are deleted after the de
     assert.equal(row.form6.aadhaar.last4, "0124");
     assert.equal(row.form6.aadhaar.encrypted, undefined);
 
-    // Approval works as before and deletes the documents, like referenceImage.
-    const approved = await call("POST", `/admin/registrations/${id}/approve`, { partNumber: "12", pollingStation: "Govt School, Dharamshala" }, blo);
+    // The ERO can open them too; the approval deletes them, like referenceImage.
+    assert.equal((await call("GET", `${path}/photo`, undefined, ero)).status, 200);
+    const approved = await verifyAndApprove(id, { partNumber: "12", pollingStation: "Govt School, Dharamshala" });
     assert.equal(approved.status, 200, JSON.stringify(approved.body));
     assert.match(approved.body.data.epic, /^DEM\d{7}$/);
     assert.equal(approved.body.data.application.form6.aadhaar.encrypted, undefined);
@@ -329,9 +339,9 @@ test("Form 6: documents are available to BLOs only, and are deleted after the de
 });
 
 test("Form 6: rejection keeps the reason, deletes the documents and keeps the details", needsRedis, async () => {
-    const { call, redis, getRegistration, blo } = await setup();
+    const { call, redis, getRegistration, ero } = await setup();
     const id = (await call("POST", "/auth/register", { form6: form(), documents: docs() })).body.data.referenceId;
-    const res = await call("POST", `/admin/registrations/${id}/reject`, { note: "Photograph is not clear." }, blo);
+    const res = await call("POST", `/admin/registrations/${id}/reject`, { note: "Photograph is not clear." }, ero);
     assert.equal(res.status, 200);
     const stored = await getRegistration(id);
     assert.equal(stored.status, "rejected");
@@ -358,6 +368,6 @@ test("Older request format and older records still work", needsRedis, async () =
     assert.equal(status.application.address, "House 9, Main Bazaar, Dharamshala");
     assert.equal((await call("GET", `/admin/registrations/${id}/documents/addressProof`, undefined, blo)).status, 200);
     assert.equal((await call("GET", `/admin/registrations/${id}/documents/photo`, undefined, blo)).status, 404);
-    const approved = await call("POST", `/admin/registrations/${id}/approve`, { partNumber: "3", pollingStation: "Primary School, Kangra" }, blo);
+    const approved = await verifyAndApprove(id, { partNumber: "3", pollingStation: "Primary School, Kangra" });
     assert.equal(approved.status, 200);
 });

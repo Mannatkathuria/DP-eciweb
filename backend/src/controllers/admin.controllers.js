@@ -7,6 +7,8 @@ import { transaction } from "../config/redis.js";
 import { requireReason, REASON_MAX_LENGTH } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { assertCovers, boothFromAssignments, coversAny, recordJurisdiction } from "../services/authority.service.js";
+import { auditEvent, recordAudit } from "../services/audit.service.js";
 
 const percentile = (sorted, p) => {
     if (!sorted.length) return null;
@@ -90,7 +92,17 @@ export const getStats = asyncHandler(async (req, res) => {
 });
 
 
-// ---- Voter registration requests (BLO / admin) ----
+// ---- Voter registration requests ----
+//
+// Form 6 workflow (Representation of the People Act 1950, ss. 13B, 13C, 23):
+//   pending          submitted by the applicant
+//   field_verified   the assigned BLO has verified in the field and recommended a decision
+//   approved         the ERO/AERO approved it: an electoral-roll entry and voter account exist
+//   rejected         the ERO/AERO rejected it, with a reason shown to the applicant
+// A BLO verifies and recommends; only the ERO/AERO decides. Every step is checked against the
+// caller's assignment for the application's constituency and recorded in the audit trail.
+
+export const OPEN_REGISTRATION_STATUSES = ["pending", "field_verified"];
 
 const summarise = (r) => ({
     ...withoutSecrets(r), // never send the encrypted Aadhaar to a client
@@ -101,11 +113,13 @@ const summarise = (r) => ({
 
 export const listRegistrationRequests = asyncHandler(async (req, res) => {
     const status = req.query.status || "pending";
+    const { assignments } = req.authority;
     const items = (await getAllRegistrations())
-        .filter((r) => status === "all" || r.status === status)
+        .filter((r) => status === "all" || r.status === status || (status === "open" && OPEN_REGISTRATION_STATUSES.includes(r.status)))
+        .filter((r) => coversAny(assignments, r))
         .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))
         .map(summarise);
-    res.json({ success: true, data: { items, total: items.length } });
+    res.json({ success: true, data: { items, total: items.length, jurisdictionAssigned: assignments.length > 0 } });
 });
 
 // Part numbers are positive integers within an assembly constituency.
@@ -113,7 +127,7 @@ const PART_NUMBER_PATTERN = /^[1-9]\d{0,3}$/;
 const POLLING_STATION_MIN = 3;
 const POLLING_STATION_MAX = 200;
 
-/** Validates the part number and polling station a BLO assigns on approval. */
+/** Validates the part number and polling station fixed during field verification or decision. */
 export const parseBoothAssignment = (body) => {
     const partNumber = String(body?.partNumber ?? "").trim();
     const pollingStation = String(body?.pollingStation ?? "").trim().replace(/\s+/g, " ");
@@ -129,11 +143,19 @@ export const parseBoothAssignment = (body) => {
     return { partNumber, pollingStation };
 };
 
-// Loads an application that is still awaiting a decision, or explains why it cannot be decided.
-const getPendingApplication = async (id) => {
+const hasBooth = (body) => Boolean(String(body?.partNumber ?? "").trim() || String(body?.pollingStation ?? "").trim());
+
+// Loads an application in one of the allowed states, or explains why it cannot be acted on.
+const getApplicationIn = async (id, statuses) => {
     const application = await getRegistration(id);
     if (!application) throw new ApiError(404, "Registration request not found.");
-    if (application.status !== "pending") {
+    if (!statuses.includes(application.status)) {
+        if (application.status === "pending") {
+            throw new ApiError(409, "The Booth Level Officer has not submitted field verification for this application yet.");
+        }
+        if (application.status === "field_verified") {
+            throw new ApiError(409, "Field verification has already been submitted. The ERO/AERO now decides this application.");
+        }
         throw new ApiError(409, `This application has already been ${application.status}.`);
     }
     return application;
@@ -142,17 +164,94 @@ const getPendingApplication = async (id) => {
 const alreadyProcessing = () =>
     new ApiError(409, "This application is already being processed. Refresh the list in a moment.");
 
+const coveringAssignmentId = (assignments, record) => assignments.find((a) => coversAny([a], record))?._id ?? null;
+
+/**
+ * BLO: records the field verification of a pending application and recommends approval (with
+ * the booth the applicant belongs to) or rejection (with a reason). The application then waits
+ * for the ERO/AERO. Nothing is added to the electoral roll here.
+ */
+export const submitFieldVerification = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const body = req.body ?? {};
+    const recommendation = String(body.recommendation ?? "").trim();
+    if (!["approve", "reject"].includes(recommendation)) {
+        throw new ApiError(400, "recommendation must be 'approve' or 'reject'.");
+    }
+    const { assignments } = req.authority;
+
+    // Validate before taking the lock, so a correction can be resubmitted at once.
+    let booth = null;
+    let note = String(body.note ?? "").trim().replace(/\s+/g, " ").slice(0, REASON_MAX_LENGTH);
+    if (recommendation === "approve") {
+        booth = hasBooth(body) ? parseBoothAssignment(body) : null;
+    } else {
+        note = requireReason(body.note, "rejection recommendation");
+    }
+
+    const release = await lockRegistration(id);
+    if (!release) throw alreadyProcessing();
+    try {
+        const application = await getApplicationIn(id, ["pending"]);
+        assertCovers(assignments, application, "This application");
+        if (recommendation === "approve") {
+            booth ??= boothFromAssignments(assignments, application);
+            if (!booth?.partNumber || !booth?.pollingStation) parseBoothAssignment(booth ?? {}); // explains what is missing
+        }
+
+        const now = new Date().toISOString();
+        const fieldVerification = {
+            by: req.user.epic, byUserId: req.user._id, role: req.user.role,
+            assignmentId: coveringAssignmentId(assignments, application),
+            recommendation, note: note || null,
+            partNumber: booth?.partNumber ?? null, pollingStation: booth?.pollingStation ?? null,
+            at: now
+        };
+        const updated = { ...application, status: "field_verified", fieldVerification, updatedAt: now };
+        const tx = transaction();
+        saveRegistration(updated, tx);
+        await recordAudit(auditEvent({
+            actor: req.user, action: "registration.field_verified",
+            resource: { type: "registration", id: application._id },
+            jurisdiction: recordJurisdiction(application), assignmentId: fieldVerification.assignmentId,
+            before: { status: application.status },
+            after: { status: updated.status, recommendation, partNumber: fieldVerification.partNumber, pollingStation: fieldVerification.pollingStation },
+            note: note || null
+        }), tx);
+        await tx.exec();
+        res.json({ success: true, message: "Field verification submitted. The ERO/AERO will decide this application.", data: summarise(updated) });
+    } finally {
+        await release();
+    }
+});
+
+/**
+ * ERO/AERO: approves a field-verified application. The booth comes from the BLO's verification
+ * unless the officer corrects it. Creates the electoral-roll record and the voter account.
+ */
 export const approveRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    // Validate the BLO's booth assignment before taking the lock, so a correction can be resubmitted at once.
-    const assignment = parseBoothAssignment(req.body);
+    const { assignments } = req.authority;
+    // Validate a corrected booth before taking the lock, so a correction can be resubmitted at once.
+    const override = hasBooth(req.body) ? parseBoothAssignment(req.body) : null;
     const release = await lockRegistration(id);
     if (!release) throw alreadyProcessing();
 
     let result;
     try {
-        const application = await getPendingApplication(id);
-        result = await createVoterFromApplication(application, req.user, assignment);
+        const application = await getApplicationIn(id, ["field_verified"]);
+        assertCovers(assignments, application, "This application");
+        const field = application.fieldVerification ?? {};
+        const booth = override ?? parseBoothAssignment({ partNumber: field.partNumber, pollingStation: field.pollingStation });
+        const note = String(req.body?.note ?? "").trim().replace(/\s+/g, " ").slice(0, REASON_MAX_LENGTH) || null;
+        result = await createVoterFromApplication(application, req.user, booth, (tx, decided) => recordAudit(auditEvent({
+            actor: req.user, action: "registration.approved",
+            resource: { type: "registration", id: application._id },
+            jurisdiction: recordJurisdiction(application), assignmentId: coveringAssignmentId(assignments, application),
+            before: { status: application.status, recommendation: field.recommendation ?? null },
+            after: { status: decided.status, epic: decided.epic, partNumber: booth.partNumber, pollingStation: booth.pollingStation, rollEntry: "created" },
+            note
+        }), tx));
     } finally {
         await release();
     }
@@ -161,34 +260,46 @@ export const approveRegistration = asyncHandler(async (req, res) => {
     const biometricEnrolled = await enrollReferenceFace(result.epic, result.referenceImage);
     res.json({
         success: true,
-        message: "Voter approved. They can now sign in.",
+        message: "Application approved and added to the electoral roll. The voter can now sign in.",
         data: { epic: result.epic, biometricEnrolled, application: summarise(result.application) }
     });
 });
 
+/** ERO/AERO: rejects an open application (before or after field verification), with a reason. */
 export const rejectRegistration = asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const { assignments } = req.authority;
     // A rejection without a reason is refused before anything is locked or changed.
     const reason = requireReason(req.body?.note);
     const release = await lockRegistration(id);
     if (!release) throw alreadyProcessing();
 
     try {
-        const application = await getPendingApplication(id);
+        const application = await getApplicationIn(id, OPEN_REGISTRATION_STATUSES);
+        assertCovers(assignments, application, "This application");
         const rejected = {
             ...application,
             status: "rejected",
             decisionNote: reason,
             decidedBy: req.user.epic,
+            decidedByRole: req.user.role,
             decidedAt: new Date().toISOString(),
             referenceImage: null
         };
-        // Like referenceImage, the other Form 6 documents are deleted once the BLO has decided.
+        // Like referenceImage, the other Form 6 documents are deleted once the officer has decided.
         if (application.documents) rejected.documents = purgedDocumentMeta(application.documents, rejected.decidedAt);
         const tx = transaction();
         for (const category of SEPARATE_DOCUMENTS) tx.del(registrationDocumentKey(application._id, category));
         saveRegistration(rejected, tx);
         if (application.duplicateFingerprint) tx.del(pendingDuplicateKey(application.duplicateFingerprint));
+        await recordAudit(auditEvent({
+            actor: req.user, action: "registration.rejected",
+            resource: { type: "registration", id: application._id },
+            jurisdiction: recordJurisdiction(application), assignmentId: coveringAssignmentId(assignments, application),
+            before: { status: application.status, recommendation: application.fieldVerification?.recommendation ?? null },
+            after: { status: "rejected" },
+            note: reason
+        }), tx);
         await tx.exec();
         res.json({ success: true, message: "Request rejected.", data: summarise(rejected) });
     } finally {
@@ -197,14 +308,16 @@ export const rejectRegistration = asyncHandler(async (req, res) => {
 });
 
 /**
- * BLO / admin only (see admin.routes.js). Streams one Form 6 document of an application that is
- * still held: "photo", "ageProof" or "addressProof". Documents are deleted once the BLO decides.
+ * BLO, ERO/AERO within their jurisdiction (see admin.routes.js). Streams one Form 6 document of an
+ * application that is still held: "photo", "ageProof" or "addressProof". Documents are deleted
+ * once the ERO/AERO decides.
  */
 export const getRegistrationDocumentFile = asyncHandler(async (req, res) => {
     const { id, category } = req.params;
     if (!DOCUMENT_CATEGORIES.includes(category)) throw new ApiError(404, "Unknown document category.");
     const application = await getRegistration(id);
     if (!application) throw new ApiError(404, "Registration request not found.");
+    assertCovers(req.authority.assignments, application, "This application");
 
     let mimeType, data;
     if (category === "addressProof") {
@@ -214,7 +327,7 @@ export const getRegistrationDocumentFile = asyncHandler(async (req, res) => {
         const doc = await getRegistrationDocument(id, category);
         if (doc) ({ mimeType, data } = doc);
     }
-    if (!data) throw new ApiError(404, "This document is not stored (it was not supplied, or it was deleted after the BLO decision).");
+    if (!data) throw new ApiError(404, "This document is not stored (it was not supplied, or it was deleted after the decision).");
 
     res.set("Cache-Control", "private, no-store");
     res.set("X-Content-Type-Options", "nosniff");
