@@ -86,6 +86,17 @@ test("training modules: each role sees its own modules without answers; scores a
     const { call, makeUser, eci } = await setup();
     const blo = await makeUser("blo");
     const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South", pollingStation: "Government Girls Senior Secondary School, Ludhiana", partNumber: "18" };
+    { // The seed creates this station; create it here too so the test also runs on an empty Redis.
+        const { listStations, saveStation } = await import("../src/repositories/election.repository.js");
+        const { transaction } = await import("../src/config/redis.js");
+        const exists = (await listStations()).some((s) => s.status === "ACTIVE" && s.constituency === area.constituency && s.partNumber === area.partNumber);
+        if (!exists) {
+            const tx = transaction();
+            saveStation({ _id: crypto.randomUUID(), stationCode: "PS-PUNJAB-LUDHIANA-SOUTH-18", state: area.state, district: area.district, constituency: area.constituency,
+                partNumber: area.partNumber, name: area.pollingStation, address: "Civil Lines, Ludhiana", location: null, status: "ACTIVE", version: 1, history: [] }, tx);
+            await tx.exec();
+        }
+    }
     { const r = await call("POST", "/assignments", { epic: blo.user.epic, role: "blo", jurisdiction: area }, eci.token); assert.equal(r.status, 201, JSON.stringify(r.body)); }
 
     const mine = (await call("GET", "/training/modules", undefined, blo.token)).body.data;
