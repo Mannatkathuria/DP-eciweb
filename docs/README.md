@@ -9,7 +9,7 @@ ECIWEB is a prototype election-management system modelled on the work of the Ele
 | If you want to… | Read |
 | --- | --- |
 | Run it locally | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) |
-| Understand how it is built | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md), [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [API_DOCUMENTATION.md](API_DOCUMENTATION.md) |
+| Understand how it is built | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md), [DATA_STORES.md](DATA_STORES.md) (what Redis and MongoDB each store), [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [API_DOCUMENTATION.md](API_DOCUMENTATION.md) |
 | Know who may do what | [ROLE_AND_AUTHORITY_RESEARCH.md](ROLE_AND_AUTHORITY_RESEARCH.md), [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md) |
 | See what was audited and what was found | [PROJECT_AUDIT.md](PROJECT_AUDIT.md) |
 | Know what is not done or not possible | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md), [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) |
@@ -25,6 +25,7 @@ ECIWEB is a prototype election-management system modelled on the work of the Ele
 
 **Design**
 - [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)
+- [DATA_STORES.md](DATA_STORES.md)
 - [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
 - [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
 - [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md)

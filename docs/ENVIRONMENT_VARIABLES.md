@@ -10,6 +10,10 @@ Backend variables go in `backend/.env` (template: `backend/.env.example`); front
 | `PORT` | no | `8000` | HTTP port (long-running server) |
 | `CLIENT_URL` | **production** | `http://localhost:5173` | Allowed web origins for CORS and Socket.IO, comma-separated |
 | `REDIS_URL` | yes | `redis://127.0.0.1:6379` | Redis connection (system of record) |
+| `MONGODB_URI` | no | — | MongoDB for the read models (station geo search, event history, audit archive and hash chain). Without it those features use Redis fallbacks. See [DATA_STORES.md](DATA_STORES.md). |
+| `MONGODB_DB` | no | from the URI | Database name, if the URI does not name one |
+| `FORM7_NOTICE_DAYS` | no | `7` | Days the elector objected to has to reply before the ERO may accept a Form 7 objection |
+| `LEGACY_FACE_VERIFICATION` | no | off | `on` mounts the legacy identity-document and face-match endpoints (needs the Python face service) |
 | `ACCESS_TOKEN_SECRET` | yes; 32+ chars in production | — | Signs session and step-up tokens |
 | `ACCESS_TOKEN_EXPIRY` | no | `8h` | Session lifetime |
 | `STEP_UP_REQUIRED` | no | `true` | `false` turns off step-up re-authentication. Refused in production unless `APP_MODE=training`. |
@@ -28,6 +32,7 @@ Backend variables go in `backend/.env` (template: `backend/.env.example`); front
 | `FACE_SERVICE_URL`, `FACE_REFERENCE_DIR` | no | `http://localhost:5000`, `../face-service/reference` | Legacy face-match demo service |
 | `VERCEL` | set by Vercel | — | Serverless mode: no listener, no Socket.IO, no timers |
 | `TEST_REDIS_URL` | tests only | — | A **disposable** Redis for the test suite (it writes freely) |
+| `TEST_MONGODB_URI` | tests only | — | A **disposable** MongoDB; runs `tests/readmodel.test.js` against MongoDB, including tamper detection |
 
 ## Frontend
 

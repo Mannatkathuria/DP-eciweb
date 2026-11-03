@@ -11,8 +11,10 @@ Voter / BLO / ECI React portals
       Node / Express API ───── Persona Embedded Flow + API + webhooks
              │
              ▼
-           Redis
+   Redis (system of record) ──projector──▶ MongoDB (optional read models)
 ```
+
+Redis holds every record and decision. MongoDB, when `MONGODB_URI` is set, holds copies built for search: polling-station geography (nearest stations), the full operational-event history and the audit archive with its hash chain. See [docs/DATA_STORES.md](docs/DATA_STORES.md).
 
 Persona runs the configured document and face-verification steps inside the app. The local Python face service and Aadhaar QR decoder are no longer used.
 
@@ -32,6 +34,16 @@ docker exec eci-redis redis-cli ping                 # should print PONG
 ```
 
 With a local install, check it with `redis-cli ping`.
+
+### MongoDB (optional)
+
+```bash
+docker run -d --name eci-mongo -p 27017:27017 mongo:8   # first time
+# backend/.env:  MONGODB_URI=mongodb://127.0.0.1:27017/eciweb
+cd backend && npm run mongo:sync                        # copy existing Redis data into MongoDB
+```
+
+Without MongoDB the app runs fully; nearest-station search, event history and audit search then use slower Redis queries and say so.
 
 ## Configure and start the backend
 
@@ -233,6 +245,8 @@ The end-to-end and integration tests (registration, BLO sign-in, BLO decisions, 
 docker run -d --name eci-redis-test -p 6390:6379 redis
 TEST_REDIS_URL=redis://127.0.0.1:6390 npm test
 ```
+
+To also run the MongoDB read-model tests (including audit tamper detection through the hash chain), add a disposable MongoDB: `TEST_MONGODB_URI=mongodb://127.0.0.1:27018/eciweb_test`.
 
 On Windows Command Prompt use `set TEST_REDIS_URL=redis://127.0.0.1:6390&& npm test`; in PowerShell use `$env:TEST_REDIS_URL="redis://127.0.0.1:6390"; npm test`. Without `TEST_REDIS_URL` those tests are skipped and the remaining tests need no Redis.
 

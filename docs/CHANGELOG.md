@@ -2,6 +2,14 @@
 
 All work is on branch `feature/phase0-authority`. Nothing has been pushed to GitHub.
 
+## Completion pass (3 November 2026)
+
+- **MongoDB** added alongside Redis for read models: polling stations with a 2dsphere index (nearest-station and text search), full operational-event history, audit archive with a hash chain anchored outside Redis. Redis stays authoritative; every MongoDB query has a Redis fallback. See [DATA_STORES.md](DATA_STORES.md).
+- **Form 7** objection and deletion workflow, with notice, reply, BLO report and ERO decision; deletion never erases the entry.
+- **Security:** server-side session revocation (sign out, sign out everywhere), OTPs and rate limits in Redis, legacy face-match endpoints off by default, EPIC format checked before any lookup on the OTP routes.
+- **Wiring:** every endpoint now has a screen except the Persona webhook and the result-feed entries (machine-to-machine): Form 6 document viewer, station CSV import and map, device list and revoke, roll version verification, result sources, event history, audit search and recent audit.
+- **Fixes:** approve, reject and secondary buttons had no styles outside tables; buttons inside forms all looked primary; duplicate result-source names; tests that failed when run twice on the same Redis.
+
 ## Master directive (2–3 November 2026)
 
 - **Fix:** audit integrity check no longer raises a false alarm when events are written during the check. Test files use separate constituencies.

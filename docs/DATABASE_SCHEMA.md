@@ -1,8 +1,8 @@
-# Database schema (Redis)
+# Database schema (Redis, with MongoDB read models)
 
 Redis is the system of record. Every record is a JSON string under one key; sets are indexes; lists are append-only logs; sorted sets order the event log. Changes that touch several keys are written in one `MULTI` transaction. Short `SET NX` locks (`*:lock:*`, released by token) serialise edits to the same record.
 
-> The directive specified MongoDB collections. This project stays on Redis by the owner's decision. Each MongoDB "collection" in the directive maps to a key family below. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+> Redis is authoritative. MongoDB (optional) holds read models copied from Redis: station geography, the full event history and the audit archive with its hash chain. The split is explained in [DATA_STORES.md](DATA_STORES.md); the MongoDB collections are listed at the end of this page.
 
 ## People and authority
 
@@ -12,7 +12,11 @@ Redis is the system of record. Every record is a JSON string under one key; sets
 | `users:all` | set | user ids |
 | `assignment:{id}` | JSON | `_id, userId, epic, role, jurisdiction {state, district?, constituency?, pollingStation?, partNumber?, parliamentaryConstituency?}, election?, status (active/revoked), validFrom?, validUntil?, grantedBy, grantedAt, revokedBy?, revokedAt?, reason`; agents add `appointedFor, agentType, candidateName, party, grantedByRole` |
 | `assignments:all`, `assignments:user:{userId}` | set | indexes |
-| `stepup:{userId}` | string, 3 min TTL | one-time code for re-authentication |
+| `otp:{key}` | hash, expiring (2–5 min) | `digest` (SHA-256 of key and code, never the code), `attempts`. Keys: `{EPIC}`, `blo:{BLO ID}`, `blo-reset:{BLO ID}`, `stepup:{userId}` |
+| `otp:notify:{key}` | JSON, same expiry | demo notification feed for that code |
+| `session:revoked:{jti}` | string, until the token would expire | a signed-out session |
+| `session:revoked-before:{userId}` | string (ms), 7 days | "sign out everywhere": tokens issued earlier are refused |
+| `rl:{limiter}:{client}` | counter, window TTL | rate-limit hits, shared by every server instance |
 | `scrutiny-delegation:{electionId}:{state|ac}` | JSON | RO's written delegation of scrutiny to a named ARO |
 
 ## Electoral roll
@@ -30,6 +34,17 @@ Redis is the system of record. Every record is a JSON string under one key; sets
 | `rollversion:{id}`, `rollversions:{state|ac}` | JSON / list | published roll versions: `version, hash, previousHash, counts, diff summary, publishedBy` |
 | `datasource:{id}`, `ingestion:run:{id}`, `prospect:{id}`, `prospect:ref:{source}:{ref}`, `regtask:{id}` | JSON | new-elector pipeline (see [NEW_ELECTOR_PIPELINE.md](NEW_ELECTOR_PIPELINE.md)) |
 | `verification:{id}` | JSON | Persona identity verification cases |
+
+## Form 7 objections
+
+| Key | Type | Fields / meaning |
+| --- | --- | --- |
+| `objection:{id}` | JSON | `form, ground (deceased/shifted/duplicate/not_citizen/underage/absent), details, self, objector {epic, name, role}, declaration, target {epic, name, state, district, assemblyConstituency, partNumber, ...}, documentProof?, status (notice/pending_verification/field_verified/accepted/rejected/withdrawn), noticeUntil, reply?, fieldReport?, decision?` |
+| `objections:all`, `objections:by:{EPIC}`, `objections:against:{EPIC}` | set | indexes |
+| `objections:open:{EPIC}` | string | the one open objection to an entry |
+| `objections:bla:{EPIC}:{date}` | counter, 2 days | a booth level agent's objections that day (limit 10) |
+
+An accepted objection sets `isActive: false` and `deletion {form, objectionId, ground, reason, orderedBy, at}` on the `elector:{EPIC}` entry; the entry is never removed.
 
 ## Elections and stations
 
@@ -80,6 +95,21 @@ Redis is the system of record. Every record is a JSON string under one key; sets
 | `ops:event:{id}`, `ops:events` | JSON / sorted set (score = ms) | operational events for live screens (no personal data) |
 | `ops:idem:{key}` | string, 7 days | idempotency key of an operational event |
 | `training:progress:{userId}`, `training:scenario-history:{userId}`, `training:run:{id}` | JSON | training results; never touch live records |
+
+| `mongo:outbox:stations` | sorted set | station ids waiting to be copied to MongoDB (queued in the same transaction as the change) |
+| `mongo:outbox:events` | list | operational event ids waiting to be copied |
+| `mongo:cursor:audit`, `mongo:chain:audit` | string | audit entries already archived, and the chain value after them |
+
+## MongoDB collections (read models)
+
+Created with their indexes on connect (`backend/src/config/mongo.js`); filled by the projector; rebuilt by `npm run mongo:sync`.
+
+| Collection | Document | Indexes |
+| --- | --- | --- |
+| `polling_stations` | the Redis station plus `geo {type: "Point", coordinates: [lng, lat]}`, `partNumberInt` | `geo_2dsphere`, `area`, `status`, `name_address_text` |
+| `operational_events` | the Redis event with `at` as a date | `at`, `type_at`, `jurisdiction_at`, `station_at`, `election_at` |
+| `audit_archive` | the Redis audit event plus `seq`, `hash`, `chain` | `seq` (unique), `at`, `action_at`, `actor_at`, `resource` |
+| `audit_checkpoints` | `{count, chain, at}` | `count` (unique) |
 
 ## Retention
 

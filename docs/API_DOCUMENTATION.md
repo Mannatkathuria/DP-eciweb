@@ -24,16 +24,16 @@ Base URL: `/api/v1`. All bodies are JSON. Responses have the shape `{ "success":
 
 ## Endpoints
 
-Generated from the route files on 3 November 2026 (161 endpoints). Request and response fields for each module are described in the module documents: [ELECTORAL_ROLL_WORKFLOW.md](ELECTORAL_ROLL_WORKFLOW.md), [NEW_ELECTOR_PIPELINE.md](NEW_ELECTOR_PIPELINE.md), [ELECTION_MANAGEMENT.md](ELECTION_MANAGEMENT.md), [POLLING_STATION_MANAGEMENT.md](POLLING_STATION_MANAGEMENT.md), [POLL_DAY_OPERATIONS.md](POLL_DAY_OPERATIONS.md), [CONTROL_ROOM.md](CONTROL_ROOM.md), [COUNTING_AND_RESULTS.md](COUNTING_AND_RESULTS.md).
+Generated from the route files on 3 November 2026 (180 endpoints). Request and response fields for each module are described in the module documents: [ELECTORAL_ROLL_WORKFLOW.md](ELECTORAL_ROLL_WORKFLOW.md), [NEW_ELECTOR_PIPELINE.md](NEW_ELECTOR_PIPELINE.md), [ELECTION_MANAGEMENT.md](ELECTION_MANAGEMENT.md), [POLLING_STATION_MANAGEMENT.md](POLLING_STATION_MANAGEMENT.md), [POLL_DAY_OPERATIONS.md](POLL_DAY_OPERATIONS.md), [CONTROL_ROOM.md](CONTROL_ROOM.md), [COUNTING_AND_RESULTS.md](COUNTING_AND_RESULTS.md).
 
 | Method | Path | Route file → handler | Auth | Permission (any of) | Step-up | Rate limit |
 | --- | --- | --- | --- | --- | --- | --- |
-| POST | `/api/v1/electors/search` | elector → `searchElector` | public | — |  |  |
-| POST | `/api/v1/verification/identity` | verification → `submitIdentity` | public | — |  |  |
-| POST | `/api/v1/verification/:id/challenge` | verification → `issueChallenge` | public | — |  |  |
-| POST | `/api/v1/verification/:id/face` | verification → `submitFace` | public | — |  |  |
+| POST | `/api/v1/electors/search` | elector → `searchElector` | public | — |  | publicLimiter |
 | POST | `/api/v1/verification/otp/send` | verification → `sendDemoOtp` | public | — |  | otpLimiter |
 | POST | `/api/v1/verification/otp/verify` | verification → `verifyDemoOtp` | public | — |  | otpLimiter |
+| POST | `/api/v1/verification/identity` (off unless `LEGACY_FACE_VERIFICATION=on`) | verification → `submitIdentity` | public | — |  | publicLimiter |
+| POST | `/api/v1/verification/:id/challenge` (off unless `LEGACY_FACE_VERIFICATION=on`) | verification → `issueChallenge` | public | — |  | publicLimiter |
+| POST | `/api/v1/verification/:id/face` (off unless `LEGACY_FACE_VERIFICATION=on`) | verification → `submitFace` | public | — |  | publicLimiter |
 | POST | `/api/v1/auth/login` | auth → `login` | public | — |  | loginLimiter |
 | POST | `/api/v1/auth/register` | auth → `submitRegistration` | public | — |  | registerLimiter |
 | GET | `/api/v1/auth/register/:id` | auth → `getRegistrationStatus` | public | — |  |  |
@@ -41,6 +41,7 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | GET | `/api/v1/auth/geography` | auth → `getGeography` | public | — |  |  |
 | GET | `/api/v1/auth/roles` | auth → `getRoles` | public | — |  |  |
 | POST | `/api/v1/auth/logout` | auth → `logout` | public | — |  |  |
+| POST | `/api/v1/auth/logout-all` | auth → `logoutEverywhere` | session | — |  |  |
 | GET | `/api/v1/auth/me` | auth → `me` | session | — |  |  |
 | POST | `/api/v1/auth/step-up/request` | auth → `requestStepUp` | session | — |  | loginLimiter |
 | POST | `/api/v1/auth/step-up/verify` | auth → `verifyStepUp` | session | — |  | loginLimiter |
@@ -51,17 +52,17 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/auth/blo/forgot` | auth → `bloForgotPassword` | public | — |  | bloResetLimiter |
 | POST | `/api/v1/auth/blo/forgot/resend` | auth → `bloResendResetOtp` | public | — |  | bloResetLimiter |
 | POST | `/api/v1/auth/blo/reset` | auth → `bloResetPassword` | public | — |  | bloResetLimiter |
-| GET | `/api/v1/admin/verifications` | admin → `listVerifications` | session | role:  |  |  |
-| PATCH | `/api/v1/admin/verifications/:id/resolve` | admin → `resolveVerification` | session | role:  |  |  |
-| GET | `/api/v1/admin/stats` | admin → `getStats` | session | role:  |  |  |
-| GET | `/api/v1/admin/registrations` | admin → `listRegistrationRequests` | session | CAN_SEE_APPLICATIONS |  |  |
-| GET | `/api/v1/admin/registrations/:id/documents/:category` | admin → `getRegistrationDocumentFile` | session | CAN_SEE_APPLICATIONS |  |  |
+| GET | `/api/v1/admin/verifications` | admin → `listVerifications` | session | role: blo, admin |  |  |
+| PATCH | `/api/v1/admin/verifications/:id/resolve` | admin → `resolveVerification` | session | role: blo, admin |  |  |
+| GET | `/api/v1/admin/stats` | admin → `getStats` | session | role: blo, admin |  |  |
+| GET | `/api/v1/admin/registrations` | admin → `listRegistrationRequests` | session | ...CAN_SEE_APPLICATIONS |  |  |
+| GET | `/api/v1/admin/registrations/:id/documents/:category` | admin → `getRegistrationDocumentFile` | session | ...CAN_SEE_APPLICATIONS |  |  |
 | POST | `/api/v1/admin/registrations/:id/field-verification` | admin → `submitFieldVerification` | session | verification:field-report |  |  |
 | POST | `/api/v1/admin/registrations/:id/approve` | admin → `approveRegistration` | session | application:decide | yes |  |
 | POST | `/api/v1/admin/registrations/:id/reject` | admin → `rejectRegistration` | session | application:decide | yes |  |
 | POST | `/api/v1/admin/registrations/:id/request-information` | admin → `requestInformation("registration")` | session | application:decide |  |  |
 | POST | `/api/v1/admin/registrations/:id/request-reverification` | admin → `requestReverification("registration")` | session | application:decide |  |  |
-| GET | `/api/v1/admin/changes` | admin → `listAllChangeRequests` | session | CAN_SEE_APPLICATIONS |  |  |
+| GET | `/api/v1/admin/changes` | admin → `listAllChangeRequests` | session | ...CAN_SEE_APPLICATIONS |  |  |
 | POST | `/api/v1/admin/changes/:id/field-verification` | admin → `submitChangeFieldVerification` | session | verification:field-report |  |  |
 | POST | `/api/v1/admin/changes/:id/approve` | admin → `approveChangeRequest` | session | application:decide | yes |  |
 | POST | `/api/v1/admin/changes/:id/reject` | admin → `rejectChangeRequest` | session | application:decide | yes |  |
@@ -70,9 +71,9 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/voting-verification/start` | votingVerification → `startVotingVerification` | session | role: eci |  |  |
 | POST | `/api/v1/voting-verification/:id/persona/start` | votingVerification → `startVotingPersona` | session | role: eci |  |  |
 | POST | `/api/v1/voting-verification/:id/persona/sync` | votingVerification → `syncVotingPersona` | session | role: eci |  |  |
-| GET | `/api/v1/voting-verification/:id/reference-photo` | votingVerification → `getVotingReferencePhoto` | session | role: eci |  |  |
+| GET | `/api/v1/voting-verification/:id/reference-photo` | votingVerification → `submitVotingDocument` | session | role: eci |  |  |
 | POST | `/api/v1/voting-verification/:id/document` | votingVerification → `submitVotingDocument` | session | role: eci |  |  |
-| POST | `/api/v1/voting-verification/:id/face/challenge` | votingVerification → `issueVotingChallenge` | session | role: eci |  |  |
+| POST | `/api/v1/voting-verification/:id/face/challenge` | votingVerification → `submitVotingFace` | session | role: eci |  |  |
 | POST | `/api/v1/voting-verification/:id/face` | votingVerification → `submitVotingFace` | session | role: eci |  |  |
 | POST | `/api/v1/voting-verification/:id/fingerprint` | votingVerification → `verifyFingerprint` | session | role: eci |  |  |
 | POST | `/api/v1/persona/start` | persona → `async (req, res) => {
@@ -100,6 +101,7 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/assignments` | assignment → `grantAssignment` | session | role:assign, blo:assign, staff:assign, polling:arrange | yes |  |
 | POST | `/api/v1/assignments/:id/revoke` | assignment → `revokeAssignment` | session | role:assign, blo:assign, staff:assign, polling:arrange | yes |  |
 | GET | `/api/v1/audit` | audit → `listRecentAudit` | session | audit:read |  |  |
+| GET | `/api/v1/audit/search` | audit → `searchAudit` | session | audit:read |  |  |
 | GET | `/api/v1/audit/integrity` | audit → `checkAuditIntegrity` | session | audit:read, national:manage |  |  |
 | GET | `/api/v1/audit/:type/:id` | audit → `getResourceHistory` | session | audit:read |  |  |
 | GET | `/api/v1/integrations/sources` | integration → `listSources` | session | integration:manage |  |  |
@@ -132,28 +134,29 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/nominations/scrutiny-delegation` | nomination → `delegateScrutiny` | session | scrutiny:delegate | yes |  |
 | POST | `/api/v1/nominations/scrutiny-delegation/revoke` | nomination → `revokeScrutinyDelegation` | session | scrutiny:delegate | yes |  |
 | POST | `/api/v1/nominations/contesting` | nomination → `publishContesting` | session | candidates:publish | yes |  |
-| GET | `/api/v1/public/elections` | public → `listAllElections` | public | — |  |  |
-| GET | `/api/v1/public/stations` | public → `searchPublicStations` | public | — |  |  |
-| GET | `/api/v1/public/stations/epic/:epic` | public → `lookupStationByEpic` | public | — |  |  |
-| GET | `/api/v1/public/stations/:id/queue` | public → `publicQueue` | public | — |  |  |
-| GET | `/api/v1/public/candidates` | public → `publicCandidates` | public | — |  |  |
-| GET | `/api/v1/public/results` | public → `publicResults` | public | — |  |  |
-| GET | `/api/v1/public/turnout` | public → `publicTurnout` | public | — |  |  |
-| GET | `/api/v1/poll-day/station` | pollDay → `getStation` | session | STATION_TEAM, roll:view-part |  |  |
+| GET | `/api/v1/public/elections` | public → `listAllElections` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/stations` | public → `searchPublicStations` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/stations/near` | public → `nearbyPublicStations` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/stations/epic/:epic` | public → `lookupStationByEpic` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/stations/:id/queue` | public → `publicQueue` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/candidates` | public → `publicCandidates` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/results` | public → `publicResults` | public | — |  | publicLimiter |
+| GET | `/api/v1/public/turnout` | public → `publicTurnout` | public | — |  | publicLimiter |
+| GET | `/api/v1/poll-day/station` | pollDay → `getStation` | session | ...STATION_TEAM, roll:view-part |  |  |
 | GET | `/api/v1/poll-day/electors` | pollDay → `searchElectors` | session | polling:conduct, polling:identify-voter, polling:mark-register, roll:view-part |  |  |
 | POST | `/api/v1/poll-day/electors/:epic/mark` | pollDay → `markVoter` | session | polling:mark-register, polling:conduct |  |  |
 | POST | `/api/v1/poll-day/poll/status` | pollDay → `setPollStatus` | session | polling:conduct |  |  |
 | POST | `/api/v1/poll-day/queue` | pollDay → `reportQueue` | session | polling:conduct, polling:identify-voter |  |  |
-| GET | `/api/v1/poll-day/cases` | pollDay → `listCases` | session | STATION_TEAM |  |  |
+| GET | `/api/v1/poll-day/cases` | pollDay → `listCases` | session | ...STATION_TEAM |  |  |
 | POST | `/api/v1/poll-day/cases` | pollDay → `raiseCase` | session | polling:conduct, polling:identify-voter, polling:mark-register, polling:object |  |  |
 | POST | `/api/v1/poll-day/cases/:id/resolve` | pollDay → `resolveCase` | session | polling:conduct |  |  |
 | POST | `/api/v1/poll-day/vab-slips/:epic` | pollDay → `issueVabSlip` | session | roll:view-part |  |  |
 | GET | `/api/v1/poll-day/vab-slips/:slipId` | pollDay → `lookupVabSlip` | session | polling:identify-voter, polling:mark-register, polling:conduct |  |  |
 | GET | `/api/v1/poll-day/register` | pollDay → `getRegister` | session | polling:conduct |  |  |
-| GET | `/api/v1/poll-day/procedures` | pollDay → `getProcedures` | session | STATION_TEAM |  |  |
+| GET | `/api/v1/poll-day/procedures` | pollDay → `getProcedures` | session | ...STATION_TEAM |  |  |
 | GET | `/api/v1/poll-day/assistant` | pollDay → `getAssistant` | session | polling:conduct |  |  |
 | POST | `/api/v1/poll-day/checklists/:kind` | pollDay → `tickChecklist` | session | polling:conduct |  |  |
-| GET | `/api/v1/poll-day/package/public-key` | pollDay → `publicKey` | session | STATION_TEAM |  |  |
+| GET | `/api/v1/poll-day/package/public-key` | pollDay → `publicKey` | session | ...STATION_TEAM |  |  |
 | GET | `/api/v1/poll-day/package` | pollDay → `downloadPackage` | session | polling:conduct, polling:identify-voter, polling:mark-register |  |  |
 | POST | `/api/v1/poll-day/sync` | pollDay → `sync` | session | polling:conduct, polling:mark-register |  |  |
 | GET | `/api/v1/poll-day/sync-conflicts` | pollDay → `listConflicts` | session | polling:conduct |  |  |
@@ -182,11 +185,12 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/users/:epic/suspend` | user → `suspendUser` | session | role:assign | yes |  |
 | POST | `/api/v1/users/:epic/reinstate` | user → `reinstateUser` | session | role:assign | yes |  |
 | GET | `/api/v1/events` | events → `listEvents` | session | control:view, polling:conduct, polling:identify-voter, polling:mark-register, incident:manage, application:decide, roll:view-part |  |  |
-| GET | `/api/v1/devices/mine` | device → `listMyStationDevices` | session | — |  |  |
-| POST | `/api/v1/devices/register` | device → `registerDevice` | session | — |  |  |
-| POST | `/api/v1/devices/heartbeat` | device → `heartbeat` | session | — |  |  |
+| GET | `/api/v1/events/history` | events → `listEventHistory` | session | control:view, polling:conduct, polling:identify-voter, polling:mark-register, incident:manage, application:decide, roll:view-part |  |  |
+| GET | `/api/v1/devices/mine` | device → `listMyStationDevices` | session | polling:conduct, polling:identify-voter, polling:mark-register |  |  |
+| POST | `/api/v1/devices/register` | device → `registerDevice` | session | polling:conduct, polling:identify-voter, polling:mark-register |  |  |
+| POST | `/api/v1/devices/heartbeat` | device → `heartbeat` | session | polling:conduct, polling:identify-voter, polling:mark-register |  |  |
 | POST | `/api/v1/devices/:id/revoke` | device → `revokeDevice` | session | polling:conduct, incident:manage |  |  |
-| GET | `/api/v1/counting/:electionId` | counting → `getCounting` | session | COUNTING |  |  |
+| GET | `/api/v1/counting/:electionId` | counting → `getCounting` | session | ...COUNTING |  |  |
 | GET | `/api/v1/counting/:electionId/staff` | counting → `staffPool` | session | counting:supervise, result:declare |  |  |
 | POST | `/api/v1/counting/:electionId/plan` | counting → `savePlan` | session | counting:supervise, result:declare |  |  |
 | POST | `/api/v1/counting/:electionId/randomise` | counting → `randomise` | session | counting:supervise, result:declare |  |  |
@@ -196,7 +200,16 @@ Generated from the route files on 3 November 2026 (161 endpoints). Request and r
 | POST | `/api/v1/counting/:electionId/discrepancies` | counting → `reportDiscrepancy` | session | counting:object, counting:supervise-table, observer:report |  |  |
 | POST | `/api/v1/counting/:electionId/discrepancies/:id/decide` | counting → `decideDiscrepancy` | session | counting:supervise, result:declare |  |  |
 | POST | `/api/v1/counting/:electionId/observer-reports` | counting → `observerReport` | session | observer:report |  |  |
-| GET | `/api/v1/health` | app.js → `inline` | public | — |  |  |
+| POST | `/api/v1/objections` | objection → `fileObjection` | session | application:submit, roll:claims-objections |  |  |
+| GET | `/api/v1/objections/my` | objection → `myObjections` | session | application:submit, roll:claims-objections |  |  |
+| POST | `/api/v1/objections/:id/withdraw` | objection → `withdrawObjection` | session | application:submit, roll:claims-objections |  |  |
+| POST | `/api/v1/objections/:id/reply` | objection → `replyToObjection` | session | role: voter |  |  |
+| GET | `/api/v1/objections/staff` | objection → `listObjectionsForStaff` | session | application:decide, verification:field-report |  |  |
+| POST | `/api/v1/objections/staff/:id/field-report` | objection → `fieldReportObjection` | session | verification:field-report |  |  |
+| POST | `/api/v1/objections/staff/:id/decide` | objection → `decideObjection` | session | application:decide | yes |  |
+| GET | `/api/v1/health` | app → inline | public | — |  |  |
+
+Rate limits are counted in Redis (`rl:*`), so all server instances share one allowance per client. Two routes have no screen by design: `POST /api/v1/persona/webhook` (called by Persona) and `POST /api/v1/results/sources/:sourceId/entries` (called by a result feed). The retired voting-verification steps answer 410 Gone.
 
 ## Device headers
 
