@@ -6,7 +6,7 @@ import PageHead from "../components/PageHead";
 const SITUATIONS = [
   { id: "new", label: "I am registering for the first time", form: "Form 6", what: "Application for inclusion of your name in the electoral roll. You need proof of age and proof of address.", action: { to: "/register", label: "Start Form 6" } },
   { id: "overseas", label: "I am an Indian citizen living abroad", form: "Form 6A", what: "Registration for overseas electors, using your Indian passport details." },
-  { id: "delete", label: "I want to object to or remove an entry", form: "Form 7", what: "An objection to an entry in the roll, or a request to delete one." },
+  { id: "delete", label: "I want to object to or remove an entry", form: "Form 7", what: "An objection to an entry in the roll of your constituency, or a request to delete your own entry. The elector is given notice and may reply; a BLO verifies and the ERO decides.", action: { to: "/objection", label: "Open Form 7" } },
   { id: "correct", label: "I moved, or need to correct my details", form: "Form 8", what: "Shifting your residence, correcting your entry, replacing a card, or marking yourself as a person with disability.", note: "Sign in as a voter, then submit the change from your dashboard so a booth level officer can review it." },
   { id: "aadhaar", label: "I want to link my Aadhaar number", form: "Form 6B", what: "Voluntary intimation of your Aadhaar number, used to authenticate your entry." },
   { id: "service", label: "I am in the armed forces or a service voter", form: "Forms 2, 2A and 3", what: "Enrolment of service voters, such as the armed forces, ITBP and State armed police." },

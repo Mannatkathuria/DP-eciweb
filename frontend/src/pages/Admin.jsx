@@ -5,6 +5,8 @@ import api from "../api/axios";
 import { Link, Navigate } from "react-router-dom";
 import ReasonDialog from "./ReasonDialog";
 import BloTasks from "./BloTasks";
+import ObjectionsDesk from "../components/ObjectionsDesk";
+import ApplicationDocuments from "../components/ApplicationDocuments";
 
 // Mirrors the backend checks in parseBoothAssignment (admin.controllers.js).
 // Returns what is wrong with the booth assignment, or "" when it can be submitted.
@@ -290,6 +292,12 @@ function Admin() {
                         onClick={() => setActiveTab("tasks")}
                     >
                         🧭 New voter tasks{taskCount !== null ? ` (${taskCount})` : ""}
+                    </button>
+                    <button
+                        className={`tab-btn ${activeTab === "objections" ? "active" : ""}`}
+                        onClick={() => setActiveTab("objections")}
+                    >
+                        📝 Form 7 objections
                     </button>
                     <button
                         className={`tab-btn ${activeTab === "stats" ? "active" : ""}`}
@@ -622,15 +630,7 @@ function Admin() {
                                                     <small>{r.address} {r.pinCode ? `– ${r.pinCode}` : ""}</small>
                                                 </td>
                                                 <td>
-                                                    {r.referenceImage && (
-                                                        <button
-                                                            className="tab-btn"
-                                                            style={{ padding: "4px 8px", fontSize: "11px", marginBottom: "6px" }}
-                                                            onClick={() => setSelectedItemForModal({ title: `Applicant Document: ${r.name}`, image: r.referenceImage })}
-                                                        >
-                                                            🔍 View Document
-                                                        </button>
-                                                    )}
+                                                    <ApplicationDocuments application={r} />
                                                     {r.aiReview && (
                                                         <div className={`ai-review-box ${
                                                             r.aiReview.riskLevel === "LOW" ? "ai-risk-low" : "ai-risk-medium"
@@ -697,6 +697,7 @@ function Admin() {
 
                 {/* Kept mounted so the tab count is known before the tab is opened. */}
                 <div hidden={activeTab !== "tasks"}><BloTasks onCount={setTaskCount} /></div>
+                {activeTab === "objections" && <ObjectionsDesk mode="verify" />}
 
                 {/* TAB 4: STATISTICS & METRICS */}
                 {activeTab === "stats" && sectionErrors.stats && (

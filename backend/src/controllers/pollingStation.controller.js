@@ -8,6 +8,7 @@ import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
+import { nearbyStations, searchStations } from "../services/readModel.service.js";
 
 // Polling stations are provided by the DEO with the prior approval of the Election Commission
 // (RP Act 1951, s. 25). Here the DEO proposes a station or a relocation, and the ECI approves it;
@@ -195,16 +196,24 @@ export const listStationsForStaff = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { items } });
 });
 
-/** Public: approved stations, searchable by area. */
+/** Public: approved stations, searchable by area and (optionally) by words in the name or address. */
 export const searchPublicStations = asyncHandler(async (req, res) => {
     const { state, district, constituency } = req.query;
     if (!state) throw new ApiError(400, "Choose a State/UT.");
-    const items = (await listStations())
-        .filter((s) => s.status === "ACTIVE" && norm(s.state) === norm(state) && (!district || norm(s.district) === norm(district)) && (!constituency || norm(s.constituency) === norm(constituency)))
-        .sort((a, b) => a.constituency.localeCompare(b.constituency) || Number(a.partNumber) - Number(b.partNumber))
-        .slice(0, 200)
-        .map(publicView);
-    res.json({ success: true, data: { items } });
+    const q = clean(req.query.q).slice(0, 100);
+    const { items, source } = await searchStations({ state, district, constituency, q, limit: 200 });
+    res.json({ success: true, data: { items: items.map(publicView), source } });
+});
+
+/** Public: approved stations nearest to a point (MongoDB 2dsphere index, or computed over Redis). */
+export const nearbyPublicStations = asyncHandler(async (req, res) => {
+    const lat = Number(req.query.lat), lng = Number(req.query.lng);
+    if (!(lat >= 6 && lat <= 38 && lng >= 68 && lng <= 98)) throw new ApiError(400, "Give a latitude and longitude inside India.");
+    const radiusKm = req.query.radiusKm === undefined ? 5 : Number(req.query.radiusKm);
+    if (!(radiusKm > 0 && radiusKm <= 50)) throw new ApiError(400, "Search radius must be between 0 and 50 km.");
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+    const { items, source } = await nearbyStations({ lat, lng, radiusKm, limit });
+    res.json({ success: true, data: { items: items.map((s) => ({ ...publicView(s), distanceKm: s.distanceKm })), source, radiusKm } });
 });
 
 /** Public: the polling station for an EPIC. Returns only the part and station, no personal details. */

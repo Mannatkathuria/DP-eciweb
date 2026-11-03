@@ -17,6 +17,41 @@ export const deviceHeaders = (stationId) => { const d = read(stationId); return 
 let outbox = { pendingOutbox: 0, lastSyncAt: null, lastSyncError: null, packageVersion: null };
 export const reportOutbox = (state) => { outbox = { ...outbox, ...state }; };
 
+/** The station's registered devices; a presiding officer can revoke a lost or replaced one. */
+function StationDevices({ station, role, current }) {
+    const [items, setItems] = useState(null);
+    const [error, setError] = useState("");
+    const [revoking, setRevoking] = useState(null); // { id, reason }
+    const load = async () => { try { setItems((await api.get("/devices/mine", { params: { stationId: station._id } })).data.data.items); setError(""); } catch (err) { setError(apiMessage(err, "Could not list the station's devices.")); } };
+    useEffect(() => { load(); }, [station._id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const revoke = async (e) => {
+        e.preventDefault(); setError("");
+        try { await api.post(`/devices/${revoking.id}/revoke`, { reason: revoking.reason }); setRevoking(null); await load(); }
+        catch (err) { setError(apiMessage(err, "The device was not revoked.")); }
+    };
+    if (!items) return error ? <p className="muted"><small>{error}</small></p> : null;
+    return (
+        <details style={{ marginTop: 12 }}>
+            <summary>Devices registered at this station ({items.filter((d) => d.status !== "revoked").length} active)</summary>
+            <ul className="rows">{items.map((d) => (
+                <li key={d._id}>{d.label}{d._id === current ? " (this device)" : ""} · <strong>{LABEL[d.status === "revoked" ? "revoked" : d.connectivity] ?? d.connectivity}</strong>
+                    {d.lastHeartbeat?.at && <small className="muted"> · last heard {new Date(d.lastHeartbeat.at).toLocaleTimeString()}</small>}
+                    {role === "presiding_officer" && d.status !== "revoked" && <> <button className="btn btn-quiet btn-small" onClick={() => setRevoking({ id: d._id, reason: "" })}>Revoke</button></>}
+                </li>
+            ))}</ul>
+            {revoking && (
+                <form className="portal-form" onSubmit={revoke}>
+                    <div className="field"><label htmlFor="rv-reason">Why is this device being revoked?</label>
+                        <input id="rv-reason" value={revoking.reason} onChange={(e) => setRevoking({ ...revoking, reason: e.target.value })} required maxLength={500} placeholder="e.g. Tablet lost; replaced by tablet 3" /></div>
+                    <button className="btn-reject" type="submit">Revoke device</button>{" "}
+                    <button className="btn btn-quiet" type="button" onClick={() => setRevoking(null)}>Cancel</button>
+                </form>
+            )}
+            {error && <div className="alert alert-warn" role="status">{error}</div>}
+        </details>
+    );
+}
+
 export default function StationDevice({ station, role }) {
     const [device, setDevice] = useState(() => read(station._id));
     const [status, setStatus] = useState(null);
@@ -65,6 +100,7 @@ export default function StationDevice({ station, role }) {
                     <button className="btn btn-primary">Register this device</button>
                 </form>}
             {error && <div className="alert alert-warn" role="status">{error}</div>}
+            <StationDevices station={station} role={role} current={device?.id} />
             {device && <OfflineDesk station={station} device={device} role={role} />}
         </div>
     );

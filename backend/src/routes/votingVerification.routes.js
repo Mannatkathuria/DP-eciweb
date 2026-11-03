@@ -4,10 +4,8 @@ import {
     startVotingPersona,
     syncVotingPersona,
     submitVotingDocument,
-    issueVotingChallenge,
     submitVotingFace,
-    verifyFingerprint,
-    getVotingReferencePhoto
+    verifyFingerprint
 } from "../controllers/votingVerification.controller.js";
 import { verifyJWT, requireRole } from "../middlewares/verifyJWT.middleware.js";
 
@@ -19,9 +17,10 @@ router.use(verifyJWT, requireRole("eci"));
 router.post("/start", startVotingVerification);
 router.post("/:id/persona/start", startVotingPersona);
 router.post("/:id/persona/sync", syncVotingPersona);
-router.get("/:id/reference-photo", getVotingReferencePhoto);
+// Retired steps of the old in-app camera flow: they answer 410 Gone, so an old client fails clearly.
+router.get("/:id/reference-photo", submitVotingDocument);
 router.post("/:id/document", submitVotingDocument);
-router.post("/:id/face/challenge", issueVotingChallenge);
+router.post("/:id/face/challenge", submitVotingFace);
 router.post("/:id/face", submitVotingFace);
 router.post("/:id/fingerprint", verifyFingerprint);
 

@@ -5,6 +5,8 @@ import { connectRedis } from "./config/redis.js";
 import { APP_MODE, checkConfig } from "./config/appMode.js";
 import { attachRealtime } from "./realtime/socket.js";
 import { sweepOfflineDevices } from "./controllers/device.controller.js";
+import { mongoConfigured } from "./config/mongo.js";
+import { drainProjector } from "./services/projector.service.js";
 
 const configProblems = checkConfig();
 if (configProblems.length) {
@@ -36,6 +38,8 @@ const handler = async (req, res) => {
     console.error("Startup failed:", err.message);
     return res.status(503).json({ message: "Database unavailable" });
   }
+  // No timers on serverless: copy new records to MongoDB once the response is sent.
+  if (mongoConfigured()) res.on("finish", () => { drainProjector(); });
   return app(req, res);
 };
 
@@ -54,6 +58,8 @@ if (!process.env.VERCEL) {
         await attachRealtime(server, { origins }).catch((err) => console.error("Realtime updates disabled:", err.message));
       }
       // Marks polling-station devices that stopped sending heartbeats as offline (STATION_OFFLINE).
+      // Copies committed Redis records into the MongoDB read models every few seconds.
+      if (mongoConfigured()) setInterval(() => { drainProjector(); }, 3000).unref();
       setInterval(() => sweepOfflineDevices().catch((err) => console.error("Device sweep failed:", err.message)), 60 * 1000).unref();
     })
     .catch((err) => {

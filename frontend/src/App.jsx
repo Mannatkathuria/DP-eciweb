@@ -16,6 +16,7 @@ import StatePortal, { StatesIndex } from "./pages/StatePortal";
 // Voter services
 import Register from "./pages/Register";
 import CheckRequest from "./pages/CheckRequest";
+import Objection from "./pages/Objection";
 import ElectoralRoll from "./pages/ElectoralRoll";
 
 // Sign-in and each role's own section
@@ -71,6 +72,7 @@ function App() {
                     {/* Voter services */}
                     <Route path="/register" element={<Register />} />
                     <Route path="/check-request" element={<CheckRequest />} />
+                    <Route path="/objection" element={<Objection />} />
                     <Route path="/electoral-roll" element={<ElectoralRoll />} />
                     <Route path="/booths" element={<Booths />} />
 

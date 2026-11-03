@@ -6,10 +6,10 @@ import { FORM6_VERSION, SEPARATE_DOCUMENTS, buildAadhaarRecord, parseForm6, publ
 import { validateDocumentProof } from "../utils/documentProof.js";
 import { geography, validateGeography } from "../data/geography.js";
 import { issueOtp } from "../services/otp.service.js";
-import { publicUser } from "../services/session.service.js";
+import { clearSession, publicUser, revokeAllSessions, revokeToken } from "../services/session.service.js";
 import { portalRoles, ROLES, ROLE_GROUPS } from "../config/roles.js";
 import { ApiError } from "../utils/ApiErrors.js";
-import { historyFor } from "../services/audit.service.js";
+import { auditEvent, historyFor, recordAudit } from "../services/audit.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
 
@@ -54,7 +54,7 @@ export const login = asyncHandler(async (req, res) => {
         throw new ApiError(403, "This EPIC number is not authorised for this portal.");
     }
 
-    issueOtp(epic);
+    await issueOtp(epic);
 
     res.status(200).json({
         success: true,
@@ -78,9 +78,20 @@ export const me = asyncHandler(async (req, res) => {
     res.json({ success: true, data: publicUser(req.user) });
 });
 
+/** Signs out: the session is revoked on the server, not just forgotten by the browser. */
 export const logout = asyncHandler(async (req, res) => {
-    res.clearCookie("accessToken");
+    const token = req.header("Authorization")?.replace("Bearer ", "") || req.cookies?.accessToken;
+    if (token) await revokeToken(token);
+    clearSession(res);
     res.json({ success: true, message: "Signed out." });
+});
+
+/** Signs out every session of this account, on every device. */
+export const logoutEverywhere = asyncHandler(async (req, res) => {
+    await revokeAllSessions(req.user._id);
+    await recordAudit(auditEvent({ actor: req.user, action: "auth.signed_out_everywhere", resource: { type: "user", id: req.user._id } }));
+    clearSession(res);
+    res.json({ success: true, message: "Signed out on every device." });
 });
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

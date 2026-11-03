@@ -78,7 +78,7 @@ export const bloLogin = asyncHandler(async (req, res) => {
 
     await saveUser({ ...user, failedPasswordAttempts: 0, lockedUntil: null });
     await redis().set(cooldownKey(SIGN_IN, bloId), "1", { EX: RESEND_COOLDOWN_SECONDS });
-    sendOtp(user);
+    await sendOtp(user);
     res.json({ success: true, message: "OTP sent to your registered mobile number.", data: otpResponse(user) });
 });
 
@@ -87,7 +87,7 @@ export const bloResendOtp = asyncHandler(async (req, res) => {
     const user = await readChallenge(req.body?.challenge);
     const allowed = await redis().set(cooldownKey(SIGN_IN, user.bloId), "1", { NX: true, EX: RESEND_COOLDOWN_SECONDS });
     if (allowed !== "OK") throw new ApiError(429, `Please wait ${RESEND_COOLDOWN_SECONDS} seconds before requesting another OTP.`);
-    sendOtp(user);
+    await sendOtp(user);
     res.json({ success: true, message: "A new OTP was sent to your registered mobile number.", data: otpResponse(user) });
 });
 
@@ -96,7 +96,7 @@ export const bloVerifyOtp = asyncHandler(async (req, res) => {
     const user = await readChallenge(req.body?.challenge);
     const otp = String(req.body?.otp ?? "");
     if (!/^\d{6}$/.test(otp)) throw new ApiError(400, "Enter the six-digit OTP.");
-    checkOtp(otpKey(SIGN_IN, user.bloId), otp);
+    await checkOtp(otpKey(SIGN_IN, user.bloId), otp);
 
     const token = issueSession(res, user);
     res.json({ success: true, message: "Signed in.", token, user: publicUser(user) });
@@ -133,7 +133,7 @@ export const bloForgotPassword = asyncHandler(async (req, res) => {
 
     const allowed = await redis().set(cooldownKey(RESET, bloId), "1", { NX: true, EX: RESEND_COOLDOWN_SECONDS });
     if (allowed !== "OK") throw new ApiError(429, `Please wait ${RESEND_COOLDOWN_SECONDS} seconds before requesting another OTP.`);
-    sendOtp(user, RESET);
+    await sendOtp(user, RESET);
     res.json({ success: true, message: "OTP sent to the registered mobile number.", data: otpResponse(user, RESET) });
 });
 
@@ -142,7 +142,7 @@ export const bloResendResetOtp = asyncHandler(async (req, res) => {
     const user = await readChallenge(req.body?.challenge, RESET);
     const allowed = await redis().set(cooldownKey(RESET, user.bloId), "1", { NX: true, EX: RESEND_COOLDOWN_SECONDS });
     if (allowed !== "OK") throw new ApiError(429, `Please wait ${RESEND_COOLDOWN_SECONDS} seconds before requesting another OTP.`);
-    sendOtp(user, RESET);
+    await sendOtp(user, RESET);
     res.json({ success: true, message: "A new OTP was sent to the registered mobile number.", data: otpResponse(user, RESET) });
 });
 
@@ -158,7 +158,7 @@ export const bloResetPassword = asyncHandler(async (req, res) => {
     // Check the new password first so a weak password does not use up the OTP.
     const problem = passwordProblem(newPassword);
     if (problem) throw new ApiError(400, problem);
-    checkOtp(otpKey(RESET, user.bloId), otp);
+    await checkOtp(otpKey(RESET, user.bloId), otp);
 
     await saveUser({
         ...user, passwordHash: await hashPassword(newPassword), mustChangePassword: false,

@@ -1,3 +1,4 @@
+import { BLO_ID_PATTERN } from "../services/blo.service.js";
 import crypto from "crypto";
 import { getElectorByEpic } from "../repositories/elector.repository.js";
 import { getUserByEpic } from "../repositories/user.repository.js";
@@ -346,6 +347,8 @@ export const sendDemoOtp = asyncHandler(async (req, res) => {
     }
 
     const epic = electorId.trim().toUpperCase();
+    if (BLO_ID_PATTERN.test(epic)) throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
+    if (!/^[A-Z]{3}\d{7}$/.test(epic)) throw new ApiError(400, "Enter a valid EPIC number (three letters and seven digits).");
     const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
     if (!(elector && elector.isActive) && !user) {
@@ -356,7 +359,7 @@ export const sendDemoOtp = asyncHandler(async (req, res) => {
         throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
-    issueOtp(epic);
+    await issueOtp(epic);
 
     res.json({
         success: true,
@@ -377,6 +380,8 @@ export const verifyDemoOtp = asyncHandler(async (req, res) => {
     }
 
     const epic = electorId.trim().toUpperCase();
+    if (BLO_ID_PATTERN.test(epic)) throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
+    if (!/^[A-Z]{3}\d{7}$/.test(epic)) throw new ApiError(400, "Enter a valid EPIC number (three letters and seven digits).");
     const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
     if (!(elector && elector.isActive) && !user) {
@@ -387,7 +392,7 @@ export const verifyDemoOtp = asyncHandler(async (req, res) => {
         throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
-    checkOtp(epic, otp);
+    await checkOtp(epic, otp);
 
     // The OTP is the only credential. If this EPIC belongs to a registered account,
     // a correct OTP signs that account in.

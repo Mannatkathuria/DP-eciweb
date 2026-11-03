@@ -78,7 +78,7 @@ test("training environment: labelled on every response, and only synthetic or mo
         assert.equal((await call("POST", "/integrations/sources", { name: `Gov feed ${runId}`, type: "approved_api", purpose: "Identify potential applicants", legalBasis: "x", agreementReference: "y" }, eci.token)).status, 409);
         assert.equal((await call("POST", "/results/sources", { name: "Official", type: "official_feed", legalBasis: "x", agreementReference: "y" }, eci.token)).status, 409);
         assert.equal((await call("POST", "/integrations/sources", { name: `Practice feed ${runId}`, type: "synthetic", purpose: "Training with invented people" }, eci.token)).status, 201);
-        assert.equal((await call("POST", "/results/sources", { name: "Practice results", type: "mock" }, eci.token)).status, 201);
+        assert.equal((await call("POST", "/results/sources", { name: `Practice results ${crypto.randomUUID().slice(0, 8)}`, type: "mock" }, eci.token)).status, 201);
     } finally { delete process.env.APP_MODE; }
 });
 

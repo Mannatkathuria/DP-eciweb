@@ -102,13 +102,13 @@ test("end-to-end: BLO ID + password -> 2-minute mobile OTP -> forced password ch
         const wrong = lastOtp() === "000000" ? "111111" : "000000";
         assert.equal((await call("POST", "/auth/blo/verify", { challenge, otp: wrong })).status, 400);
 
-        // An OTP older than 2 minutes is refused.
-        const realNow = Date.now;
+        // OTPs live in Redis with a 2-minute expiry; an expired one is refused.
+        const ttl = await redis().pTTL(`otp:blo:${bloId}`);
+        assert.ok(ttl > 0 && ttl <= 120_000, `OTP expiry should be at most 2 minutes, was ${ttl} ms`);
         const expiredOtp = lastOtp();
-        Date.now = () => realNow() + 121_000;
-        try {
-            assert.equal((await call("POST", "/auth/blo/verify", { challenge, otp: expiredOtp })).status, 400);
-        } finally { Date.now = realNow; }
+        await redis().pExpire(`otp:blo:${bloId}`, 1);
+        await new Promise((r) => setTimeout(r, 20));
+        assert.equal((await call("POST", "/auth/blo/verify", { challenge, otp: expiredOtp })).status, 400);
 
         // After the cooldown a new OTP can be sent, and it signs the BLO in.
         await redis().del(`blo:otp:cooldown:${bloId}`);

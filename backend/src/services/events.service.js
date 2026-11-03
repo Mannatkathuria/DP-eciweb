@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { jsonGet, redis } from "../config/redis.js";
 import { coversAny } from "./authority.service.js";
+import { kickProjector, queueEvent } from "./projector.service.js";
 
 // Operational events: the durable record of what happened on the ground (poll opened, queue
 // reported, incident raised, device went offline, a sync completed...). They are written in the
@@ -43,6 +44,7 @@ export const recordEvent = (event, tx = null) => {
     target.set(eventKey(event._id), JSON.stringify(event));
     target.zAdd(LOG, { score: Date.parse(event.at), value: event._id });
     if (event.idempotencyKey) target.set(idemKey(event.idempotencyKey), event._id, { EX: 7 * 86400 });
+    queueEvent(event._id, target); // copied to the MongoDB history once committed
     return tx ? event : target.exec().then(() => event);
 };
 
@@ -54,6 +56,7 @@ export const publishEvents = async (...events) => {
     for (const e of events.flat().filter(Boolean)) {
         try { await redis().publish(CHANNEL, JSON.stringify(e)); } catch (err) { console.error("event publish failed:", err.message); }
     }
+    kickProjector();
 };
 
 /** Who may see an event: someone whose assignments cover its jurisdiction. */

@@ -8,3 +8,7 @@ __pycache__/
 # biometric reference photos must never be committed
 face-service/reference/*
 !face-service/reference/.gitkeep
+
+# Redis snapshots are runtime data, never source
+dump.rdb
+*.rdb

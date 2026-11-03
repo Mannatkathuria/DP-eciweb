@@ -43,12 +43,21 @@ test("HTTP: health, 404, validation (no DB needed)", async () => {
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
     try {
-        assert.equal((await fetch(`${base}/health`)).status, 200);
+        // Without Redis (the system of record) the health check reports the outage.
+        const health = await fetch(`${base}/health`);
+        assert.ok([200, 503].includes(health.status));
+        assert.ok(["ok", "error"].includes((await health.json()).database.redis));
         assert.equal((await fetch(`${base}/nope`)).status, 404);
 
-        const bad = await fetch(`${base}/verification/identity`, {
+        // The legacy face-match flow is off unless LEGACY_FACE_VERIFICATION=on.
+        const legacy = await fetch(`${base}/verification/identity`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ electorId: "x", method: "pan" })
+        });
+        assert.equal(legacy.status, 404);
+        const bad = await fetch(`${base}/verification/otp/send`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ electorId: "x" })
         });
         assert.equal(bad.status, 400);
 

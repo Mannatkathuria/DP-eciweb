@@ -1,14 +1,10 @@
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { getElectorByEpic, saveElector } from "../repositories/elector.repository.js";
 import { jsonGet, jsonSet, redis, transaction } from "../config/redis.js";
 import { performDocumentSanityCheck } from "../services/gemini.service.js";
 
-const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const key = (id) => `voting-verification:${id}`;
 
 const getSession = async (id) => {
@@ -225,28 +221,11 @@ export const verifyFingerprint = asyncHandler(async (req, res) => {
     });
 });
 
-export const getVotingReferencePhoto = asyncHandler(async (req, res) => {
-    const session = await getSession(req.params.id);
-    const referenceDir = process.env.FACE_REFERENCE_DIR || path.join(PROJECT_ROOT, "face-service", "reference");
-    const safeEpic = String(session.epic).toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const candidates = [".jpg", ".jpeg", ".png"].map(ext => path.join(referenceDir, `${safeEpic}${ext}`));
-    const file = candidates.find(candidate => fs.existsSync(candidate));
-    if (!file) return res.status(404).end();
-
-    const extension = path.extname(file).toLowerCase();
-    res.type(extension === ".png" ? "png" : "jpg");
-    res.set("Cache-Control", "private, no-store");
-    fs.createReadStream(file).pipe(res);
-});
-
-// Retired step from the old in-app camera flow. It used to move the session straight to the
-// fingerprint stage without checking anything, so it now refuses instead.
+// Retired steps from the old in-app camera flow (document upload, reference photo, face match).
+// One of them used to move the session straight to the fingerprint stage without checking
+// anything, so they all refuse now.
 export const submitVotingDocument = asyncHandler(async () => {
     throw new ApiError(410, "This verification step has been replaced by the Persona identity check.");
-});
-
-export const issueVotingChallenge = asyncHandler(async (req, res) => {
-    res.json({ success: true, data: { challenge: "blink" } });
 });
 
 // Retired step from the old in-app camera flow. It used to move the session straight to the

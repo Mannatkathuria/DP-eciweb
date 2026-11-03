@@ -35,6 +35,7 @@ export const registerResultSource = asyncHandler(async (req, res) => {
     if (isTraining() && body.type !== "mock") throw new ApiError(409, "The training environment only accepts mock result sources.");
     const legalBasis = clean(body.legalBasis, 300) || null; const agreementReference = clean(body.agreementReference, 120) || null;
     if (body.type === "official_feed" && (!legalBasis || !agreementReference)) throw new ApiError(400, "An official feed needs its legal basis and the agreement reference.");
+    if ((await listResultSources()).some((x) => x.status === "active" && x.name.toLowerCase() === name.toLowerCase())) throw new ApiError(409, "An active result source already has this name.");
     const source = { _id: crypto.randomUUID(), name, type: body.type, legalBasis, agreementReference, status: "active", registeredBy: req.user.epic, registeredAt: new Date().toISOString() };
     const tx = transaction();
     saveResultSource(source, tx);

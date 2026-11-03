@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { getUserById } from "../repositories/user.repository.js";
+import { isRevoked } from "../services/session.service.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -17,6 +18,8 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     let decoded;
     try { decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); }
     catch { throw new ApiError(401, "Invalid or expired token."); }
+
+    if (await isRevoked(decoded)) throw new ApiError(401, "This session has been signed out. Please sign in again.");
 
     const user = await getUserById(decoded?._id);
     if (!user) throw new ApiError(401, "Invalid access token: user not found.");

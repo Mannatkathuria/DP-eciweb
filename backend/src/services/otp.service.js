@@ -1,88 +1,71 @@
-
 import crypto from "crypto";
+import { redis } from "../config/redis.js";
 import { ApiError } from "../utils/ApiErrors.js";
+
+// One-time codes, kept in Redis so they work across server instances and restarts.
+//   otp:<key>         hash with the code's SHA-256 digest (never the code itself) and the attempt count
+//                     expires with the code
+//   otp:notify:<key>  the demo notification feed for that code (same lifetime)
+// Codes are delivered only to the server log and the demo notification feed: there is no SMS
+// gateway (see docs/KNOWN_LIMITATIONS.md).
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+const codeKey = (key) => `otp:${key}`;
+const feedKey = (key) => `otp:notify:${key}`;
+const digest = (key, otp) => crypto.createHash("sha256").update(`${key}:${otp}`).digest("hex");
 
-const store = new Map();
-const notificationStore = new Map();
+// Counts one attempt and returns [attempts, storedDigest]; nothing if the code has expired.
+const ATTEMPT_SCRIPT = `
+if redis.call("EXISTS", KEYS[1]) == 0 then return nil end
+local n = redis.call("HINCRBY", KEYS[1], "attempts", 1)
+return { n, redis.call("HGET", KEYS[1], "digest") }`;
 
 /**
- * Issues a one-time code for `epic` (or any sign-in key). Options let a caller use a
- * shorter lifetime and a different log label, e.g. BLO sign-in (2 minutes, sent to a mobile).
+ * Issues a one-time code for `key` (an EPIC or another sign-in key), replacing any earlier code.
+ * Options set a shorter lifetime and the log label (e.g. BLO sign-in: 2 minutes, sent to a mobile).
  */
-export const issueOtp = (epic, { ttlMs = OTP_TTL_MS, logLabel = `EPIC ${epic}` } = {}) => {
+export const issueOtp = async (key, { ttlMs = OTP_TTL_MS, logLabel = `EPIC ${key}` } = {}) => {
     const otp = String(crypto.randomInt(100000, 1000000));
-    const expiresAt = Date.now() + ttlMs;
-
-    store.set(epic, { otp, expiresAt, attempts: 0 });
-
-    // Demo only: never expose OTPs through notifications in production.
+    const notification = {
+        id: crypto.randomUUID(), app: "ECI Verification", icon: "🗳️", title: "Your verification OTP",
+        body: `Your OTP is ${otp}. It expires in ${Math.round(ttlMs / 60000)} minutes.`, createdAt: new Date().toISOString()
+    };
+    await redis().multi()
+        .del(codeKey(key))
+        .hSet(codeKey(key), { digest: digest(key, otp), attempts: "0" })
+        .pExpire(codeKey(key), ttlMs)
+        .set(feedKey(key), JSON.stringify([notification]), { PX: ttlMs })
+        .exec();
+    // Demo only: there is no SMS gateway, so the code is printed for the tester.
     console.log(`[DEMO OTP] ${logLabel}: ${otp}`);
-
-    notificationStore.set(epic, [{
-        id: crypto.randomUUID(),
-        app: "ECI Verification",
-        icon: "🗳️",
-        title: "Your verification OTP",
-        body: `Your OTP is ${otp}. It expires in ${Math.round(ttlMs / 60000)} minutes.`,
-        createdAt: new Date().toISOString(),
-        expiresAt
-    }]);
 };
 
-export const getNotifications = (epic) => {
-    const notifications = notificationStore.get(epic) || [];
-    const now = Date.now();
-
-    const active = notifications.filter(
-        (notification) => notification.expiresAt > now
-    );
-
-    if (active.length) {
-        notificationStore.set(epic, active);
-    } else {
-        notificationStore.delete(epic);
-    }
-
-    return active.map(({ expiresAt, ...notification }) => ({
-        ...notification,
-        time: "now"
-    }));
+/** The demo notification feed for a key (codes that have not expired). */
+export const getNotifications = async (key) => {
+    const raw = await redis().get(feedKey(key));
+    return raw ? JSON.parse(raw).map((n) => ({ ...n, time: "now" })) : [];
 };
 
-export const checkOtp = (epic, otp) => {
-    const saved = store.get(epic);
+const discard = (key) => redis().del([codeKey(key), feedKey(key)]);
 
-    if (!saved || Date.now() > saved.expiresAt) {
-        store.delete(epic);
-        notificationStore.delete(epic);
+/** Checks a code. Throws if it is expired, wrong, or tried too often; a correct code is used up. */
+export const checkOtp = async (key, otp) => {
+    const result = await redis().eval(ATTEMPT_SCRIPT, { keys: [codeKey(key)] });
+    if (!result) {
+        await discard(key);
         throw new ApiError(400, "OTP expired. Request a new one.");
     }
-
-    saved.attempts += 1;
-
-    if (saved.attempts > MAX_ATTEMPTS) {
-        store.delete(epic);
-        notificationStore.delete(epic);
+    const [attempts, stored] = [Number(result[0]), String(result[1])];
+    if (attempts > MAX_ATTEMPTS) {
+        await discard(key);
         throw new ApiError(429, "Too many attempts. Request a new OTP.");
     }
-
-    const a = Buffer.from(saved.otp);
-    const b = Buffer.from(String(otp));
-    const matches =
-        a.length === b.length && crypto.timingSafeEqual(a, b);
-
-    if (!matches) {
-        if (saved.attempts >= MAX_ATTEMPTS) {
-            store.delete(epic);
-            notificationStore.delete(epic);
-        }
-
+    const a = Buffer.from(stored, "hex");
+    const b = Buffer.from(digest(key, String(otp)), "hex");
+    if (!(a.length === b.length && crypto.timingSafeEqual(a, b))) {
+        if (attempts >= MAX_ATTEMPTS) await discard(key);
         throw new ApiError(400, "Incorrect OTP. Please try again.");
     }
-
-    store.delete(epic);
-    notificationStore.delete(epic);
+    await discard(key);
 };

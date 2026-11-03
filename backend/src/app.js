@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import rateLimit from "express-rate-limit";
+import { limiter } from "./middlewares/rateLimit.middleware.js";
 
 import electorRoutes from "./routes/elector.routes.js";
 import verificationRoutes from "./routes/verification.routes.js";
@@ -31,7 +31,11 @@ import userRoutes from "./routes/user.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
 import countingRoutes from "./routes/counting.routes.js";
+import objectionRoutes from "./routes/objection.routes.js";
 import { isTraining } from "./config/appMode.js";
+import { mongoStatus } from "./config/mongo.js";
+import { redis } from "./config/redis.js";
+import { projectorBacklog } from "./services/projector.service.js";
 
 
 const app = express();
@@ -88,16 +92,19 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 // Public lookup endpoints are rate-limited to make bulk EPIC enumeration harder.
-const publicLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    limit: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: "Too many requests. Please slow down." }
-});
+const publicLimiter = limiter("public", { windowMs: 60 * 1000, limit: 60, message: "Too many requests. Please slow down." });
 
-app.get("/api/v1/health", (req, res) => {
-    res.status(200).json({ success: true, message: "Election Management API is running", database: "redis", mode: isTraining() ? "training" : "live" });
+app.get("/api/v1/health", async (req, res) => {
+    // Redis is the system of record; MongoDB holds read models and archives fed from it.
+    let redisState = "ok";
+    try { await redis().ping(); } catch { redisState = "error"; }
+    const mongodb = await mongoStatus();
+    let backlog = null;
+    if (mongodb !== "not configured" && redisState === "ok") backlog = await projectorBacklog().catch(() => null);
+    res.status(redisState === "ok" ? 200 : 503).json({
+        success: redisState === "ok", message: "Election Management API is running",
+        database: { redis: redisState, mongodb, mongoBacklog: backlog }, mode: isTraining() ? "training" : "live"
+    });
 });
 
 app.use("/api/v1/electors", publicLimiter, electorRoutes);
@@ -127,6 +134,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/events", eventsRoutes);
 app.use("/api/v1/devices", deviceRoutes);
 app.use("/api/v1/counting", countingRoutes);
+app.use("/api/v1/objections", objectionRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

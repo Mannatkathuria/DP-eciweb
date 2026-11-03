@@ -42,9 +42,10 @@ function AuthProvider({ children }) {
         setLogged(true);
     };
 
-    const logout = async () => {
+    // Signing out revokes the session on the server; `everywhere` ends every session of the account.
+    const logout = async ({ everywhere = false } = {}) => {
         clearStepUp();
-        try { await api.post("/auth/logout"); } catch {}
+        try { await api.post(everywhere === true ? "/auth/logout-all" : "/auth/logout"); } catch {}
         localStorage.removeItem("token");
         localStorage.setItem("logged", "false");
         localStorage.removeItem("user");

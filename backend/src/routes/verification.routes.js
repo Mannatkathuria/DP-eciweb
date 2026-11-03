@@ -1,5 +1,5 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
+import { limiter } from "../middlewares/rateLimit.middleware.js";
 import {
     submitIdentity,
     issueChallenge,
@@ -18,16 +18,18 @@ const router = express.Router();
 
 // OTP is now the only sign-in credential, so throttle send/verify per IP
 // (each OTP also locks after 5 wrong attempts).
-const otpLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false,
-    message: { success: false, message: "Too many OTP requests. Try again later." }
-});
+const otpLimiter = limiter("otp", { windowMs: 15 * 60 * 1000, limit: 30, message: "Too many OTP requests. Try again later." });
 
+router.post("/otp/send", otpLimiter, sendDemoOtp);
+router.post("/otp/verify", otpLimiter, verifyDemoOtp);
+
+// Legacy identity-document and face-match flow. It needs the separate Python face service, has no
+// screen in the current web app (identity checks now go through Persona and the poll-day module),
+// and is therefore switched off unless LEGACY_FACE_VERIFICATION=on.
+if (process.env.LEGACY_FACE_VERIFICATION === "on") {
 router.post("/identity", submitIdentity);
 router.post("/:id/challenge", issueChallenge);
 router.post("/:id/face", submitFace);
-router.post("/otp/send", otpLimiter, sendDemoOtp);
-router.post("/otp/verify", otpLimiter, verifyDemoOtp);
 
 const uploadIdentityDocument = multer({
     dest: os.tmpdir(),
@@ -55,27 +57,15 @@ const uploadIdentityDocument = multer({
 
 router.post(
     "/document/decode",
-    (req, res, next) => {
-        console.log("Upload URL:", req.originalUrl);
-        console.log("Content-Type:", req.headers["content-type"]);
-        next();
-    },
     uploadIdentityDocument.single("document"),
     async (req, res, next) => {
         const imagePath = req.file?.path;
 
         try {
-            console.log("Multer file:", req.file);
-            console.log("Multer body:", req.body);
-
             if (!req.file) {
                 return res.status(400).json({
                     success: false,
-                    message: "Multer received no file under the field 'document'.",
-                    debug: {
-                        contentType: req.headers["content-type"],
-                        receivedFields: Object.keys(req.body ?? {}),
-                    },
+                    message: "Attach the document image in the field 'document'.",
                 });
             }
 
@@ -114,6 +104,6 @@ router.post(
         }
     }
 );
-
+}
 
 export default router;

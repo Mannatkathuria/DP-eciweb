@@ -20,7 +20,7 @@ export const getUserNotifications = asyncHandler(async (req, res) => {
     res.status(200).json({
         success: true,
         data: {
-            notifications: getNotifications(epic)
+            notifications: await getNotifications(epic)
         }
     });
 });

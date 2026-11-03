@@ -128,6 +128,7 @@ export default function SiteHeader() {
                 <span className="nav-user">
                   <Link className="nav-link" to={homeFor(userData.role)}>My section</Link>
                   <button type="button" className="btn btn-quiet btn-small" onClick={async () => { await logout(); navigate("/home"); }}>Sign out</button>
+                  <button type="button" className="btn btn-quiet btn-small" title="Ends this account's sessions on every device" onClick={async () => { await logout({ everywhere: true }); navigate("/home"); }}>Sign out everywhere</button>
                 </span>
               ) : (
                 <>

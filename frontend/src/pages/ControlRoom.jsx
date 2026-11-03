@@ -25,6 +25,45 @@ const EVENT_LABEL = {
     POLLING_STATION_UPDATED: "Polling station updated", ELECTORAL_ROLL_UPDATED: "Electoral roll published", COUNTING_UPDATE_IMPORTED: "Counting update imported", OFFICIAL_RESULT_UPDATED: "Official result updated"
 };
 
+/** Searchable history of operational events (MongoDB archive, or the Redis log). */
+function EventHistory({ electionId }) {
+    const [type, setType] = useState("");
+    const [r, setR] = useState(null);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const load = async (before) => {
+        setBusy(true); setError("");
+        try {
+            const params = Object.fromEntries(Object.entries({ types: type, electionId, before, limit: 25 }).filter(([, v]) => v));
+            const data = (await api.get("/events/history", { params })).data.data;
+            setR((old) => before && old ? { ...data, items: [...old.items, ...data.items] } : data);
+        } catch (e) { setError(apiMessage(e, "The history could not be loaded.")); }
+        finally { setBusy(false); }
+    };
+    return (
+        <div className="panel">
+            <h2>Event history</h2>
+            <div className="row-actions" style={{ gap: 8 }}>
+                <select aria-label="Event type" value={type} onChange={(e) => setType(e.target.value)}>
+                    <option value="">All events</option>
+                    {Object.entries(EVENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+                <button className="btn btn-quiet btn-small" disabled={busy} onClick={() => load()}>{r ? "Refresh" : "Show history"}</button>
+            </div>
+            {error && <div className="alert alert-error" role="alert">{error}</div>}
+            {r && (
+                <>
+                    <p className="muted"><small>{r.items.length} event{r.items.length === 1 ? "" : "s"} · from {r.source === "mongodb" ? "the MongoDB archive" : "the Redis event log"}</small></p>
+                    <ul className="rows">{r.items.map((e) => (
+                        <li key={e._id}><small>{new Date(e.at).toLocaleString()}</small> · <strong>{EVENT_LABEL[e.type] ?? e.type}</strong>{e.jurisdiction?.pollingStation ? ` · ${e.jurisdiction.pollingStation}` : e.jurisdiction?.constituency ? ` · ${e.jurisdiction.constituency}` : ""}{e.actor ? ` · ${e.actor.role}` : ""}</li>
+                    ))}</ul>
+                    {r.next && <button className="btn btn-quiet btn-small" disabled={busy} onClick={() => load(r.next)}>Show older</button>}
+                </>
+            )}
+        </div>
+    );
+}
+
 export default function ControlRoom() {
     const { logged, userData } = useContext(AuthContext);
     const [data, setData] = useState(null);
@@ -159,6 +198,7 @@ export default function ControlRoom() {
                                     </li>
                                 ))}</ul>
                             </div>
+                            <EventHistory electionId={electionId} />
                         </>
                     )}
                 </div>

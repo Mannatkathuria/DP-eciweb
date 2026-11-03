@@ -77,6 +77,7 @@ export function RollVersions({ areas, canPublish }) {
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [busy, setBusy] = useState(false);
+    const [opened, setOpened] = useState(null); // one version opened for inspection
     const keyOf = (a) => `${a.state}|${a.constituency}`;
 
     const load = useCallback(async () => {
@@ -97,6 +98,11 @@ export function RollVersions({ areas, canPublish }) {
         finally { setBusy(false); }
     };
 
+    const openVersion = async (id) => {
+        if (opened?._id === id) { setOpened(null); return; }
+        setError("");
+        try { setOpened((await api.get(`/roll-versions/${id}`)).data.data); } catch (err) { setError(err?.response?.data?.message || "The version could not be opened."); }
+    };
     if (!areas.length) return null;
     return (
         <div className="panel">
@@ -113,7 +119,15 @@ export function RollVersions({ areas, canPublish }) {
                             <li key={v._id}><small>
                                 Version {v.version} · {new Date(v.publishedAt).toLocaleString()} · {v.entryCount} electors ·
                                 {" "}+{v.changes.added} / −{v.changes.removed} / {v.changes.modified} changed · by {v.publishedBy} · hash {v.hash.slice(0, 12)}…
-                            </small></li>
+                            </small>{" "}<button className="btn btn-quiet btn-small" onClick={() => openVersion(v._id)}>{opened?._id === v._id ? "Hide" : "Open and verify"}</button>
+                            {opened?._id === v._id && (
+                                <div style={{ marginTop: 6 }}>
+                                    <p className={`alert ${opened.integrity === "verified" ? "alert-ok" : "alert-error"}`} role="status">Content hash {opened.integrity === "verified" ? "verified: this snapshot is unchanged since it was published" : "DOES NOT MATCH: the snapshot was altered"}.</p>
+                                    <div className="table-wrap"><table><thead><tr><th>Part</th><th>EPIC</th><th>Name</th><th>Gender</th><th>Age</th><th>Status</th></tr></thead>
+                                        <tbody>{opened.entries.slice(0, 200).map((e) => <tr key={e.epic}><td>{e.partNumber ?? "–"}</td><td>{e.epic}</td><td>{e.name}</td><td>{e.gender}</td><td>{e.age}</td><td>{e.isActive === false ? "Deleted" : "On roll"}</td></tr>)}</tbody></table></div>
+                                    {opened.entries.length > 200 && <small className="muted">First 200 of {opened.entries.length} entries.</small>}
+                                </div>
+                            )}</li>
                         ))}
                         {(versions[keyOf(a)] || []).length === 0 && <li><small>No version published yet.</small></li>}
                     </ul>

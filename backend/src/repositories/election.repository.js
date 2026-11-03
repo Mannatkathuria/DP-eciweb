@@ -1,4 +1,5 @@
 import { acquireLock, jsonGet, redis } from "../config/redis.js";
+import { queueStation } from "../services/projector.service.js";
 
 // Elections, polling stations, nominations and published lists of contesting candidates.
 const get = (k) => jsonGet(k);
@@ -10,7 +11,8 @@ export const saveElection = (e, tx) => put(tx, "election:", "elections:all", e);
 export const listElections = () => all("elections:all", "election:");
 
 export const getStation = (id) => get(`station:${id}`);
-export const saveStation = (s, tx) => put(tx, "station:", "stations:all", s);
+// Every station change is also queued for the MongoDB read model (geo search), in the same transaction.
+export const saveStation = (s, tx) => { put(tx, "station:", "stations:all", s); queueStation(s._id, tx); };
 export const listStations = () => all("stations:all", "station:");
 export const lockStation = (id) => acquireLock(`station:lock:${id}`);
 

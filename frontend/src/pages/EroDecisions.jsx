@@ -6,6 +6,8 @@ import PageHead from "../components/PageHead";
 import ReasonDialog from "./ReasonDialog";
 import { homeFor } from "../config/roles";
 import { EroTasks, RollVersions } from "./EroRollAndTasks";
+import ObjectionsDesk from "../components/ObjectionsDesk";
+import ApplicationDocuments from "../components/ApplicationDocuments";
 
 // Electoral Registration Officer / Assistant ERO: decides Form 6 applications that the BLO has
 // verified in the field. Every request is checked again on the server for permission and for the
@@ -221,6 +223,7 @@ export default function EroDecisions() {
                                                         <strong>{r.name}</strong><br />
                                                         <small>{new Date(r.dateOfBirth).toLocaleDateString()} · {r.gender}</small><br />
                                                         <small>Submitted {new Date(r.submittedAt).toLocaleDateString()}</small>
+                                                        <ApplicationDocuments application={r} />
                                                     </td>
                                                     <td>{r.assemblyConstituency}, {r.district}, {r.state}<br /><small>{r.address} {r.pinCode ? `– ${r.pinCode}` : ""}</small></td>
                                                     <td>
@@ -272,6 +275,7 @@ export default function EroDecisions() {
                                         <strong>{r.name}</strong> · {r.assemblyConstituency} · submitted {new Date(r.submittedAt).toLocaleDateString()}{" "}
                                         <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={() => openReject(r, "registration", "info")} disabled={Boolean(busy[r._id])}>Ask for information</button>
                                         <button className="btn-reject" style={{ marginLeft: 8 }} onClick={() => openReject(r, "registration")} disabled={Boolean(busy[r._id])}>Reject</button>
+                                        <ApplicationDocuments application={r} />
                                         {followUpNotes(r)}
                                         {rowErrors[r._id] && <p className="row-error" role="alert">{rowErrors[r._id]}</p>}
                                     </li>
@@ -373,6 +377,8 @@ export default function EroDecisions() {
                             </ul>
                         )}
                     </div>
+
+                    <ObjectionsDesk mode="decide" />
 
                     <EroTasks canAssign={userData?.role === "ero"} />
                     <RollVersions areas={rollAreas} canPublish={userData?.role === "ero"} />

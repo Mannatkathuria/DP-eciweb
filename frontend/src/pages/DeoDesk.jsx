@@ -6,6 +6,7 @@ import PageHead from "../components/PageHead";
 import StaffAssignments from "../components/StaffAssignments";
 import useGeography from "../hooks/useGeography";
 import { apiMessage } from "../config/elections";
+import StationMap from "../components/StationMap";
 
 // District Election Officer: polling stations of the district (propose new ones, propose
 // relocations; the ECI approves) and election staff appointments.
@@ -38,6 +39,62 @@ function StationDetails({ value, onChange, prefix }) {
     );
 }
 const toPayload = (v) => ({ name: v.name, address: v.address, accessibility: v.accessibility, ...(v.lat && v.lng ? { location: { lat: v.lat, lng: v.lng } } : {}) });
+
+// One CSV line into fields; a field in double quotes may contain commas ("" is a literal quote).
+const csvFields = (line) => {
+    const out = []; let cur = ""; let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (quoted) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c; }
+        else if (c === '"') quoted = true; else if (c === ",") { out.push(cur.trim()); cur = ""; } else cur += c;
+    }
+    out.push(cur.trim());
+    return out;
+};
+const IMPORT_SAMPLE = "constituency,partNumber,name,address,lat,lng\nLudhiana South,22,Government High School Sherpur,\"Sherpur Kalan, near GT Road, Ludhiana 141010\",30.8890,75.8730";
+
+/** Bulk proposal of polling stations from CSV (up to 500 rows); every row is validated on the server. */
+function StationImport({ area, onDone }) {
+    const [text, setText] = useState("");
+    const [result, setResult] = useState(null);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const submit = async (e) => {
+        e.preventDefault(); setError(""); setResult(null);
+        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        const header = csvFields(lines[0] ?? "").map((h) => h.toLowerCase());
+        const need = ["constituency", "partnumber", "name", "address"];
+        const missing = need.filter((h) => !header.includes(h));
+        if (missing.length) { setError(`The first line must name the columns; missing: ${missing.join(", ")}.`); return; }
+        const rows = lines.slice(1).map((l) => Object.fromEntries(csvFields(l).map((v, i) => [header[i], v])));
+        if (!rows.length) { setError("Add at least one station below the header line."); return; }
+        const stations = rows.map((r) => ({ state: area.state, district: area.district, constituency: r.constituency, partNumber: r.partnumber, name: r.name, address: r.address,
+            ...(r.lat && r.lng ? { location: { lat: Number(r.lat), lng: Number(r.lng) } } : {}) }));
+        setBusy(true);
+        try { setResult((await api.post("/polling-stations/import", { stations })).data.data); await onDone(); }
+        catch (err) { setError(apiMessage(err, "The import failed. Nothing was changed.")); }
+        finally { setBusy(false); }
+    };
+    return (
+        <form className="panel portal-form" onSubmit={submit}>
+            <h2>Import stations from a list</h2>
+            <p className="muted">Paste CSV with the columns <code>constituency, partNumber, name, address, lat, lng</code> (lat and lng optional), one station per line, up to 500. Valid rows are proposed for ECI approval; each invalid row is reported with its reason.</p>
+            <div className="field"><label htmlFor="imp-csv">Stations (CSV)</label>
+                <textarea id="imp-csv" rows={6} value={text} onChange={(e) => setText(e.target.value)} placeholder={IMPORT_SAMPLE} required style={{ fontFamily: "monospace" }} /></div>
+            <div className="row-actions" style={{ gap: 8 }}>
+                <button className="btn btn-primary" type="submit" disabled={busy}>Import and propose</button>
+                <button className="btn btn-quiet" type="button" onClick={() => setText(IMPORT_SAMPLE)}>Fill in an example</button>
+            </div>
+            {error && <div className="alert alert-error" role="alert">{error}</div>}
+            {result && (
+                <div className={`alert ${result.rejected.length ? "alert-warn" : "alert-ok"}`} role="status">
+                    {result.proposed.length} proposed{result.proposed.length ? ` (${result.proposed.join(", ")})` : ""}; {result.rejected.length} rejected.
+                    {result.rejected.length > 0 && <ul>{result.rejected.map((r) => <li key={r.index}>Row {r.index + 1}: {r.reason}</li>)}</ul>}
+                </div>
+            )}
+        </form>
+    );
+}
 
 export default function DeoDesk() {
     const { logged, userData } = useContext(AuthContext);
@@ -111,6 +168,7 @@ export default function DeoDesk() {
                                     ))}
                                     {stations.length === 0 && <tr><td colSpan={4}>No stations yet.</td></tr>}</tbody>
                                 </table></div>
+                                {stations.length > 0 && <div style={{ marginTop: 16 }}><StationMap stations={stations} height={320} /></div>}
                             </div>
 
                             {moving && (
@@ -136,6 +194,8 @@ export default function DeoDesk() {
                                 <StationDetails prefix="ps" value={form} onChange={setForm} />
                                 <button className="btn btn-primary" type="submit" disabled={busy}>Propose station</button>
                             </form>
+
+                            <StationImport area={area} onDone={load} />
 
                             <StaffAssignments roles={STAFF} stations={stations} constituencies={constituencies} election={election} area={area} />
                         </>

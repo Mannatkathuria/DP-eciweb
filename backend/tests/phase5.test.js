@@ -64,10 +64,10 @@ test("result sources: only the ECI administrator registers one; an official feed
     assert.equal((await call("POST", "/results/sources", { name: "Feed", type: "mock" }, ro.token)).status, 403);
     assert.equal((await call("POST", "/results/sources", { name: "Feed", type: "scraper" }, eci.token)).status, 400);
     assert.equal((await call("POST", "/results/sources", { name: "Official feed", type: "official_feed" }, eci.token)).status, 400);
-    const ok = await call("POST", "/results/sources", { name: "Official counting feed", type: "official_feed", legalBasis: "Written authorisation of the Commission", agreementReference: "ECI/RES/2026/01" }, eci.token);
+    const ok = await call("POST", "/results/sources", { name: `Official counting feed ${crypto.randomUUID().slice(0, 8)}`, type: "official_feed", legalBasis: "Written authorisation of the Commission", agreementReference: "ECI/RES/2026/01" }, eci.token);
     assert.equal(ok.status, 201);
     ctx.official = ok.body.data;
-    ctx.mock = (await call("POST", "/results/sources", { name: "Mock feed", type: "mock" }, eci.token)).body.data;
+    ctx.mock = (await call("POST", "/results/sources", { name: `Mock feed ${crypto.randomUUID().slice(0, 8)}`, type: "mock" }, eci.token)).body.data;
 });
 
 test("official feed: rounds are validated against the candidate list, append-only, corrected with a reason, declared once", needsRedis, async () => {

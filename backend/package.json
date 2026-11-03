@@ -8,7 +8,8 @@
     "seed": "node src/seed.js",
     "create-blo": "node scripts/create-blo.js",
     "check-db": "node src/checkDb.js",
-    "test": "node --test tests/backend.test.js tests/registration.test.js tests/blo-auth.test.js tests/workflow-integration.test.js tests/blo-decisions.test.js tests/form6.test.js tests/phase1.test.js tests/phase2.test.js tests/phase3.test.js tests/phase4.test.js tests/phase5.test.js tests/phase6.test.js tests/phase7.test.js tests/realtime.test.js tests/offline.test.js tests/queue.test.js tests/counting.test.js"
+    "test": "node --test tests/backend.test.js tests/registration.test.js tests/blo-auth.test.js tests/workflow-integration.test.js tests/blo-decisions.test.js tests/form6.test.js tests/phase1.test.js tests/phase2.test.js tests/phase3.test.js tests/phase4.test.js tests/phase5.test.js tests/phase6.test.js tests/phase7.test.js tests/realtime.test.js tests/offline.test.js tests/queue.test.js tests/counting.test.js tests/form7.test.js tests/readmodel.test.js",
+    "mongo:sync": "node scripts/mongo-sync.js"
   },
   "dependencies": {
     "axios": "^1.20.0",
@@ -18,6 +19,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^7.5.0",
     "jsonwebtoken": "^9.0.3",
+    "mongodb": "^6.22.0",
     "multer": "^2.4.0",
     "redis": "^5.9.0",
     "socket.io": "^4.8.1"
