@@ -31,7 +31,7 @@ function BloLogin() {
     }, [challenge]);
 
     if (logged && userData?.role === "blo") {
-        return <Navigate to={userData.mustChangePassword ? "/blo/password" : "/admin"} replace />;
+        return <Navigate to={userData.mustChangePassword ? "/blo/password" : "/desk"} replace />;
     }
 
     const startOtp = (data) => {
@@ -68,7 +68,7 @@ function BloLogin() {
             setBusy(true);
             const { data } = await api.post("/auth/blo/verify", { challenge: challenge.challenge, otp });
             login(data.user.epic, data.token, data.user);
-            navigate(data.user.mustChangePassword ? "/blo/password" : "/admin", { replace: true });
+            navigate(data.user.mustChangePassword ? "/blo/password" : "/desk", { replace: true });
         } catch (err) {
             const status = err.response?.status;
             if (status === 401) { setChallenge(null); setError(t("blo.sessionExpired")); return; }

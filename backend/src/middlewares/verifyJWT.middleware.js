@@ -47,3 +47,20 @@ export const requireRole = (...roles) => (req, res, next) => {
     }
     next();
 };
+
+/**
+ * For routes open to everyone that also accept a signed-in caller (an applicant who is signed in
+ * is recorded as the submitter). A missing or invalid token simply means "not signed in".
+ */
+export const optionalJWT = async (req, res, next) => {
+    const bearer = req.header("Authorization")?.replace("Bearer ", "");
+    const token = bearer || req.cookies?.accessToken;
+    if (!token) return next();
+    try {
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        if (await isRevoked(decoded)) return next();
+        const user = await getUserById(decoded?._id);
+        if (user && !user.suspended) req.user = user;
+    } catch { /* not signed in */ }
+    next();
+};

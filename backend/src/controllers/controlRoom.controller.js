@@ -31,7 +31,9 @@ export const INCIDENT_TYPES = {
 };
 export const SEVERITIES = ["low", "medium", "high", "critical"];
 // Who an incident is with; "escalate" moves it one step up.
-export const ESCALATION_LEVELS = ["sector_officer", "returning_officer", "district_election_officer", "chief_electoral_officer"];
+// The last step refers the incident to the Commission (for example under ss. 57, 58 or 58A); it is
+// then closed only after a Commission direction about it has been complied with.
+export const ESCALATION_LEVELS = ["sector_officer", "returning_officer", "district_election_officer", "chief_electoral_officer", "election_commission"];
 // Thresholds for alerts (minutes). Poll hours vary by election; 07:00 is the usual start.
 const POLL_START = process.env.POLL_START_IST || "07:00";
 const OPEN_GRACE = 30, QUEUE_STALE = 60, CASE_STALE = 30;
@@ -178,7 +180,15 @@ export const updateIncident = asyncHandler(async (req, res) => {
         const note = ["resolve", "escalate"].includes(action) ? requireReason(req.body?.note, action === "resolve" ? "resolution" : "escalation") : clean(req.body?.note) || null;
         if (action === "update" && !note) throw new ApiError(400, "Write the update.");
         const level = incident.escalationLevel ?? 0;
-        if (action === "escalate" && level >= ESCALATION_LEVELS.length - 1) throw new ApiError(409, "This incident is already with the Chief Electoral Officer.");
+        if (action === "escalate" && level >= ESCALATION_LEVELS.length - 1) throw new ApiError(409, "This incident is already with the Election Commission.");
+        if (action === "escalate" && ESCALATION_LEVELS[level + 1] === "election_commission" && !hasPermission(req.user, "state:manage")) {
+            throw new ApiError(403, "Only the Chief Electoral Officer refers an incident to the Commission.");
+        }
+        if (action === "resolve" && ESCALATION_LEVELS[level] === "election_commission") {
+            const { listAllDirections } = await import("./oversight.controller.js");
+            const done = (await listAllDirections()).some((d) => d.subject?.type === "incident" && d.subject.id === incident._id && ["complied", "closed"].includes(d.status));
+            if (!done) throw new ApiError(409, "This incident is with the Commission. It is closed after the Commission's direction on it has been complied with.");
+        }
         const at = new Date().toISOString();
         const status = action === "resolve" ? "resolved" : "acknowledged";
         const updated = { ...incident, status, timeline: [...incident.timeline, { action, by: req.user.epic, at, note, ...(action === "escalate" ? { to: ESCALATION_LEVELS[level + 1] } : {}) }],

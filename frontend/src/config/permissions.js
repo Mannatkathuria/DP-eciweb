@@ -62,6 +62,10 @@ export const PERMISSION_TEXT = {
   "candidates:publish": "Publish the list of contesting candidates",
   "control:view": "See the control room for your jurisdiction",
   "incident:report": "Report incidents at a polling station",
-  "incident:manage": "Acknowledge and resolve incidents"
+  "incident:manage": "Acknowledge and resolve incidents",
+  "agent:appoint": "Appoint election, polling and counting agents",
+  "scrutiny:delegate": "Delegate scrutiny of nominations to an ARO when unavoidably prevented",
+  "permission:decide": "Grant or refuse campaign permissions",
+  "direction:issue": "Issue the Commission's directions to field officers"
 };
 export const permissionText = (id) => PERMISSION_TEXT[id] || id;

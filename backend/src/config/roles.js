@@ -52,9 +52,9 @@ export const ROLES = [
 
     // Election conduct
     r("ro", "Returning officer", "conduct", 4, ["election", "constituency"], "ROF1000001",
-        ["nomination:scrutinise", "scrutiny:delegate", "candidates:publish", "polling:arrange", "counting:supervise", "result:declare", "station:view", "control:view", "incident:manage"]),
+        ["nomination:scrutinise", "scrutiny:delegate", "candidates:publish", "polling:arrange", "counting:supervise", "result:declare", "station:view", "control:view", "incident:manage", "permission:decide"]),
     r("aro", "Assistant returning officer", "conduct", 4, ["election", "constituency"], "ARO1000001",
-        ["nomination:scrutinise", "polling:arrange", "counting:assist", "station:view", "control:view", "incident:manage"]),
+        ["nomination:scrutinise", "polling:arrange", "counting:assist", "station:view", "control:view", "incident:manage", "permission:decide"]),
     r("sector_officer", "Sector officer", "conduct", 5, ["election", "constituency"], "SCO1000001",
         ["polling:inspect", "logistics:track", "station:view", "control:view", "incident:report", "incident:manage"]),
     r("sector_police_officer", "Sector police officer", "conduct", 5, ["election", "constituency"], "SPO1000001",
@@ -92,9 +92,9 @@ export const ROLES = [
     r("eci", "ECI administrator", "national", 1, [], "ECI1234567",
         ["national:manage", "role:assign", "blo:assign", "verification:review", "audit:read", "integration:manage", "election:manage", "station:approve", "control:view"]),
     r("cec", "Chief election commissioner", "national", 1, [], "CEC1000001",
-        ["national:view", "report:national", "audit:read", "control:view"]),
+        ["national:view", "report:national", "audit:read", "control:view", "direction:issue"]),
     r("election_commissioner", "Election commissioner", "national", 1, [], "ELC1000001",
-        ["national:view", "report:national", "audit:read", "control:view"]),
+        ["national:view", "report:national", "audit:read", "control:view", "direction:issue"]),
 
     // Independent oversight: observers get an independent reporting permission, never write access
     // to the records of the officers they observe.
@@ -109,6 +109,26 @@ export const ROLES = [
     r("micro_observer", "Micro observer", "observer", 0, ["election", "pollingStation"], "MOB1000001",
         ["observer:report", "incident:report"])
 ];
+
+// Subjects a nodal officer can be assigned to (the assignment's `function`). A nodal officer acts
+// only inside the subject named in their assignment order.
+export const NODAL_FUNCTIONS = {
+    evm: "EVM and VVPAT management",
+    training: "Training of polling personnel",
+    transport: "Transport and vehicle management",
+    material: "Election material",
+    expenditure: "Expenditure monitoring",
+    mcc: "Model Code of Conduct",
+    media: "Media certification and monitoring (MCMC)",
+    sveep: "Voter education (SVEEP)",
+    postal_ballot: "Postal ballots",
+    accessibility: "Accessibility and assured minimum facilities",
+    it: "IT, webcasting and communication",
+    law_and_order: "Law and order coordination",
+    manpower: "Manpower management",
+    complaints: "Complaints and voter helpline"
+};
+export const NODAL_ROLES = ["district_nodal_officer", "state_nodal_officer"];
 
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((role) => [role.id, role]));
 export const isKnownRole = (id) => Object.hasOwn(ROLE_BY_ID, id);

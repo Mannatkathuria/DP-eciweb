@@ -73,21 +73,11 @@ export const DEMO_IDS = {
 export const roleById = (id) => ROLES.find((r) => r.id === id);
 export const rolesInGroup = (groupId) => ROLES.filter((r) => r.group === groupId);
 
-/** Where a signed-in account lands. Voters, BLOs and the ECI administrator keep their existing sections. */
-export const homeFor = (roleId) => {
-  if (roleId === "voter") return "/dashboard";
-  if (roleId === "blo" || roleId === "admin") return "/admin";
-  if (roleId === "eci") return "/eci/dashboard";
-  if (roleId === "ero" || roleId === "aero") return "/ero";
-  if (roleId === "deo") return "/deo";
-  if (roleId === "ro" || roleId === "aro") return "/ro";
-  if (roleId === "candidate") return "/candidate";
-  if (["election_agent", "counting_agent"].includes(roleId)) return "/agent";
-  if (["counting_supervisor", "counting_assistant", "counting_observer"].includes(roleId)) return "/counting";
-  if (["sector_officer", "ceo", "deputy_deo", "cec", "election_commissioner", "general_observer"].includes(roleId)) return "/control-room";
-  if (["presiding_officer", "polling_officer", "polling_agent", "micro_observer"].includes(roleId)) return "/poll-day";
-  return "/workspace";
-};
+/**
+ * Where a signed-in account lands. Voters keep their dashboard; every election role has its own
+ * desk (pages/RoleDesk.jsx), which links on to that role's dedicated work screens.
+ */
+export const homeFor = (roleId) => (roleId === "voter" ? "/dashboard" : "/desk");
 
 /** Sign-in page for a role. */
 export const signInPath = (roleId) => `/signin/${roleId}`;

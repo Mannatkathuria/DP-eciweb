@@ -254,6 +254,27 @@ On Windows Command Prompt use `set TEST_REDIS_URL=redis://127.0.0.1:6390&& npm t
 
 During the ECI polling-station flow, the demonstration scanner token is `FP-<EPIC>` (for example, `FP-ABC1234567`). This token is a demo adapter, not a real fingerprint scan.
 
+## Role desks and the data flows behind them
+
+Every role except the voter now signs in to its own desk at `/desk` (`frontend/src/pages/RoleDesk.jsx`, configured per role in `frontend/src/config/desks.js`). A desk shows the role's authority and assignment, what it may and may not do, a report for its jurisdiction where the role has one, its work panels, and links to its dedicated work screens (`/ero`, `/deo`, `/ro`, `/poll-day`, `/counting` and so on). Every panel calls the backend, which checks permission, jurisdiction and stage for each record.
+
+New backend workflows (all audited, all jurisdiction-checked):
+
+| Area | Endpoints | Flow |
+| --- | --- | --- |
+| Electoral forms 2, 2A, 3, 6A, 6B, 7, 8 | `/api/v1/elector-forms` | Anyone submits to the ERO of a chosen constituency and tracks by `EF…` reference (also on `/check-request`). The BLO records a field report; only the ERO/AERO decides (step-up). Approval changes the roll: new service/overseas entry, deletion marked (never erased), correction, shift, PwD, authentication record. Aadhaar numbers are never stored (last four digits and a salted hash only); documents are byte-checked and deleted after the decision. |
+| Polling stations (RP Act 1951, s. 25) | `/api/v1/polling-stations/:id/consultation`, `/forward`, `/ceo-forward`, `/clarification`, `/approve`, `/publish`; `/issues` | DEO drafts and records the party consultation, forwards to the CEO; CEO forwards to the Commission or returns; the Commission gives prior approval with its order reference (or asks for clarification / rejects); the DEO then publishes and only then is the station active. Anyone working in the area can report a problem with a station; the DEO closes it. |
+| Campaign permissions | `/api/v1/campaign-permissions` | Candidate or election agent applies; police (sector / district police officer) remark on events in public places; RO/ARO grants with conditions or refuses. No meeting or procession in the 48 hours before the poll closes (s. 126). |
+| Expenditure | `/api/v1/expenditure` | Append-only register per candidate (corrections supersede with a reason; cash above ₹10,000 flagged); the expenditure observer reads it, notes entries and keeps a shadow register; totals against the ceiling. |
+| Observer reports and directions | `/api/v1/oversight/observer-reports`, `/api/v1/oversight/directions` | Observers file confidential reports (micro observers' also reach the general observer; the DEO sees the district's). The CEC and Election Commissioners issue directions under a named legal basis; the addressee reports compliance; the Commission closes. Incidents can now be referred by the CEO to the Commission and are then closed only after a complied direction. |
+| Security | `/api/v1/security` | Police planners categorise stations (normal / sensitive / critical) and plan deployments; field police send situation reports. Never shown to candidates or agents. |
+| Logistics | `/api/v1/logistics` | Sector officers record the polling party and machine custody chain, station by station. |
+| Nodal officers | `/api/v1/nodal` | A nodal assignment names its subject (`function`, e.g. `evm`); the officer reports only on that subject; the DEO / Deputy DEO / CEO give tasks and read all subjects. |
+| Reports | `/api/v1/reports/summary`, `/api/v1/reports/roll-part` | Counts for the caller's district, State or the country, one level broken down, with CSV download; the published roll of a BLA's or BLO's part (no addresses or documents). |
+| Counting | `recount_request` discrepancy type | Rule 63 written recount request, decided by the RO. |
+
+Two permissions were added: `permission:decide` (RO, ARO) and `direction:issue` (CEC, Election Commissioners). The seed adds demo records for the desks. The tests for these flows are in `backend/tests/workflows.test.js`; `tests/helpers/stationApproval.js` walks a station through the s. 25 stages.
+
 ## Main routes
 
 ```text
@@ -282,6 +303,8 @@ During the ECI polling-station flow, the demonstration scanner token is `FP-<EPI
 /control-room     Stations, alerts and incidents across the official's jurisdiction
 /results          Read-only counting and turnout (registered source or labelled mock)
 /training         Training modules for the signed-in role, and staff progress for supervisors
+/desk             The signed-in role's own dashboard (every role except the voter)
+/voters/forms     Forms 2, 2A, 3, 6A, 6B, 7 and 8
 ```
 
 ## Notes

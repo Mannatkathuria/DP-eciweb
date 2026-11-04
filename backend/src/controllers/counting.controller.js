@@ -35,6 +35,7 @@ export const DISCREPANCY_TYPES = {
     cu_display: "Control unit does not display the result",
     serial_mismatch: "Control unit number differs from the records",
     postal_ballot: "Postal ballot handling",
+    recount_request: "Rule 63: written request for a recount, with grounds",
     other: "Other"
 };
 

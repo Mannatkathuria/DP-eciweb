@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import useGeography from "../../hooks/useGeography";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const EMPTY = (v) => v === undefined || v === null || v === "";
@@ -220,21 +221,40 @@ function reviewValue(field, values, files) {
   return value;
 }
 
+// Every form is addressed to the Electoral Registration Officer of one assembly constituency
+// (chosen from the ECI list). The backend routes it to that constituency's BLO and ERO.
+const ERO_FIELDS = ["eroState", "eroDistrict", "eroConstituency"];
+
 export default function FormWizard({ config }) {
   const navigate = useNavigate();
-  const [values, setValues] = useState(() => ({ ...config.initialValues }));
+  const { geography, states, districtsOf, constituenciesOf } = useGeography();
+  const baseValues = useMemo(() => ({ eroState: "", eroDistrict: "", eroConstituency: "", ...config.initialValues }), [config]);
+  const [values, setValues] = useState(() => ({ ...baseValues }));
   const [files, setFiles] = useState({});
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(null);
-  const steps = useMemo(() => config.steps, [config]);
+  const steps = useMemo(() => [{
+    title: "Addressed to",
+    sections: (v) => [{
+      title: "Electoral Registration Officer of",
+      intro: config.code === "FORM_8"
+        ? "Choose the constituency of your entry. For a shift of residence, choose the constituency you have moved to: its ERO decides the application."
+        : "Choose the assembly constituency where the entry is, or is to be, made. The application goes to the BLO and ERO of that constituency.",
+      fields: [
+        { type: "select", name: "eroState", label: "State / UT", required: true, options: states.map((x) => x.name), placeholder: geography ? "Select a State / UT" : "Loading…" },
+        { type: "select", name: "eroDistrict", label: "District", required: true, options: districtsOf(v.eroState).map((d) => d.name) },
+        { type: "select", name: "eroConstituency", label: "Assembly constituency", required: true, options: constituenciesOf(v.eroState, v.eroDistrict) },
+      ],
+    }],
+  }, ...config.steps], [config, geography, states, districtsOf, constituenciesOf]);
   const isReview = step === steps.length;
   const currentStep = steps[step];
   const sections = isReview ? [] : currentStep.sections(values, files);
   const currentFields = flattenSections(sections, values, files);
-  const dirty = !submitted && (JSON.stringify(values) !== JSON.stringify(config.initialValues) || Object.keys(files).length > 0);
+  const dirty = !submitted && (JSON.stringify(values) !== JSON.stringify(baseValues) || Object.keys(files).length > 0);
 
   useEffect(() => {
     if (!dirty) return undefined;
@@ -249,7 +269,10 @@ export default function FormWizard({ config }) {
   }, [step]);
 
   const setValue = (name, value) => {
-    setValues((previous) => ({ ...previous, [name]: value }));
+    setValues((previous) => ({
+      ...previous, [name]: value,
+      ...(name === "eroState" ? { eroDistrict: "", eroConstituency: "" } : name === "eroDistrict" ? { eroConstituency: "" } : {}),
+    }));
     setErrors((previous) => {
       if (!previous[name]) return previous;
       const next = { ...previous };
@@ -311,7 +334,8 @@ export default function FormWizard({ config }) {
     const activeFields = steps.flatMap((_, index) => sectionsForStep(index));
     const activeValueNames = new Set(activeFields.filter((field) => field.type !== "file").map((field) => field.name));
     const activeFileNames = new Set(activeFields.filter((field) => field.type === "file").map((field) => field.name));
-    const application = Object.fromEntries(Object.entries(values).filter(([key]) => activeValueNames.has(key)));
+    const application = Object.fromEntries(Object.entries(values).filter(([key]) => activeValueNames.has(key) && !ERO_FIELDS.includes(key)));
+    const jurisdiction = { state: values.eroState, district: values.eroDistrict, constituency: values.eroConstituency };
     const documents = Object.fromEntries(Object.entries(files)
       .filter(([key]) => activeFileNames.has(key))
       .map(([key, file]) => [key, {
@@ -320,17 +344,18 @@ export default function FormWizard({ config }) {
     try {
       const response = await api.post(config.endpoint, {
         formCode: config.code,
+        jurisdiction,
         application,
         documents,
       });
       const data = response.data?.data || response.data || {};
       setSubmitted({
         referenceId: data.referenceId || data.applicationId || data.acknowledgementNumber || "Submitted",
-        message: data.message || "Your application has been received.",
+        message: response.data?.message || data.message || "Your application has been received.",
       });
     } catch (err) {
       setError(err.response?.data?.message || (err.response
-        ? `The server rejected this request (${err.response.status}). Confirm that ${config.endpoint} is implemented in the backend.`
+        ? `The server rejected this request (${err.response.status}).`
         : "Could not reach the server. Check your connection and try again."));
     } finally {
       setLoading(false);
@@ -361,6 +386,7 @@ export default function FormWizard({ config }) {
               <h2>✓ Application submitted</h2>
               <p>{submitted.message}</p>
               <p>Reference number: <strong className="f6-ref">{submitted.referenceId}</strong></p>
+              <p><Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>Track this application</Link></p>
             </div>
           )}
 

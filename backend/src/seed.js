@@ -156,6 +156,8 @@ const DEMO_BOOTH = { partNumber: "18" };
 // The station team is assigned to an election that polls today, so poll day can be demonstrated.
 const DEMO_POLL_ELECTION = { _id: "demo-poll-day", name: "Demo poll-day election, Ludhiana South" };
 const POLL_DAY_ROLES = ["presiding_officer", "polling_officer", "polling_agent", "micro_observer"];
+// Nodal officers act for one subject, named in their assignment.
+const DEMO_NODAL_FUNCTION = { district_nodal_officer: "evm", state_nodal_officer: "training" };
 const ensureDemoAssignments = async () => {
     const accounts = [
         ...ROLES.filter((role) => role.demoEpic && role.scope.length).map((role) => [role.demoEpic, role.id]),
@@ -175,6 +177,8 @@ const ensureDemoAssignments = async () => {
             ...(wanted.pollingStation ? DEMO_BOOTH : {})
         });
         await saveAssignment({
+            ...(DEMO_NODAL_FUNCTION[roleId] ? { function: DEMO_NODAL_FUNCTION[roleId] } : {}),
+            ...(roleId === "election_agent" ? { candidateName: "Demo candidate" } : {}),
             _id: crypto.randomUUID(), userId: user._id, epic: user.epic, role: roleId,
             election: role.scope.includes("election") ? (POLL_DAY_ROLES.includes(roleId) ? DEMO_POLL_ELECTION.name : DEMO_JURISDICTION.election) : null,
             jurisdiction, status: "active", grantedBy: "SEED", grantedAt: new Date().toISOString(),
@@ -429,7 +433,11 @@ const seedPollingStations = async () => {
         const details = { name, address, location, accessibility };
         saveStation({
             _id: crypto.randomUUID(), stationCode: `PS-PUNJAB-LUDHIANA-SOUTH-${partNumber}`, ...area, partNumber, ...details, status,
-            pendingChange: status === "PROPOSED" ? { type: "create", proposed: details, reason: "New part after delimitation of Shimlapuri", by: "DEO1000001", at } : null,
+            // The demo proposal has been consulted on and forwarded by the CEO, so the Commission can decide it.
+            pendingChange: status === "PROPOSED" ? { type: "create", proposed: details, reason: "New part after delimitation of Shimlapuri", by: "DEO1000001", at, stage: "SENT_TO_ECI",
+                consultation: { parties: "Punjab Progress Party, National Unity Party", meetingDate: todayIST(), outcome: "No objection raised", objections: null, by: "DEO1000001", at },
+                steps: [{ stage: "DISTRICT_REVIEW", by: "DEO1000001", role: "deo", at }, { stage: "STAKEHOLDER_CONSULTATION", by: "DEO1000001", role: "deo", at, note: "No objection raised" },
+                    { stage: "SENT_TO_CEO", by: "DEO1000001", role: "deo", at }, { stage: "SENT_TO_ECI", by: "CEO1000001", role: "ceo", at, note: "Forwarded, recommended" }] } : null,
             history: status === "ACTIVE" ? [{ type: "create", from: null, to: details, reason: "Demo data", proposedBy: "DEO1000001", approvedBy: "SEED", at, version: 1 }] : [],
             relocationNotice: null,
             source: status === "ACTIVE" ? { authority: "Demo data (synthetic), shown as approved", version: 1, verifiedAt: at, approvedBy: "SEED" } : null,
@@ -438,6 +446,54 @@ const seedPollingStations = async () => {
     }
     await tx.exec();
     console.log("Seeded demo polling stations in Ludhiana South (3 approved, 1 awaiting ECI approval).");
+};
+
+// Older demo databases: give the nodal officers' assignments their subject.
+const patchNodalAssignments = async () => {
+    const { listAllAssignments } = await import("./repositories/assignment.repository.js");
+    for (const a of await listAllAssignments()) {
+        if (a.demo && DEMO_NODAL_FUNCTION[a.role] && !a.function) await saveAssignment({ ...a, function: DEMO_NODAL_FUNCTION[a.role] });
+    }
+};
+
+// Demo records for the role dashboards: a campaign permission awaiting police remarks, a few
+// expenditure register entries, an observer report, a nodal task, a security assessment and a
+// Form 8 application. All invented, written once.
+const seedWorkflowDemo = async () => {
+    if (await redis().get("demo:workflow-seeded")) return;
+    const { store } = await import("./services/workflow.service.js");
+    const at = new Date().toISOString();
+    const area = { state: "Punjab", district: "Ludhiana", constituency: "Ludhiana South" };
+    const candidate = { name: "Demo candidate", party: null, nominationId: null, epic: "CAN1000001" };
+    const tx = redis().multi();
+    store("campaign-permission").save({ _id: "demo-permission-1", electionId: "demo-general-election", electionName: DEMO_JURISDICTION.election, jurisdiction: area, candidate,
+        type: "public_meeting", date: dayOffset(6), from: "16:00", to: "19:00", venue: "Rakh Bagh ground, Ludhiana", purpose: "Public meeting with residents of wards 12-15",
+        expectedCrowd: 1500, vehicleNumbers: null, status: "applied", appliedBy: { epic: "CAN1000001", name: "Demo candidate", role: "candidate" }, appliedAs: "candidate", appliedAt: at,
+        police: null, decision: null, history: [{ step: "applied", at, by: "CAN1000001" }], demo: true }, tx);
+    [["public_meeting", 185000, "cheque", "Sharma Tent House", "Stage, chairs and sound for the meeting at Rakh Bagh"],
+     ["campaign_material", 42000, "bank_transfer", "Ludhiana Printers", "10,000 pamphlets and 200 posters"],
+     ["vehicles", 14500, "cash", "Singh Travels", "Hire of two campaign vehicles for three days"]].forEach(([category, amount, mode, payee, description], i) =>
+        store("expenditure").save({ _id: `demo-expenditure-${i + 1}`, electionId: "demo-general-election", jurisdiction: area, candidate, candidateKey: "CAN1000001", date: dayOffset(-1 - i),
+            category, amount, mode, payee, description, voucherRef: i === 2 ? null : `V-${100 + i}`, enteredBy: { epic: "CAN1000001", name: "Demo candidate", role: "candidate" }, enteredAt: at,
+            corrects: null, supersededBy: null, correctionReason: null, observerNotes: [], flags: [...(mode === "cash" && amount > 10000 ? ["cash_above_10000"] : []), ...(i === 2 ? ["no_voucher"] : [])], demo: true }, tx));
+    store("observer-report").save({ _id: "demo-observer-report-1", kind: "general", electionId: "demo-general-election", election: DEMO_JURISDICTION.election, jurisdiction: area, pollingStation: null,
+        topic: "preparedness", severity: "concern", title: "Assured minimum facilities missing at part 21", facts: "Visited Government Primary School, Shimlapuri (proposed part 21). There is no ramp and the only toilet is locked. The approach road floods after rain.",
+        recommendation: "Ask the DEO to arrange a ramp and confirm the approach before the station is approved.", reportTo: ["commission"], confidential: true, status: "submitted",
+        filedBy: { epic: "GOB1000001", name: "Demo general observer", role: "general_observer" }, filedAt: at, review: [], directionIds: [], demo: true }, tx);
+    store("nodal-task").save({ _id: "demo-nodal-task-1", function: "evm", jurisdiction: { state: "Punjab", district: "Ludhiana" }, title: "First-level checking of EVMs for Ludhiana South",
+        details: "Complete FLC of all control units and VVPATs in the presence of party representatives and report the count.", dueDate: dayOffset(10), status: "open",
+        createdBy: { epic: "DEO1000001", name: "Demo district election officer", role: "deo" }, createdAt: at, updates: [], demo: true }, tx);
+    tx.set("demo:workflow-seeded", at);
+    await tx.exec();
+    const part18 = (await listStations()).find((st) => st.partNumber === "18" && st.constituency === "Ludhiana South");
+    if (part18) {
+        const t2 = redis().multi();
+        store("security-assessment").save({ _id: "demo-assessment-18", stationId: part18._id, stationName: part18.name, partNumber: "18", jurisdiction: area, category: "sensitive",
+            reasons: ["past_violence"], note: "Clash between party workers near the gate in the last election.", measures: { capf: 4, statePolice: 2, homeGuards: 2, microObserver: true, webcasting: true },
+            by: { epic: "DPO1000001", name: "Demo district police officer", role: "district_police_officer" }, at, supersededBy: null, previous: null, demo: true }, t2);
+        await t2.exec();
+    }
+    console.log("Seeded demo records for the role dashboards (permission, expenditure, observer report, nodal task, security assessment).");
 };
 
 // Phase 5 demo: a completed bye-election with its published list of candidates and a full count
@@ -486,6 +542,10 @@ await seedNewVoterPipeline();
 await seedElections();
 await seedPollingStations();
 await seedMockResults();
+await patchNodalAssignments();
+await seedWorkflowDemo();
 
 console.log("Redis seed complete with sample data for all voter, blo, and eci tabs.");
 await redis().quit();
+// Background timers (the MongoDB projector) would otherwise keep the process alive.
+process.exit(0);

@@ -28,7 +28,7 @@ export default function Workspace() {
 
   if (!logged || !userData) return <Navigate to="/signin" replace />;
   const target = homeFor(userData.role);
-  if (target !== "/workspace") return <Navigate to={target} replace />;
+  if (target !== "/workspace" && roleById(userData.role === "admin" ? "blo" : userData.role)) return <Navigate to={target} replace />;
 
   const role = roleById(userData.role);
   const permissions = roles.find((r) => r.id === userData.role)?.permissions ?? [];

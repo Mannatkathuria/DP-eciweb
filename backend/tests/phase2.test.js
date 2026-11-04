@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { publishStation, forwardToCommission } from "./helpers/stationApproval.js";
 
 // Phase 2: elections and their schedule, polling stations (DEO proposes, ECI approves), election
 // staff assignments, nominations, scrutiny, withdrawal and the published list of candidates.
@@ -131,15 +132,26 @@ test("polling stations: the DEO proposes inside their district; only ECI-approve
 
     const pub = async () => (await call("GET", `/public/stations?state=Punjab&constituency=${encodeURIComponent(area.constituency)}`)).body.data.items.find((s) => s._id === id);
     assert.equal(await pub(), undefined, "a proposal is not public");
+    // No stage can be skipped: the Commission decides only what the CEO has forwarded, and the
+    // DEO forwards only after consulting the parties.
+    assert.equal((await call("POST", `/polling-stations/${id}/approve`, { eciReference: "ECI/1/2026" }, eci.token)).status, 409);
+    assert.equal((await call("POST", `/polling-stations/${id}/forward`, {}, deo.token)).status, 409);
+    assert.equal((await call("POST", `/polling-stations/${id}/ceo-forward`, { remarks: "ok" }, deo.token)).status, 403);
+    await forwardToCommission(call, id, deo.token);
     assert.equal((await call("POST", `/polling-stations/${id}/reject`, { reason: " " }, eci.token)).status, 400);
-    const approved = await call("POST", `/polling-stations/${id}/approve`, {}, eci.token);
-    assert.equal(approved.status, 200);
+    assert.equal((await call("POST", `/polling-stations/${id}/approve`, {}, eci.token)).status, 400, "the Commission's order reference is required");
+    assert.equal((await call("POST", `/polling-stations/${id}/publish`, {}, deo.token)).status, 409, "nothing is published before prior approval");
+    assert.equal((await call("POST", `/polling-stations/${id}/approve`, { eciReference: "ECI/464/PS/2026" }, eci.token)).status, 200);
+    assert.equal(await pub(), undefined, "approved but not yet published by the DEO");
+    const approved = await call("POST", `/polling-stations/${id}/publish`, {}, deo.token);
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
     assert.equal(approved.body.data.source.version, 1);
+    assert.equal(approved.body.data.source.eciReference, "ECI/464/PS/2026");
     const shown = await pub();
     assert.equal(shown.name, station.name);
     assert.equal(shown.accessibility.ramp, true); assert.equal(shown.accessibility.shade, false);
     assert.equal(shown.createdBy, undefined, "public view carries no staff details");
-    assert.equal((await call("POST", `/polling-stations/${id}/approve`, {}, eci.token)).status, 409);
+    assert.equal((await call("POST", `/polling-stations/${id}/approve`, { eciReference: "ECI/464/PS/2026" }, eci.token)).status, 409);
 
     // Electors of this part.
     const epic = `PSV${String(runId % 1e7).padStart(7, "0")}`;
@@ -156,8 +168,8 @@ test("polling stations: the DEO proposes inside their district; only ECI-approve
     assert.equal(relocation.status, 200, JSON.stringify(relocation.body));
     assert.equal((await call("POST", `/polling-stations/${id}/relocation`, { ...move, reason: "Again" }, deo.token)).status, 409);
     assert.equal((await pub()).name, station.name, "unchanged until approved");
-    const done = await call("POST", `/polling-stations/${id}/approve`, {}, eci.token);
-    assert.equal(done.status, 200);
+    const done = await publishStation(call, id, deo.token, eci.token);
+    assert.equal(done.status, 200, JSON.stringify(done.body));
     assert.match(done.body.message, /1 electors updated/);
     assert.equal(done.body.data.source.version, 2);
     assert.equal((await getElectorByEpic(epic)).pollingStation, move.name);
@@ -171,7 +183,9 @@ test("polling stations: the DEO proposes inside their district; only ECI-approve
     assert.equal((await call("GET", "/polling-stations", undefined, otherDeo.token)).body.data.items.some((s) => s._id === id), false);
     assert.equal((await call("GET", "/polling-stations", undefined, deo.token)).body.data.items.some((s) => s._id === id), true);
     const audit = (await call("GET", `/audit/station/${id}`, undefined, eci.token)).body.data.items.map((e) => e.action);
-    assert.deepEqual(audit.sort(), ["station.approved", "station.proposed", "station.relocated", "station.relocation_proposed"]);
+    // Every s. 25 stage is on the record, twice: once for the new station, once for its relocation.
+    const stages = ["station.consultation_recorded", "station.eci_approved", "station.forwarded_to_ceo", "station.forwarded_to_eci"];
+    assert.deepEqual(audit.sort(), [...stages.flatMap((x) => [x, x]), "station.proposed", "station.published", "station.relocated", "station.relocation_proposed"].sort());
 });
 
 test("election staff: the DEO appoints polling staff in their district at approved stations; the RO arranges polling parties in their constituency", needsRedis, async () => {
@@ -181,7 +195,7 @@ test("election staff: the DEO appoints polling staff in their district at approv
     const part = String(1 + ((runId + 1) % 9000));
     const name = `Primary School ${runId}`;
     const st = await call("POST", "/polling-stations", { ...area, partNumber: part, name, address: "Street 9, Haibowal Kalan, Ludhiana 141001" }, deo.token);
-    await call("POST", `/polling-stations/${st.body.data._id}/approve`, {}, eci.token);
+    assert.equal((await publishStation(call, st.body.data._id, deo.token, eci.token)).status, 200);
 
     const presiding = await makeUser("presiding_officer");
     const at = (pollingStation) => ({ ...area, pollingStation, partNumber: part });

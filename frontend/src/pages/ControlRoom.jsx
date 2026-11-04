@@ -15,7 +15,7 @@ const ROLES = ["sector_officer", "ro", "aro", "deo", "deputy_deo", "ceo", "eci",
 const POLL = { not_started: ["Not started", "badge-warn"], mock_poll_done: ["Mock poll held", "badge-warn"], open: ["Open", "badge-ok"], closed: ["Closed", ""] };
 const SEVERITY = { low: "", medium: "badge-progress", high: "badge-warn", critical: "badge-bad" };
 const INCIDENT_STATUS = { reported: "Reported", acknowledged: "Being handled", resolved: "Resolved" };
-const ESCALATION = ["sector officer", "Returning Officer", "District Election Officer", "Chief Electoral Officer"];
+const ESCALATION = ["sector officer", "Returning Officer", "District Election Officer", "Chief Electoral Officer", "Election Commission"];
 // A station is only "online" when one of its registered devices sent a verified heartbeat.
 const LINK = { online: ["Online", "badge-ok"], synchronising: ["Syncing", "badge-progress"], sync_failed: ["Sync failed", "badge-bad"], stale: ["No heartbeat", "badge-warn"], offline: ["Offline", "badge-bad"], unknown: ["No device", ""] };
 const EVENT_LABEL = {
@@ -182,14 +182,14 @@ export default function ControlRoom() {
                                 {data.incidents.length === 0 && <p>No incidents reported.</p>}
                                 <ul className="rows">{data.incidents.map((i) => (
                                     <li key={i._id} style={{ padding: "12px 0" }}>
-                                        <span className={`badge ${SEVERITY[i.severity]}`}>{i.severity}</span> <strong>{data.incidentTypes[i.type]}</strong> at {i.stationName} (part {i.partNumber}, {i.constituency}) · <em>{INCIDENT_STATUS[i.status]}</em>{i.escalationLevel > 0 && <> · <span className="badge badge-warn">Escalated to {ESCALATION[i.escalationLevel]}</span></>}
+                                        <span className={`badge ${SEVERITY[i.severity]}`}>{i.severity}</span> <strong>{data.incidentTypes[i.type]}</strong> at {i.stationName} (part {i.partNumber}, {i.constituency}) · <em>{INCIDENT_STATUS[i.status]}</em>{i.escalationLevel > 0 && <> · <span className="badge badge-warn">Escalated to {ESCALATION[i.escalationLevel]}</span></>} · <small className="muted">ref. <code>{i._id}</code></small>
                                         <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{i.timeline.map((t, n) => <li key={n}><small>{new Date(t.at).toLocaleTimeString()} {t.action} by {t.by}{t.note ? `: ${t.note}` : ""}</small></li>)}</ul>
                                         {data.can.manage && i.status !== "resolved" && (
                                             <div style={{ marginTop: 6 }}>
                                                 {i.status === "reported" && <button className="btn-approve" style={{ marginRight: 8 }} disabled={busy} onClick={() => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "acknowledge" }), "Incident acknowledged.")}>Acknowledge</button>}
                                                 <button className="btn btn-quiet btn-small" style={{ marginRight: 8 }} disabled={busy} onClick={() => setDialog({ title: "Add an update", label: "Update", required: true, confirmLabel: "Add update", confirmClass: "btn-approve",
                                                     run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "update", note }), "Update added.") })}>Add update</button>
-                                                {(i.escalationLevel ?? 0) < 3 && <button className="btn btn-quiet btn-small" style={{ marginRight: 8 }} disabled={busy} onClick={() => setDialog({ title: `Escalate to the ${ESCALATION[(i.escalationLevel ?? 0) + 1]}`, label: "Why does this need a higher level?", required: true, confirmLabel: "Escalate", confirmClass: "btn-reject",
+                                                {((i.escalationLevel ?? 0) < 3 || ((i.escalationLevel ?? 0) === 3 && userData?.role === "ceo")) && <button className="btn btn-quiet btn-small" style={{ marginRight: 8 }} disabled={busy} onClick={() => setDialog({ title: `Escalate to the ${ESCALATION[(i.escalationLevel ?? 0) + 1]}`, label: "Why does this need a higher level?", required: true, confirmLabel: "Escalate", confirmClass: "btn-reject",
                                                     run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "escalate", note }), "Incident escalated.") })}>Escalate</button>}
                                                 <button className="btn-approve" disabled={busy} onClick={() => setDialog({ title: "Resolve the incident", label: "How was it resolved?", required: true, confirmLabel: "Resolve", confirmClass: "btn-approve",
                                                     run: (note) => act(() => api.post(`/control-room/incidents/${i._id}`, { action: "resolve", note }), "Incident resolved.") })}>Resolve</button>

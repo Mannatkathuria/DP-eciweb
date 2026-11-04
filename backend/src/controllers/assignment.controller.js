@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { transaction } from "../config/redis.js";
-import { ROLE_BY_ID } from "../config/roles.js";
+import { NODAL_FUNCTIONS, NODAL_ROLES, ROLE_BY_ID } from "../config/roles.js";
 import { getUserByEpic } from "../repositories/user.repository.js";
 import { getAssignment, listAllAssignments, saveAssignment } from "../repositories/assignment.repository.js";
 import { assignmentInEffect, containsJurisdiction, effectiveAssignments, hasPermission, validateJurisdiction } from "../services/authority.service.js";
@@ -50,9 +50,12 @@ const assertMayManage = (req, role, jurisdiction) => {
     if (hasPermission(req.user, "blo:assign") && role === "blo" && inside) return;
     if (hasPermission(req.user, "staff:assign") && STAFF_ROLES.includes(role) && inside) return;
     if (hasPermission(req.user, "polling:arrange") && POLLING_PARTY_ROLES.includes(role) && inside) return;
+    // Nodal officers are designated by the DEO (district) or the CEO (state) for one subject.
+    if (hasPermission(req.user, "nodal:coordinate") && hasPermission(req.user, "staff:assign") && NODAL_ROLES.includes(role) && inside) return;
     const mine = (hasPermission(req.user, "blo:assign") && role === "blo")
         || (hasPermission(req.user, "staff:assign") && STAFF_ROLES.includes(role))
-        || (hasPermission(req.user, "polling:arrange") && POLLING_PARTY_ROLES.includes(role));
+        || (hasPermission(req.user, "polling:arrange") && POLLING_PARTY_ROLES.includes(role))
+        || (hasPermission(req.user, "nodal:coordinate") && hasPermission(req.user, "staff:assign") && NODAL_ROLES.includes(role));
     throw new ApiError(403, mine
         ? "You can only make this assignment inside your own jurisdiction."
         : "Your role is not authorised to make this assignment.");
@@ -91,6 +94,11 @@ export const grantAssignment = asyncHandler(async (req, res) => {
     const jurisdiction = validateJurisdiction(role, body.jurisdiction ?? {});
     const election = String(body.election ?? "").trim().slice(0, ELECTION_MAX) || null;
     const window = parseWindow(body);
+    // A nodal officer's assignment names the one subject they coordinate.
+    const nodalFunction = NODAL_ROLES.includes(role) ? String(body.function ?? "").trim() : null;
+    if (NODAL_ROLES.includes(role) && !NODAL_FUNCTIONS[nodalFunction]) {
+        throw new ApiError(400, `A nodal officer's assignment must name its subject (function): ${Object.keys(NODAL_FUNCTIONS).join(", ")}.`);
+    }
     assertMayManage(req, role, jurisdiction);
     await assertKnownStation(role, jurisdiction);
 
@@ -102,12 +110,13 @@ export const grantAssignment = asyncHandler(async (req, res) => {
 
     const same = (a, b) => JSON.stringify(Object.entries(a ?? {}).sort()) === JSON.stringify(Object.entries(b ?? {}).sort());
     if ((await listAllAssignments()).some((a) => a.status === "active" && a.userId === target._id && a.role === role
-        && (a.election ?? null) === election && same(a.jurisdiction, jurisdiction))) {
+        && (a.election ?? null) === election && same(a.jurisdiction, jurisdiction) && (a.function ?? null) === nodalFunction)) {
         throw new ApiError(409, "This person already holds this assignment.");
     }
 
     const assignment = {
         _id: crypto.randomUUID(), userId: target._id, epic: target.epic, role, election, jurisdiction,
+        ...(nodalFunction ? { function: nodalFunction } : {}),
         validFrom: window.validFrom, validUntil: window.validUntil,
         status: "active", grantedBy: req.user.epic, grantedAt: new Date().toISOString(),
         revokedBy: null, revokedAt: null, revokeReason: null
@@ -117,7 +126,7 @@ export const grantAssignment = asyncHandler(async (req, res) => {
     await recordAudit(auditEvent({
         actor: req.user, action: "assignment.granted",
         resource: { type: "assignment", id: assignment._id }, jurisdiction,
-        after: { epic: target.epic, role, election, jurisdiction, ...window }
+        after: { epic: target.epic, role, election, jurisdiction, ...(nodalFunction ? { function: nodalFunction } : {}), ...window }
     }), tx);
     await tx.exec();
     res.status(201).json({ success: true, message: "Assignment granted.", data: assignment });

@@ -32,6 +32,14 @@ import eventsRoutes from "./routes/events.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
 import countingRoutes from "./routes/counting.routes.js";
 import objectionRoutes from "./routes/objection.routes.js";
+import formRoutes from "./routes/form.routes.js";
+import campaignPermissionRoutes from "./routes/campaignPermission.routes.js";
+import expenditureRoutes from "./routes/expenditure.routes.js";
+import oversightRoutes from "./routes/oversight.routes.js";
+import securityRoutes from "./routes/security.routes.js";
+import logisticsRoutes from "./routes/logistics.routes.js";
+import nodalRoutes from "./routes/nodal.routes.js";
+import reportRoutes from "./routes/report.routes.js";
 import { isTraining } from "./config/appMode.js";
 import { mongoStatus } from "./config/mongo.js";
 import { redis } from "./config/redis.js";
@@ -86,8 +94,13 @@ const defaultJson = express.json({ ...jsonOptions, limit: "8mb" });
 // A Form 6 application carries three images of up to 4 MB each (about 16 MB once base64-encoded),
 // so only that one route accepts a larger body.
 const registrationJson = express.json({ ...jsonOptions, limit: "18mb" });
-app.use((req, res, next) =>
-    (req.method === "POST" && req.path === "/api/v1/auth/register" ? registrationJson : defaultJson)(req, res, next));
+// The other electoral forms (2, 2A, 3, 6A, 6B, 7, 8) may carry several documents of up to 6 MB.
+const electorFormJson = express.json({ ...jsonOptions, limit: "30mb" });
+app.use((req, res, next) => {
+    if (req.method === "POST" && req.path === "/api/v1/auth/register") return registrationJson(req, res, next);
+    if (req.method === "POST" && req.path.startsWith("/api/v1/elector-forms/") && !req.path.includes("/staff/")) return electorFormJson(req, res, next);
+    return defaultJson(req, res, next);
+});
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
@@ -135,6 +148,14 @@ app.use("/api/v1/events", eventsRoutes);
 app.use("/api/v1/devices", deviceRoutes);
 app.use("/api/v1/counting", countingRoutes);
 app.use("/api/v1/objections", objectionRoutes);
+app.use("/api/v1/elector-forms", formRoutes);
+app.use("/api/v1/campaign-permissions", campaignPermissionRoutes);
+app.use("/api/v1/expenditure", expenditureRoutes);
+app.use("/api/v1/oversight", oversightRoutes);
+app.use("/api/v1/security", securityRoutes);
+app.use("/api/v1/logistics", logisticsRoutes);
+app.use("/api/v1/nodal", nodalRoutes);
+app.use("/api/v1/reports", reportRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

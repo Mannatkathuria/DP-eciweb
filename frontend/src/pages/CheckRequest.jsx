@@ -46,12 +46,14 @@ export default function CheckRequest() {
         setResult(null);
         setError("");
         if (!id) {
-            setError("Enter the reference ID you received when you submitted Form 6.");
+            setError("Enter the reference ID you received when you submitted your form.");
             return;
         }
         setChecking(true);
         try {
-            const { data } = await api.get(`/auth/register/${encodeURIComponent(id)}`);
+            // Forms 2, 2A, 3, 6A, 6B, 7 and 8 have references starting "EF"; Form 6 uses its own.
+            const path = /^EF\d{4}[0-9A-F]{10}$/i.test(id) ? `/elector-forms/status/${encodeURIComponent(id.toUpperCase())}` : `/auth/register/${encodeURIComponent(id)}`;
+            const { data } = await api.get(path);
             setResult(data.data);
         } catch (err) {
             setError(err.response?.data?.message || "Could not check the request. Try again.");
@@ -67,7 +69,7 @@ export default function CheckRequest() {
                 <section className="portal-card portal-wide f6-card">
                     <p className="eyebrow">{t("service.voter.eyebrow")}</p>
                     <h1>{t("register.checkRequest")}</h1>
-                    <p className="portal-muted f6-intro">Enter the reference ID shown after you submitted Form 6 to see where it is: field verification by your Booth Level Officer, then a decision by the Electoral Registration Officer.</p>
+                    <p className="portal-muted f6-intro">Enter the reference ID shown after you submitted Form 6 (or Form 2, 2A, 3, 6A, 6B, 7 or 8) to see where it is: field verification by your Booth Level Officer, then a decision by the Electoral Registration Officer.</p>
 
                     <form onSubmit={checkStatus} className="portal-form f6-status-form">
                         <label>{t("register.referenceId")}
@@ -77,6 +79,13 @@ export default function CheckRequest() {
                     </form>
 
                     {error && <div className="portal-error" role="alert">{error}</div>}
+                    {result?.formCode && (
+                        <div className={result.status === "approved" ? "portal-success" : result.status === "rejected" ? "portal-error" : "portal-notice"} role="status">
+                            <strong>{result.title}</strong><br />{result.statusText} · {result.constituency}, {result.state}
+                            {result.decision?.reason ? <><br />Reason: {result.decision.reason}</> : null}
+                            {result.decision?.epic ? <><br />EPIC: <strong>{result.decision.epic}</strong></> : null}
+                        </div>
+                    )}
                     {result?.status === "pending" && (
                         <div className="portal-notice" role="status">Status: <strong>PENDING REVIEW</strong>. Assigned to your constituency's Booth Level Officer.</div>
                     )}
@@ -96,14 +105,14 @@ export default function CheckRequest() {
                             </form>
                         </div>
                     )}
-                    {result?.status === "field_verified" && (
+                    {!result?.formCode && result?.status === "field_verified" && (
                         <div className="portal-notice" role="status">Status: <strong>FIELD VERIFIED</strong>. Your Booth Level Officer has verified your application. The Electoral Registration Officer will now decide.</div>
                     )}
-                    {result?.status === "approved" && (
+                    {!result?.formCode && result?.status === "approved" && (
                         <div className="portal-success" role="status">{t("register.approvedEpic")} <strong>{result.epic}</strong>.{" "}
                             <Link to="/signin/voter">{t("common.signIn")}</Link></div>
                     )}
-                    {result?.status === "rejected" && (
+                    {!result?.formCode && result?.status === "rejected" && (
                         <div className="portal-error" role="status">Application was rejected by the Electoral Registration Officer. Note: {result.note || "Criteria not met."}</div>
                     )}
                     {result?.timeline?.length > 0 && (

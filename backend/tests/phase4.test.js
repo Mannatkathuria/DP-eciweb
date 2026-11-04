@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { publishStation, forwardToCommission } from "./helpers/stationApproval.js";
 
 // Phase 4: control room across a jurisdiction, alerts, incidents and sector officers' visits.
 process.env.STEP_UP_REQUIRED = process.env.STEP_UP_REQUIRED ?? "false"; // step-up is covered in phase7.test.js
@@ -70,7 +71,7 @@ const setup = async () => {
         const name = `Control School ${runId}-${n}`;
         const p = await call("POST", "/polling-stations", { ...area, partNumber, name, address: `Ward ${n}, BRS Nagar, Ludhiana 141012` }, deo.token);
         assert.equal(p.status, 201, JSON.stringify(p.body));
-        await call("POST", `/polling-stations/${p.body.data._id}/approve`, {}, eci.token);
+        assert.equal((await publishStation(call, p.body.data._id, deo.token, eci.token, area.state)).status, 200);
         stations.push({ _id: p.body.data._id, ...area, partNumber, pollingStation: name });
         await saveElector({ _id: crypto.randomUUID(), epic: `CR${String.fromCharCode(65 + n)}${String(runId % 1e7).padStart(7, "0")}`, name: `Elector ${n}`, dateOfBirth: "1980-01-01T00:00:00.000Z", gender: "Male",
             state: area.state, district: area.district, assemblyConstituency: area.constituency, partNumber, pollingStation: name, isActive: true });

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { publishStation, forwardToCommission } from "./helpers/stationApproval.js";
 
 // MongoDB read models and their Redis fallbacks: nearest polling stations (2dsphere), station text
 // search, operational-event history, audit search, and the audit hash chain anchored in MongoDB.
@@ -71,7 +72,7 @@ const setup = async () => {
     for (const [i, [name, location, approve]] of rows.entries()) {
         const p = await call("POST", "/polling-stations", { ...area, partNumber: String(1 + ((runId + i) % 9000)), name, address: `Ward ${i + 1}, Bathinda city, Punjab 151001`, location }, deo.token);
         assert.equal(p.status, 201, JSON.stringify(p.body));
-        if (approve) assert.equal((await call("POST", `/polling-stations/${p.body.data._id}/approve`, {}, eci.token)).status, 200);
+        if (approve) assert.equal((await publishStation(call, p.body.data._id, deo.token, eci.token, area.state)).status, 200);
         stations.push(p.body.data);
     }
     ctx = { redis, call, makeUser, eci, deo, area, centre, stations, runId, server };
@@ -125,8 +126,8 @@ test("event history and audit search are filtered and limited to the caller's ju
     const audit = await call("GET", `/audit/search?action=station.&resourceId=${stations[0]._id}`, undefined, deo.token);
     assert.equal(audit.status, 200, JSON.stringify(audit.body));
     assert.equal(audit.body.data.source, SOURCE);
-    assert.deepEqual(audit.body.data.items.map((e) => e.action).sort(), ["station.approved", "station.proposed"]);
-    const byActor = await call("GET", `/audit/search?actor=${eci.user.epic}&action=station.approved`, undefined, eci.token);
+    assert.deepEqual(audit.body.data.items.map((e) => e.action).sort(), ["station.consultation_recorded", "station.eci_approved", "station.forwarded_to_ceo", "station.forwarded_to_eci", "station.proposed", "station.published"]);
+    const byActor = await call("GET", `/audit/search?actor=${eci.user.epic}&action=station.eci_approved`, undefined, eci.token);
     assert.equal(byActor.body.data.items.length, 3);
     assert.equal((await call("GET", "/audit/search?actor=nobody", undefined, eci.token)).status, 400);
     assert.ok(area.constituency);

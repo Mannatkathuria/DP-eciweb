@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { publishStation, forwardToCommission } from "./helpers/stationApproval.js";
 
 // Phase 5: counting and results are read-only. Results come only from a registered source (an
 // authorised feed, or a clearly labelled mock); entries are append-only and checked, never edited.
@@ -131,7 +132,7 @@ test("official feed: nothing before counting day; reconciliation flags votes cou
     const deo = await ctx.makeUser("deo");
     await call("POST", "/assignments", { epic: deo.user.epic, role: "deo", jurisdiction: { state: "Punjab", district: "Ludhiana" } }, eci.token);
     const st = await call("POST", "/polling-stations", { ...area2, partNumber: String(1 + (ctx.runId % 9000)), name: `Count School ${ctx.runId}`, address: "Ward 1, Pakhowal Road, Ludhiana 141002" }, deo.token);
-    await call("POST", `/polling-stations/${st.body.data._id}/approve`, {}, eci.token);
+    assert.equal((await publishStation(call, st.body.data._id, deo.token, eci.token)).status, 200);
     const tx = transaction();
     for (let i = 1; i <= 5; i += 1) appendRegister({ serial: i, electionId: counted2._id, stationId: st.body.data._id, epic: `X${i}`, name: "x", idDocument: "epic", at: new Date().toISOString(), by: "T" }, tx);
     await tx.exec();

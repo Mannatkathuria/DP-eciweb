@@ -32,6 +32,7 @@ import Admin from "./pages/Admin";
 import EciDashboard from "./pages/EciDashboard";
 import VotingVerification from "./pages/VotingVerification";
 import Workspace from "./pages/Workspace";
+import RoleDesk from "./pages/RoleDesk";
 import EroDecisions from "./pages/EroDecisions";
 import EciIntegrations from "./pages/EciIntegrations";
 import EciElections from "./pages/EciElections";
@@ -101,6 +102,7 @@ function App() {
                     <Route path="/eci/dashboard" element={<EciDashboard />} />
                     <Route path="/eci/voting-verification" element={<VotingVerification />} />
                     <Route path="/workspace" element={<Workspace />} />
+                    <Route path="/desk" element={<RoleDesk />} />
                     <Route path="/ero" element={<EroDecisions />} />
                     <Route path="/eci/integrations" element={<EciIntegrations />} />
                     <Route path="/eci/elections" element={<EciElections />} />
@@ -126,8 +128,6 @@ function App() {
                     <Route path="/ceo-himachal" element={<Navigate to="/states/himachal-pradesh" replace />} />
                     <Route path="/workflows" element={<Navigate to="/roles" replace />} />
                     <Route path="/media-publications" element={<Navigate to="/media" replace />} />
-                    <Route path="*" element={<Navigate to="/home" replace />} />
-
                     {/* Form links */}
                     <Route path="/voters/forms" element={<ElectoralFormsIndex />} />
                     <Route path="/voters/forms/form-2" element={<Form2 />} />
@@ -137,6 +137,7 @@ function App() {
                     <Route path="/voters/forms/form-6b" element={<Form6B />} />
                     <Route path="/voters/forms/form-7" element={<Form7 />} />
                     <Route path="/voters/forms/form-8" element={<Form8 />} />
+                    <Route path="*" element={<Navigate to="/home" replace />} />
                 </Route>
 
                 {/* Stand-alone phone simulator used during demonstrations */}

@@ -29,7 +29,7 @@ function BloChangePassword() {
             const { data } = await api.post("/auth/blo/password", { currentPassword, newPassword });
             setUserData(data.data);
             localStorage.setItem("userData", JSON.stringify(data.data));
-            navigate("/admin", { replace: true });
+            navigate("/desk", { replace: true });
         } catch {
             setError(t("blo.changeFailed"));
         } finally { setBusy(false); }

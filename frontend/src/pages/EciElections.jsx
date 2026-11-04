@@ -33,6 +33,7 @@ export default function EciElections() {
     const [form, setForm] = useState({ name: "", type: "general_assembly", states: [], schedule: emptySchedule });
     const [revising, setRevising] = useState(null); // { id, schedule, reason }
     const [rejecting, setRejecting] = useState(null);
+    const [refs, setRefs] = useState({});
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [busy, setBusy] = useState(false);
@@ -76,19 +77,23 @@ export default function EciElections() {
                     {notice && <div className="alert alert-ok" role="status">{notice}</div>}
 
                     <div className="panel">
-                        <h2>Polling stations awaiting approval ({pending.length})</h2>
-                        <p className="muted">Proposed by DEOs under section 25 of the Representation of the People Act, 1951. A station becomes public only once you approve it. A relocation also moves every elector of that part.</p>
+                        <h2>Polling stations awaiting approval ({pending.filter((s) => s.pendingChange.stage === "SENT_TO_ECI").length})</h2>
+                        <p className="muted">Proposed by DEOs under section 25 of the Representation of the People Act, 1951, after consulting the parties, and forwarded by the CEO. Your prior approval needs the Commission's order reference; the DEO then publishes the station, and only then is it public. A relocation also moves every elector of that part. Clarifications are asked from <Link to="/desk?tab=stationsEci">your desk</Link>.</p>
                         {pending.length === 0 ? <p>Nothing is waiting.</p> : (
                             <div className="table-wrap"><table>
-                                <thead><tr><th>Station</th><th>Change</th><th>Proposed by</th><th>Decision</th></tr></thead>
+                                <thead><tr><th>Station</th><th>Change</th><th>Proposed by</th><th>Stage</th><th>Decision</th></tr></thead>
                                 <tbody>{pending.map((s) => (
                                     <tr key={s._id}>
                                         <td><strong>{s.pendingChange.proposed.name}</strong><br /><small>{s.pendingChange.proposed.address}</small><br /><small className="muted">Part {s.partNumber}, {s.constituency}, {s.district}</small></td>
                                         <td>{s.pendingChange.type === "create" ? "New station" : <>Relocation from <em>{s.name}</em></>}{s.pendingChange.reason && <><br /><small>Reason: {s.pendingChange.reason}</small></>}</td>
                                         <td>{s.pendingChange.by}<br /><small>{new Date(s.pendingChange.at).toLocaleString()}</small></td>
+                                        <td><small>{s.pendingChange.stageText ?? s.pendingChange.stage}</small>{s.pendingChange.eciApproval && <><br /><small>Order {s.pendingChange.eciApproval.reference}</small></>}</td>
                                         <td style={{ whiteSpace: "nowrap" }}>
-                                            <button className="btn-approve" disabled={busy} onClick={() => act(() => api.post(`/polling-stations/${s._id}/approve`), ({ data }) => data.message)}>Approve</button>{" "}
-                                            <button className="btn-reject" disabled={busy} onClick={() => setRejecting(s)}>Reject</button>
+                                            {s.pendingChange.stage === "SENT_TO_ECI" ? <>
+                                                <input aria-label="Commission order reference" placeholder="Order reference" value={refs[s._id] ?? ""} onChange={(e) => setRefs({ ...refs, [s._id]: e.target.value })} style={{ width: 150, marginRight: 6 }} />
+                                                <button className="btn-approve" disabled={busy || !(refs[s._id] ?? "").trim()} onClick={() => act(() => api.post(`/polling-stations/${s._id}/approve`, { eciReference: refs[s._id] }), ({ data }) => data.message)}>Approve</button>{" "}
+                                                <button className="btn-reject" disabled={busy} onClick={() => setRejecting(s)}>Reject</button>
+                                            </> : <small className="muted">Not with the Commission yet</small>}
                                         </td>
                                     </tr>
                                 ))}</tbody>

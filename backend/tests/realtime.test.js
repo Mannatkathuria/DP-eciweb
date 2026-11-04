@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { publishStation, forwardToCommission } from "./helpers/stationApproval.js";
 
 // Directive phase 5: live operational events (persisted log + Socket.IO, scoped by jurisdiction),
 // polling-station device registration and verified heartbeats, connectivity in the control room.
@@ -55,7 +56,7 @@ const setup = async () => {
         const name = `Poll School ${runId}-${n}`;
         const p = await call("POST", "/polling-stations", { ...area, partNumber, name, address: `Ward ${n}, Sarabha Nagar, Ludhiana 141001` }, deo.token);
         assert.equal(p.status, 201, JSON.stringify(p.body));
-        assert.equal((await call("POST", `/polling-stations/${p.body.data._id}/approve`, {}, eci.token)).status, 200);
+        assert.equal((await publishStation(call, p.body.data._id, deo.token, eci.token, area.state)).status, 200);
         return { ...area, partNumber, pollingStation: name, _id: p.body.data._id };
     };
     const A = await station(0); const B = await station(1);

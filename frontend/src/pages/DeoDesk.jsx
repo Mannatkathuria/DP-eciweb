@@ -12,7 +12,7 @@ import StationMap from "../components/StationMap";
 // relocations; the ECI approves) and election staff appointments.
 
 const FACILITIES = [["ramp", "Ramp"], ["wheelchair", "Wheelchair access"], ["drinkingWater", "Drinking water"], ["toilet", "Toilet"], ["shade", "Shade"], ["signage", "Signage"]];
-const STATUS = { ACTIVE: ["Approved", "badge-ok"], PROPOSED: ["Awaiting ECI approval", "badge-warn"], REJECTED: ["Rejected", "badge-bad"] };
+const STATUS = { ACTIVE: ["Approved", "badge-ok"], PROPOSED: ["Proposed", "badge-warn"], REJECTED: ["Rejected", "badge-bad"] };
 const STAFF = ["presiding_officer", "polling_officer", "sector_officer", "sector_police_officer", "counting_supervisor", "counting_assistant"];
 const blank = { constituency: "", partNumber: "", name: "", address: "", lat: "", lng: "", accessibility: {} };
 
@@ -136,7 +136,7 @@ export default function DeoDesk() {
     };
     const relocate = (e) => {
         e.preventDefault();
-        act(() => api.post(`/polling-stations/${moving.id}/relocation`, { ...toPayload(moving), reason: moving.reason }), () => "Relocation sent to the ECI for approval.").then((ok) => ok && setMoving(null));
+        act(() => api.post(`/polling-stations/${moving.id}/relocation`, { ...toPayload(moving), reason: moving.reason }), () => "Relocation drafted. Record the party consultation and forward it to the CEO from your desk.").then((ok) => ok && setMoving(null));
     };
 
     return (
@@ -160,7 +160,8 @@ export default function DeoDesk() {
                                             <td>{s.partNumber}<br /><small>{s.constituency}</small></td>
                                             <td><strong>{s.name}</strong><br /><small>{s.address}</small><br /><small className="muted">{s.stationCode}{s.source ? ` · version ${s.source.version}` : ""}</small></td>
                                             <td><span className={`badge ${STATUS[s.status][1]}`}>{STATUS[s.status][0]}</span>
-                                                {s.pendingChange?.type === "relocate" && <><br /><small>Relocation to {s.pendingChange.proposed.name} awaiting ECI approval</small></>}</td>
+                                                {s.pendingChange?.type === "relocate" && <><br /><small>Relocation to {s.pendingChange.proposed.name}</small></>}
+                                                {s.pendingChange && <><br /><small>{s.pendingChange.stageText}{["DISTRICT_REVIEW", "STAKEHOLDER_CONSULTATION", "CLARIFICATION_REQUIRED", "ECI_APPROVED"].includes(s.pendingChange.stage) ? <> · <Link to="/desk?tab=stationsDeo">your next step</Link></> : ""}</small></>}</td>
                                             <td>{s.status === "ACTIVE" && !s.pendingChange && (
                                                 <button className="btn btn-quiet btn-small" onClick={() => setMoving({ id: s._id, name: "", address: "", lat: "", lng: "", accessibility: { ...s.accessibility }, reason: "", from: s.name })}>Propose relocation</button>
                                             )}</td>

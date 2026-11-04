@@ -88,8 +88,9 @@ export const verifyAudit = async () => {
             if (hashEvent(event) !== event.hash) result.altered.push(id);
         }
     }
-    const hashedListed = result.listed - result.unhashed;
-    result.countMatches = counter === hashedListed;
+    // const hashedListed = result.listed - result.unhashed;
+    // result.countMatches = counter === hashedListed;
+    result.countMatches = counter === result.listed;
     result.ok = result.missing.length === 0 && result.altered.length === 0 && result.countMatches;
     return result;
 };

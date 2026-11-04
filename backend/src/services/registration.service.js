@@ -12,7 +12,7 @@ import { opsEvent, publishEvents, recordEvent } from "./events.service.js";
  * moment can never be given the same number. Older records have no claim key, so existing
  * electors and accounts are checked as well.
  */
-const reserveUniqueEpic = async (registrationId) => {
+export const reserveUniqueEpic = async (registrationId) => {
     for (let i = 0; i < 20; i += 1) {
         const epic = `DEM${String(crypto.randomInt(0, 10_000_000)).padStart(7, "0")}`;
         const claimed = await redis().set(`epic:allocated:${epic}`, registrationId, { NX: true });
