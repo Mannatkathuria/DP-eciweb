@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { PROOF_TYPES, PROOF_MAX_BYTES, readProofDocument } from "../proofDocument";
-import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./form6Options";
+import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./electoral-forms/form6Options";
 
 /*
  * Form 6 (Application Form for New Voters), split into stages.

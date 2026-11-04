@@ -1,4 +1,4 @@
-import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./form6Options";
+import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./electoral-forms/form6Options";
 
 /** The saved application returned by the status check (contact details and Aadhaar arrive masked). */
 export default function SavedApplication({ application: a }) {

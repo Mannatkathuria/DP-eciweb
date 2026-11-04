@@ -48,6 +48,16 @@ import TrainingSimulator from "./pages/TrainingSimulator";
 import PhoneScreen from "./pages/PhoneScreen";
 import StepUpDialog from "./components/StepUpDialog";
 import AgentDesk from "./pages/AgentDesk";
+import ElectoralFormsIndex from "./pages/electoral-forms/ElectoralFormsIndex";
+import Form2 from "./pages/electoral-forms/Form2";
+import Form2A from "./pages/electoral-forms/Form2A";
+import Form3 from "./pages/electoral-forms/Form3";
+import Form6A from "./pages/electoral-forms/Form6A";
+import Form6B from "./pages/electoral-forms/Form6B";
+import Form7 from "./pages/electoral-forms/Form7";
+import Form8 from "./pages/electoral-forms/Form8";
+
+
 
 function App() {
     return (
@@ -117,6 +127,16 @@ function App() {
                     <Route path="/workflows" element={<Navigate to="/roles" replace />} />
                     <Route path="/media-publications" element={<Navigate to="/media" replace />} />
                     <Route path="*" element={<Navigate to="/home" replace />} />
+
+                    {/* Form links */}
+                    <Route path="/voters/forms" element={<ElectoralFormsIndex />} />
+                    <Route path="/voters/forms/form-2" element={<Form2 />} />
+                    <Route path="/voters/forms/form-2a" element={<Form2A />} />
+                    <Route path="/voters/forms/form-3" element={<Form3 />} />
+                    <Route path="/voters/forms/form-6a" element={<Form6A />} />
+                    <Route path="/voters/forms/form-6b" element={<Form6B />} />
+                    <Route path="/voters/forms/form-7" element={<Form7 />} />
+                    <Route path="/voters/forms/form-8" element={<Form8 />} />
                 </Route>
 
                 {/* Stand-alone phone simulator used during demonstrations */}

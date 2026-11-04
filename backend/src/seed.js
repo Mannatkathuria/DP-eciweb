@@ -1,4 +1,13 @@
+
+/**
+ * Comprehensive Database Seeder
+ * Populates at least 3-5 records for every core entity:
+ * Voters, Polling Stations, Election History, Booth Blogs, Candidates, and Votings.
+ */
 import "dotenv/config";
+import dotenv from 'dotenv';
+dotenv.config();
+import mongoose from 'mongoose';
 import crypto from "crypto";
 import { connectRedis, redis } from "./config/redis.js";
 import { getElectorByEpic, saveElector } from "./repositories/elector.repository.js";
