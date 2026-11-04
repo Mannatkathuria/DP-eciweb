@@ -1,6 +1,6 @@
 import express from "express";
 import { listAllElections } from "../controllers/election.controller.js";
-import { lookupStationByEpic, nearbyPublicStations, searchPublicStations } from "../controllers/pollingStation.controller.js";
+import { lookupStationByEpic, nearbyPublicStations, searchPublicStations, mapPublicStations } from "../controllers/pollingStation.controller.js";
 import { publicCandidates } from "../controllers/nomination.controller.js";
 import { publicResults, publicTurnout } from "../controllers/result.controller.js";
 import { publicQueue } from "../controllers/pollDay.controller.js";
@@ -10,6 +10,7 @@ import { publicQueue } from "../controllers/pollDay.controller.js";
 const router = express.Router();
 
 router.get("/elections", listAllElections);
+router.get("/stations/map", mapPublicStations);
 router.get("/stations", searchPublicStations);
 router.get("/stations/near", nearbyPublicStations);
 router.get("/stations/epic/:epic", lookupStationByEpic);

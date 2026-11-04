@@ -8,7 +8,7 @@ import { requireReason } from "../utils/documentProof.js";
 import { ApiError } from "../utils/ApiErrors.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { opsEvent, publishEvents, recordEvent } from "../services/events.service.js";
-import { nearbyStations, searchStations } from "../services/readModel.service.js";
+import { nearbyStations, searchStations, stationsInBounds } from "../services/readModel.service.js";
 import { store } from "../services/workflow.service.js";
 
 // Polling stations are provided by the DEO with the prior approval of the Election Commission
@@ -405,4 +405,55 @@ export const closeStationIssue = asyncHandler(async (req, res) => {
         return updated;
     });
     res.json({ success: true, data: result });
+});
+
+/**
+ * Public: approved polling stations inside the visible map area.
+ */
+export const mapPublicStations = asyncHandler(async (req, res) => {
+    const values = String(req.query.bbox ?? "")
+        .split(",")
+        .map(Number);
+
+    if (
+        values.length !== 4 ||
+        !values.every(Number.isFinite)
+    ) {
+        throw new ApiError(
+            400,
+            "Give bbox as west,south,east,north."
+        );
+    }
+
+    const [west, south, east, north] = values;
+
+    if (
+        west < 68 || east > 98 ||
+        south < 6 || north > 38 ||
+        west >= east || south >= north
+    ) {
+        throw new ApiError(400, "Invalid map bounds for India.");
+    }
+
+    const limit = Math.min(
+        2000,
+        Math.max(1, Number.parseInt(req.query.limit, 10) || 2000)
+    );
+
+    const { items, source } = await stationsInBounds({
+        west,
+        south,
+        east,
+        north,
+        limit
+    });
+
+    res.json({
+        success: true,
+        data: {
+            items: items.map(publicView),
+            source,
+            limit
+        }
+    });
 });

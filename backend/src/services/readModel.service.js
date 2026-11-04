@@ -171,3 +171,62 @@ export const auditSearch = (assignments, { action, actor, resourceType, resource
             return { items, next: items.length === limit ? items.at(-1).at : null };
         });
 };
+
+/**
+ * Approved polling stations inside the currently visible map bounds.
+ * bbox = west,south,east,north
+ */
+export const stationsInBounds = ({ west, south, east, north, limit = 2000 }) =>
+    withFallback(
+        "Stations in map bounds",
+
+        // MongoDB read model
+        async () => {
+            const polygon = {
+                type: "Polygon",
+                coordinates: [[
+                    [west, south],
+                    [east, south],
+                    [east, north],
+                    [west, north],
+                    [west, south]
+                ]]
+            };
+
+            const items = await mongo()
+                .collection("polling_stations")
+                .find({
+                    status: "ACTIVE",
+                    geo: {
+                        $geoWithin: {
+                            $geometry: polygon
+                        }
+                    }
+                })
+                .limit(limit)
+                .toArray();
+
+            return {
+                items: items.map(({ geo, projectedAt, partNumberInt, ...s }) => s)
+            };
+        },
+
+        // Redis fallback
+        async () => {
+            const items = (await listStations())
+                .filter((s) => {
+                    if (s.status !== "ACTIVE" || !s.location) return false;
+
+                    const lat = Number(s.location.lat);
+                    const lng = Number(s.location.lng);
+
+                    return Number.isFinite(lat) &&
+                        Number.isFinite(lng) &&
+                        lng >= west && lng <= east &&
+                        lat >= south && lat <= north;
+                })
+                .slice(0, limit);
+
+            return { items };
+        }
+    );

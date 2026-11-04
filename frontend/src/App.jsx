@@ -57,6 +57,7 @@ import Form6A from "./pages/electoral-forms/Form6A";
 import Form6B from "./pages/electoral-forms/Form6B";
 import Form7 from "./pages/electoral-forms/Form7";
 import Form8 from "./pages/electoral-forms/Form8";
+import PollingStationMap from "./components/maps/PollingStationMap";
 
 
 
@@ -68,7 +69,9 @@ function App() {
                 <Route path="/" element={<EntryGate />} />
 
                 <Route element={<SiteLayout />}>
+
                     <Route path="/home" element={<Home />} />
+                    <Route path="/map" element={<PollingStationMap />} />
 
                     {/* Public information */}
                     <Route path="/voters" element={<Voters />} />
@@ -128,6 +131,7 @@ function App() {
                     <Route path="/ceo-himachal" element={<Navigate to="/states/himachal-pradesh" replace />} />
                     <Route path="/workflows" element={<Navigate to="/roles" replace />} />
                     <Route path="/media-publications" element={<Navigate to="/media" replace />} />
+
                     {/* Form links */}
                     <Route path="/voters/forms" element={<ElectoralFormsIndex />} />
                     <Route path="/voters/forms/form-2" element={<Form2 />} />
