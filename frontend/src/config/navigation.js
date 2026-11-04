@@ -8,6 +8,9 @@ export const NAV = [
       { label: "Register as a new voter", note: "Apply for inclusion in the roll", to: "/register" },
       { label: "Find your name in the roll", note: "Search by EPIC number or details", to: "/electoral-roll" },
       { label: "Find your polling station", note: "Where you vote, with facilities and any relocation", to: "/booths" },
+      { label: "Polling station map", note: "Every approved station on a map", to: "/map" },
+      { label: "Forms 2, 2A, 3, 6A, 6B, 7, 8", note: "Service voters, overseas electors, objections, corrections", to: "/voters/forms" },
+      { label: "Appeal an ERO's decision", note: "First and second appeals on the roll", to: "/appeal" },
       { label: "Track an application", note: "Check a request with its reference ID", to: "/check-request" },
       { label: "Forms and services", note: "Which form do I need?", to: "/voters" }
     ]

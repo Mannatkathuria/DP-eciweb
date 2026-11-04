@@ -23,7 +23,7 @@ export const DESKS = {
     election_agent: {
         basis: "RP Act 1951, s. 40; Conduct of Elections Rules, 1961, rule 12",
         mission: "You act for one candidate in the matters the appointment covers: permissions, expenditure accounts, notices and appointing polling and counting agents.",
-        tabs: [["permApply", "Campaign permissions"], ["expRegister", "Expenditure register"]],
+        tabs: [["assisted", "Candidate's nomination"], ["permApply", "Campaign permissions"], ["expRegister", "Expenditure register"]],
         screens: [s("/agent", "Agents", "Appoint and revoke polling and counting agents for your candidate"), s("/candidates", "Know your candidate")],
         cannot: ["Exercise the powers of the ERO, RO or DEO", "See voters' personal data beyond what the law publishes", "Appoint the election agent (only the candidate does)"]
     },
@@ -52,14 +52,14 @@ export const DESKS = {
     ero: {
         basis: "RP Act 1950, ss. 13B, 22, 23; Registration of Electors Rules, 1960",
         mission: "You prepare, revise and publish the roll of your constituency and decide every claim and objection with a reasoned order.",
-        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["bloTeam", "BLOs"], ["issues", "Polling-station problems"], ["audit", "Audit trail"]],
+        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["appeals", "Appeal orders"], ["bloTeam", "BLOs"], ["issues", "Polling-station problems"], ["audit", "Audit trail"]],
         screens: [s("/ero", "Form 6, Form 8 and Form 7 decisions", "Applications, new-voter tasks and roll versions"), s("/electoral-roll", "Electoral roll search"), TRAINING],
         cannot: ["Change records outside your constituency", "Skip the notice and hearing steps", "Act on an expired appointment"]
     },
     aero: {
         basis: "RP Act 1950, s. 13C",
         mission: "You perform the ERO functions delegated to you, under the ERO's control, for the same constituency.",
-        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["audit", "Audit trail"]],
+        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["appeals", "Appeal orders"], ["audit", "Audit trail"]],
         screens: [s("/ero", "Application decisions", "Form 6, Form 8 and Form 7"), TRAINING],
         cannot: ["Act outside your delegation", "Override the ERO or the Commission", "Publish the roll (the ERO does)"]
     },
@@ -81,14 +81,14 @@ export const DESKS = {
     ro: {
         basis: "RP Act 1951, ss. 21, 33-36, 64, 66; Conduct of Elections Rules, 1961",
         mission: "You conduct the election in your constituency: nominations and scrutiny, the list of contesting candidates, polling arrangements, campaign permissions, counting and the declaration.",
-        tabs: [["summary", "Overview"], ["permStaff", "Campaign permissions"], ["directions", "Commission directions"], ["issues", "Polling-station problems"]],
+        tabs: [["summary", "Overview"], ["complaints", "MCC complaints"], ["permStaff", "Campaign permissions"], ["stationReports", "Station reports"], ["directions", "Commission directions"], ["issues", "Polling-station problems"]],
         screens: [s("/ro", "Scrutiny and candidates", "Nominations, scrutiny, the list of contesting candidates, polling parties"), s("/counting", "Counting", "Plan, randomisation, rounds, discrepancies, VVPAT draw"), CONTROL, RESULTS, TRAINING],
         cannot: ["Change the electoral roll", "Change the polling-station list (the DEO with the Commission's approval does)", "Bypass the counting rules"]
     },
     aro: {
         basis: "RP Act 1951, s. 22",
         mission: "You assist the Returning Officer and perform the functions delegated to you. You scrutinise nominations only when the RO is unavoidably prevented and has delegated it.",
-        tabs: [["summary", "Overview"], ["permStaff", "Campaign permissions"], ["issues", "Polling-station problems"]],
+        tabs: [["summary", "Overview"], ["complaints", "MCC complaints"], ["permStaff", "Campaign permissions"], ["stationReports", "Station reports"], ["issues", "Polling-station problems"]],
         screens: [s("/ro", "Scrutiny and candidates", "Scrutiny when delegated; polling parties"), CONTROL, TRAINING],
         cannot: ["Scrutinise without the RO's delegation", "Declare the result"]
     },
@@ -98,6 +98,13 @@ export const DESKS = {
         tabs: [["logistics", "Polling logistics"], ["issues", "Polling-station problems"], ["directions", "Directions"]],
         screens: [CONTROL, TRAINING],
         cannot: ["Create or move polling stations", "Appoint polling staff", "Change the roll or results"]
+    },
+    flying_squad: {
+        basis: "DEO's order under ECI instructions on expenditure and MCC monitoring",
+        mission: "You are a flying squad or static surveillance team. Reach the spot of a reported violation fast, act under the law, seize cash, liquor or freebies with a panchnama, and report.",
+        tabs: [["complaints", "Assigned reports"]],
+        screens: [s("/report-violation", "Public reporting page", "What citizens see when they report")],
+        cannot: ["Dispose of a complaint (the RO does)", "Act outside your constituency", "Treat a seizure as a finding against a candidate"]
     },
     sector_police_officer: {
         basis: "Police deployment order; RP Act 1951, s. 28A (election duty)",
@@ -110,14 +117,14 @@ export const DESKS = {
     presiding_officer: {
         basis: "RP Act 1951, s. 26; Conduct of Elections Rules, 1961, Part IV",
         mission: "You are in charge of your polling station on poll day and conduct the poll by procedure.",
-        tabs: [["directions", "Directions"]],
+        tabs: [["stationRecords", "Machine log and PO report"], ["directions", "Directions"]],
         screens: [s("/poll-day/presiding-officer", "Presiding officer's assistant", "Checklists, procedures, register, cases"), s("/poll-day", "Poll day at your station", "Mock poll, opening, marking, queue, close"), TRAINING],
         cannot: ["Change roll entries", "Move the station", "Declare a result"]
     },
     polling_officer: {
         basis: "RP Act 1951, s. 26",
         mission: "You identify electors against the roll, mark the register and operate the machines as the presiding officer assigns.",
-        tabs: [],
+        tabs: [["stationRecords", "Machine log"]],
         screens: [s("/poll-day", "Poll day at your station", "Search the part, guided marking"), TRAINING],
         cannot: ["Change the roll or your station"]
     },
@@ -139,14 +146,14 @@ export const DESKS = {
     deo: {
         basis: "RP Act 1950, s. 13AA; RP Act 1951, ss. 20A, 25, 26",
         mission: "You run the election machinery of the district: polling stations (with the Commission's prior approval), polling staff, nodal officers and district reports to the CEO.",
-        tabs: [["summary", "District report"], ["stationsDeo", "Polling-station changes"], ["issuesClose", "Station problems"], ["nodal", "Nodal officers"], ["observerRead", "Observer reports"], ["directions", "Directions"], ["permStaff", "Permissions"], ["audit", "Audit trail"]],
+        tabs: [["summary", "District report"], ["stationsDeo", "Polling-station changes"], ["issuesClose", "Station problems"], ["complaints", "MCC control room"], ["appeals", "Roll appeals"], ["nodal", "Nodal officers"], ["stationReports", "Station reports"], ["observerRead", "Observer reports"], ["directions", "Directions"], ["permStaff", "Permissions"], ["audit", "Audit trail"]],
         screens: [s("/deo", "Polling stations and staff", "Propose stations and relocations; appoint election staff"), CONTROL, TRAINING],
         cannot: ["Make a polling-station change without the Commission's prior approval", "Redraw constituency boundaries", "Decide roll applications (the ERO does)"]
     },
     deputy_deo: {
         basis: "Assignment order (delegated district functions)",
         mission: "You assist the DEO with the district functions delegated to you.",
-        tabs: [["summary", "District report"], ["nodal", "Nodal officers"], ["permStaff", "Permissions"]],
+        tabs: [["summary", "District report"], ["complaints", "MCC control room"], ["nodal", "Nodal officers"], ["permStaff", "Permissions"]],
         screens: [CONTROL],
         cannot: ["Exercise every DEO power just because of the title", "Propose polling stations or appoint polling staff unless delegated"]
     },
@@ -168,7 +175,7 @@ export const DESKS = {
     ceo: {
         basis: "RP Act 1950, s. 13A; RP Act 1951, s. 20",
         mission: "You supervise roll and election work across the State, forward district proposals to the Commission and carry out its directions.",
-        tabs: [["summary", "State report"], ["stationsCeo", "Station proposals to forward"], ["nodal", "State nodal officers"], ["directions", "Directions"], ["audit", "Audit trail"]],
+        tabs: [["summary", "State report"], ["stationsCeo", "Station proposals to forward"], ["appeals", "Second appeals"], ["stationReports", "Station reports"], ["nodal", "State nodal officers"], ["directions", "Directions"], ["audit", "Audit trail"]],
         screens: [CONTROL, s("/states", "State election offices")],
         cannot: ["Replace the Commission's prior approval with your own", "Decide matters reserved to the ERO or RO"]
     },
@@ -212,28 +219,28 @@ export const DESKS = {
     general_observer: {
         basis: "RP Act 1951, s. 20B; ECI Handbook for Observers, 2024",
         mission: "You are the Commission's eyes and ears in your constituency. Watch every stage, read the records, and report to the Commission.",
-        tabs: [["observerFile", "Reports to the Commission"], ["summary", "Constituency picture"], ["formsRead", "Roll applications"], ["permStaff", "Permissions"], ["directions", "Directions"], ["audit", "Audit trail"]],
+        tabs: [["observerFile", "Reports to the Commission"], ["summary", "Constituency picture"], ["complaints", "MCC complaints"], ["stationReports", "Station reports"], ["formsRead", "Roll applications"], ["permStaff", "Permissions"], ["directions", "Directions"], ["audit", "Audit trail"]],
         screens: [CONTROL, s("/counting", "Counting"), RESULTS],
         cannot: ["Edit the records you observe", "Command district staff", "Share confidential reports"]
     },
     police_observer: {
         basis: "ECI observer instructions",
         mission: "You watch the police and security arrangements and report to the Commission.",
-        tabs: [["observerFile", "Reports to the Commission"], ["security", "Security arrangements"], ["permStaff", "Permissions"]],
+        tabs: [["observerFile", "Reports to the Commission"], ["security", "Security arrangements"], ["complaints", "MCC complaints"], ["permStaff", "Permissions"]],
         screens: [],
         cannot: ["Command the police", "Edit any record"]
     },
     expenditure_observer: {
         basis: "ECI instructions on expenditure monitoring",
         mission: "You watch candidates' election expenditure: read their registers, keep the shadow observation register and report discrepancies.",
-        tabs: [["expObserve", "Candidates' registers"], ["observerFile", "Reports to the Commission"]],
+        tabs: [["expObserve", "Candidates' registers"], ["complaints", "Complaints and seizures"], ["observerFile", "Reports to the Commission"]],
         screens: [],
         cannot: ["Make a final finding of a violation", "Edit a candidate's register"]
     },
     counting_observer: {
         basis: "ECI observer instructions on counting",
         mission: "You watch the counting arrangements and process and report to the Commission. The Returning Officer remains in charge of the count.",
-        tabs: [["observerFile", "Reports to the Commission"]],
+        tabs: [["observerFile", "Reports to the Commission"], ["stationReports", "Station reports"]],
         screens: [s("/counting", "Counting", "Read the plan and rounds; report discrepancies"), RESULTS],
         cannot: ["Edit counting tables", "Declare a result"]
     },

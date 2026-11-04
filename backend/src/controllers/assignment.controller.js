@@ -34,7 +34,7 @@ const sameRole = (accountRole, role) => accountRole === role || (accountRole ===
 
 // Election staff the District Election Officer (or CEO) appoints, and the polling parties the
 // Returning Officer arranges for each station.
-export const STAFF_ROLES = ["presiding_officer", "polling_officer", "counting_supervisor", "counting_assistant", "sector_officer", "sector_police_officer"];
+export const STAFF_ROLES = ["presiding_officer", "polling_officer", "counting_supervisor", "counting_assistant", "sector_officer", "sector_police_officer", "flying_squad"];
 export const POLLING_PARTY_ROLES = ["presiding_officer", "polling_officer"];
 
 /**

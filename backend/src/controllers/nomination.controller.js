@@ -83,6 +83,18 @@ export const myNominations = asyncHandler(async (req, res) => {
     res.json({ success: true, data: { items } });
 });
 
+/**
+ * Election agent: the nomination of the candidate they were appointed for, read only, with the
+ * scrutiny outcome, so they can help prepare papers and attend scrutiny (RP Act 1951, s. 36).
+ */
+export const assistedNomination = asyncHandler(async (req, res) => {
+    const { listAssignmentsForUser } = await import("../repositories/assignment.repository.js");
+    const mine = (await listAssignmentsForUser(req.user._id)).filter((a) => a.role === "election_agent" && a.status === "active" && a.appointedFor);
+    const items = (await listNominations()).filter((n) => mine.some((a) => a.appointedFor === n._id))
+        .map(({ affidavit, ...n }) => ({ ...n, affidavit: affidavit ? { declared: true } : null }));
+    res.json({ success: true, data: { items } });
+});
+
 /** RO / ARO: nominations in their constituency. */
 export const listNominationsForRo = asyncHandler(async (req, res) => {
     const items = (await listNominations())

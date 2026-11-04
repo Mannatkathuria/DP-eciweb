@@ -3,6 +3,24 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../api/axios";
+import { useLoad } from "../components/desk/kit";
+
+/** The voter's own applications on Forms 2, 2A, 3, 6A, 6B, 7 and 8, and links to file and appeal. */
+function OtherForms() {
+    const { data } = useLoad("/elector-forms/mine");
+    const items = data?.items ?? [];
+    return (
+        <section className="dashboard-card" style={{ marginTop: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <h2 style={{ margin: 0 }}>Other forms, complaints and appeals</h2>
+                <div className="row-actions"><Link className="btn btn-quiet btn-small" to="/voters/forms">File a form</Link><Link className="btn btn-quiet btn-small" to="/appeal">Appeal an ERO order</Link><Link className="btn btn-quiet btn-small" to="/report-violation">Report a violation</Link></div>
+            </div>
+            {items.length ? (
+                <ul className="rows" style={{ marginTop: 12 }}>{items.map((a) => <li key={a.referenceId}><strong>{a.title}</strong> · <code>{a.referenceId}</code> · {a.statusText}{a.decision?.reason ? ` — ${a.decision.reason}` : ""}</li>)}</ul>
+            ) : <p className="muted" style={{ marginTop: 12 }}>Forms you file while signed in appear here with their status.</p>}
+        </section>
+    );
+}
 import { PROOF_TYPES, PROOF_HELP, readProofDocument } from "../proofDocument";
 
 /** Answer to an ERO/AERO information request on a Form 8 change request. */
@@ -312,6 +330,8 @@ function Dashboard() {
                     </div>
                 </section>
             )}
+
+            <OtherForms />
 
             {/* Modal: Form 8 Correction Request */}
             {showChangeModal && (

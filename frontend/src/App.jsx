@@ -17,6 +17,7 @@ import StatePortal, { StatesIndex } from "./pages/StatePortal";
 import Register from "./pages/Register";
 import CheckRequest from "./pages/CheckRequest";
 import Objection from "./pages/Objection";
+import Appeal from "./pages/Appeal";
 import ElectoralRoll from "./pages/ElectoralRoll";
 
 // Sign-in and each role's own section
@@ -57,7 +58,7 @@ import Form6A from "./pages/electoral-forms/Form6A";
 import Form6B from "./pages/electoral-forms/Form6B";
 import Form7 from "./pages/electoral-forms/Form7";
 import Form8 from "./pages/electoral-forms/Form8";
-import PollingStationMap from "./components/maps/PollingStationMap";
+import PollingStationMapPage from "./pages/PollingStationMapPage";
 
 
 
@@ -71,7 +72,7 @@ function App() {
                 <Route element={<SiteLayout />}>
 
                     <Route path="/home" element={<Home />} />
-                    <Route path="/map" element={<PollingStationMap />} />
+                    <Route path="/map" element={<PollingStationMapPage />} />
 
                     {/* Public information */}
                     <Route path="/voters" element={<Voters />} />
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/register" element={<Register />} />
                     <Route path="/check-request" element={<CheckRequest />} />
                     <Route path="/objection" element={<Objection />} />
+                    <Route path="/appeal" element={<Appeal />} />
                     <Route path="/electoral-roll" element={<ElectoralRoll />} />
                     <Route path="/booths" element={<Booths />} />
 

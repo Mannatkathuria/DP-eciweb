@@ -1,4 +1,5 @@
 import express from "express";
+import { authorize } from "../middlewares/authorize.middleware.js";
 import {
     startVotingVerification,
     startVotingPersona,
@@ -12,7 +13,7 @@ import { verifyJWT, requireRole } from "../middlewares/verifyJWT.middleware.js";
 const router = express.Router();
 // Legacy national demo of the polling-day identity steps (works only in demo mode). ECI
 // administrator only; the station-scoped poll-day module (/poll-day) is the real workflow.
-router.use(verifyJWT, requireRole("eci"));
+router.use(verifyJWT, requireRole("eci"), authorize("verification:review"));
 
 router.post("/start", startVotingVerification);
 router.post("/:id/persona/start", startVotingPersona);

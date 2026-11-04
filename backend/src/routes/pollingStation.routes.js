@@ -4,7 +4,7 @@ import { authorize } from "../middlewares/authorize.middleware.js";
 import { requireStepUp } from "../middlewares/stepUp.middleware.js";
 import {
     approveStationChange, ceoForward, closeStationIssue, forwardToCeo, importStations, listStationIssues, listStationsForStaff, proposeRelocation, proposeStation,
-    publishStationChange, recordConsultation, rejectStationChange, reportStationIssue, seekClarification, mapPublicStations
+    publishStationChange, recordConsultation, rejectStationChange, reportStationIssue, seekClarification
 } from "../controllers/pollingStation.controller.js";
 
 // Officials' view of polling stations (RP Act 1951, s. 25): the DEO drafts and consults, the CEO

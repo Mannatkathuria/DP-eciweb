@@ -24,7 +24,10 @@ export function SummaryPanel({ title = "Report for your jurisdiction", focus = "
         focus !== "roll" && { label: "Campaign permissions pending", value: (d.permissions.applied ?? 0) + (d.permissions.with_ro ?? 0) },
         focus !== "roll" && d.expenditure.entries > 0 && { label: "Expenditure reported", value: inr(d.expenditure.total) },
         d.observerReports && { label: "Open observer reports", value: d.observerReports.open, tone: d.observerReports.bySeverity.critical ? "bad" : d.observerReports.open ? "warn" : undefined },
-        { label: "Open Commission directions", value: d.directions.issued ?? 0, tone: d.directions.issued ? "warn" : undefined }
+        { label: "Open Commission directions", value: d.directions.issued ?? 0, tone: d.directions.issued ? "warn" : undefined },
+        focus !== "roll" && d.complaints && { label: "MCC complaints open", value: (d.complaints.received ?? 0) + (d.complaints.assigned ?? 0) + (d.complaints.field_reported ?? 0), tone: d.complaints.received ? "warn" : undefined },
+        focus !== "roll" && d.seizures > 0 && { label: "Seized (cash, liquor, freebies)", value: inr(d.seizures) },
+        d.appeals && (d.appeals.first_appeal || d.appeals.second_appeal || d.appeals.with_ero) && { label: "Roll appeals pending", value: (d.appeals.first_appeal ?? 0) + (d.appeals.second_appeal ?? 0) + (d.appeals.with_ero ?? 0), tone: "warn" }
     ];
     return (
         <Panel title={title} intro={`Counts only, from the records in your jurisdiction. Generated ${when(d.generatedAt)}.`}

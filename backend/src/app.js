@@ -40,6 +40,8 @@ import securityRoutes from "./routes/security.routes.js";
 import logisticsRoutes from "./routes/logistics.routes.js";
 import nodalRoutes from "./routes/nodal.routes.js";
 import reportRoutes from "./routes/report.routes.js";
+import complaintRoutes from "./routes/complaint.routes.js";
+import appealRoutes from "./routes/appeal.routes.js";
 import { isTraining } from "./config/appMode.js";
 import { mongoStatus } from "./config/mongo.js";
 import { redis } from "./config/redis.js";
@@ -99,6 +101,7 @@ const electorFormJson = express.json({ ...jsonOptions, limit: "30mb" });
 app.use((req, res, next) => {
     if (req.method === "POST" && req.path === "/api/v1/auth/register") return registrationJson(req, res, next);
     if (req.method === "POST" && req.path.startsWith("/api/v1/elector-forms/") && !req.path.includes("/staff/")) return electorFormJson(req, res, next);
+    if (req.method === "POST" && req.path === "/api/v1/complaints") return registrationJson(req, res, next);
     return defaultJson(req, res, next);
 });
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
@@ -156,6 +159,8 @@ app.use("/api/v1/security", securityRoutes);
 app.use("/api/v1/logistics", logisticsRoutes);
 app.use("/api/v1/nodal", nodalRoutes);
 app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/complaints", complaintRoutes);
+app.use("/api/v1/appeals", appealRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

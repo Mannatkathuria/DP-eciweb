@@ -1,5 +1,5 @@
 
-import React, {
+import {
   useCallback,
   useEffect,
   useRef,
@@ -7,6 +7,8 @@ import React, {
 } from "react";
 
 import api from "../api/axios";
+import PageHead from "../components/PageHead";
+import { Link } from "react-router-dom";
 import PollingStationMap from "../components/maps/PollingStationMap";
 
 export default function PollingStationMapPage() {
@@ -15,6 +17,9 @@ export default function PollingStationMapPage() {
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
+  const [epic, setEpic] = useState("");
+  const [found, setFound] = useState(null);
+  const [focus, setFocus] = useState(null);
   const controllerRef = useRef(null);
   const requestIdRef = useRef(0);
 
@@ -85,77 +90,44 @@ export default function PollingStationMapPage() {
     };
   }, []);
 
+  // Find the station of one EPIC and fly the map to it. Only the part and station come back.
+  const lookup = async (e) => {
+    e.preventDefault();
+    setFound(null);
+    try {
+      const { data } = await api.get(`/public/stations/epic/${encodeURIComponent(epic.trim().toUpperCase())}`);
+      const station = data.data?.station ?? data.data;
+      setFound({ ok: true, station });
+      if (station?.location) setFocus({ ...station.location, at: Date.now() });
+    } catch (err) {
+      setFound({ ok: false, message: err.response?.data?.message || "No polling station was found for that EPIC number." });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-5 md:p-8">
-      <div className="max-w-7xl mx-auto">
-
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Polling Station Map
-          </h1>
-
-          <p className="text-gray-500 mt-2">
-            Explore approved polling stations across India.
-            Find nearby stations and view their details.
-          </p>
+    <>
+      <PageHead title="Polling station map" crumbs={[{ label: "Voters" }, { label: "Polling station map" }]}
+        lede="Approved polling stations, from the published list. Move or zoom the map to load the stations in view, or find yours by EPIC number. Proposals that are still being considered are never shown." />
+      <section className="section">
+        <div className="container stack">
+          <form className="panel" onSubmit={lookup} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
+            <div style={{ flex: "1 1 260px" }}>
+              <label htmlFor="map-epic" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Find my polling station (EPIC number)</label>
+              <input id="map-epic" value={epic} onChange={(e) => setEpic(e.target.value)} placeholder="e.g. ABC1234567" autoComplete="off" style={{ width: "100%" }} />
+            </div>
+            <button className="btn btn-primary" disabled={!epic.trim()}>Find</button>
+            <Link className="btn btn-quiet" to="/booths">Search by area instead</Link>
+          </form>
+          {found && (found.ok
+            ? <div className="alert alert-ok" role="status"><strong>{found.station?.name}</strong> · part {found.station?.partNumber}, {found.station?.constituency}{found.station?.location ? "" : " (this station has no map location yet)"}</div>
+            : <div className="alert alert-error" role="alert">{found.message}</div>)}
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
+          <div className="panel">
+            <PollingStationMap stations={stations} onBoundsChange={loadStations} loading={loading} focus={focus} />
+            <p className="muted" style={{ marginTop: 10 }}><small>Data: {source ? `${source} read model` : "—"}. Map tiles © OpenFreeMap / OpenStreetMap contributors.</small></p>
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-
-          <div className="bg-white rounded-xl border p-4">
-            <p className="text-sm text-gray-500">
-              Stations loaded
-            </p>
-            <p className="text-2xl font-bold text-gray-900">
-              {stations.length}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl border p-4">
-            <p className="text-sm text-gray-500">
-              Data source
-            </p>
-            <p className="text-lg font-semibold text-gray-900 uppercase">
-              {source || "—"}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl border p-4">
-            <p className="text-sm text-gray-500">
-              Map status
-            </p>
-            <p className={`text-lg font-semibold ${
-              error
-                ? "text-red-600"
-                : loading
-                  ? "text-amber-600"
-                  : "text-green-600"
-            }`}>
-              {error
-                ? "Error"
-                : loading
-                  ? "Loading"
-                  : "Connected"}
-            </p>
-          </div>
-
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl shadow-sm border p-3 md:p-5">
-          <PollingStationMap
-            stations={stations}
-            onBoundsChange={loadStations}
-            loading={loading}
-          />
-        </div>
-
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

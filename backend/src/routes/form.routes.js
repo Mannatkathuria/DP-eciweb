@@ -15,7 +15,7 @@ const STAFF = ["application:decide", "verification:field-report", "application:r
 
 router.get("/", formCatalogue);
 router.get("/status/:ref", intakeLimiter, trackForm);
-router.get("/mine", verifyJWT, myForms);
+router.get("/mine", verifyJWT, authorize("application:track"), myForms);
 router.post("/mine/:id/withdraw", verifyJWT, withdrawForm);
 
 router.get("/staff", verifyJWT, requirePasswordChanged, authorize(...STAFF), listForStaff);

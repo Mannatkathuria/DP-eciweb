@@ -1,11 +1,19 @@
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const EMPTY_GEOJSON = {
   type: "FeatureCollection",
   features: []
+};
+
+// Used when the vector style cannot be fetched (offline, blocked network): OpenStreetMap raster
+// tiles over a plain background, so the stations still show.
+const FALLBACK_STYLE = {
+  version: 8,
+  sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } },
+  layers: [{ id: "bg", type: "background", paint: { "background-color": "#eef1f5" } }, { id: "osm", type: "raster", source: "osm" }]
 };
 
 // Approximate geographical bounds of India.
@@ -15,6 +23,8 @@ const INDIA = {
   east: 98,
   north: 38
 };
+
+const FACILITY = { ramp: "ramp", wheelchair: "wheelchair", drinkingWater: "drinking water", toilet: "toilet", shade: "shade", signage: "signage" };
 
 function toGeoJSON(stations = []) {
   return {
@@ -42,7 +52,10 @@ function toGeoJSON(stations = []) {
           address: s.address,
           district: s.district,
           constituency: s.constituency,
-          partNumber: s.partNumber
+          partNumber: s.partNumber,
+          facilities: Object.entries(s.accessibility ?? {}).filter(([, v]) => v).map(([k]) => FACILITY[k] ?? k).join(", "),
+          missing: Object.entries(s.accessibility ?? {}).filter(([, v]) => !v).map(([k]) => FACILITY[k] ?? k).join(", "),
+          relocated: s.relocationNotice ? `Moved from ${s.relocationNotice.from}` : ""
         }
       }))
   };
@@ -69,7 +82,8 @@ function getIndiaBounds(map) {
 export default function PollingStationMap({
   stations = [],
   onBoundsChange,
-  loading = false
+  loading = false,
+  focus = null
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -92,14 +106,21 @@ export default function PollingStationMap({
     onBoundsChangeRef.current = onBoundsChange;
   }, [onBoundsChange]);
 
+  // Fly to a station the page asks for (for example after an EPIC lookup).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus || !Number.isFinite(Number(focus.lat))) return;
+    map.flyTo({ center: [Number(focus.lng), Number(focus.lat)], zoom: 15 });
+  }, [focus]);
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: "https://tiles.openfreemap.org/styles/liberty",
-      center: [78.9629, 20.5937],
-      zoom: 4.5,
+      bounds: [[68, 6.5], [97.5, 36.5]],
+      fitBoundsOptions: { padding: 10 },
       minZoom: 3,
       maxZoom: 18
     });
@@ -245,13 +266,27 @@ export default function PollingStationMap({
         const part = document.createElement("p");
         part.textContent = `Part: ${p.partNumber || "N/A"}`;
 
+        const facilities = document.createElement("p");
+        facilities.textContent = p.facilities ? `Facilities: ${p.facilities}` : "";
+        const missing = document.createElement("p");
+        missing.textContent = p.missing ? `Not available: ${p.missing}` : "";
+        const moved = document.createElement("p");
+        moved.textContent = p.relocated || "";
+        const directions = document.createElement("a");
+        directions.href = `https://www.google.com/maps/dir/?api=1&destination=${feature.geometry.coordinates[1]},${feature.geometry.coordinates[0]}`;
+        directions.target = "_blank";
+        directions.rel = "noopener noreferrer";
+        directions.textContent = "Directions";
+
         content.append(
           name,
           code,
           address,
           district,
           constituency,
-          part
+          part,
+          ...[facilities, missing, moved].filter((x) => x.textContent),
+          directions
         );
 
         new maplibregl.Popup({ maxWidth: "300px" })
@@ -331,8 +366,15 @@ export default function PollingStationMap({
       }
     });
 
+    let fellBack = false;
     map.on("error", (event) => {
-      console.error("MapLibre error:", event.error);
+      // The style itself failed: switch once to the fallback so the station layers can load.
+      if (!fellBack && !map.isStyleLoaded() && /style|liberty|Failed to fetch/i.test(String(event.error?.message ?? event.error))) {
+        fellBack = true;
+        map.setStyle(FALLBACK_STYLE);
+        return;
+      }
+      console.warn("Map:", event.error?.message ?? event.error);
     });
 
     return () => {
@@ -349,32 +391,16 @@ export default function PollingStationMap({
   }, []);
 
   return (
-    <div className="w-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex flex-wrap items-center gap-5 text-sm">
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-600" />
-            Polling stations
-          </span>
-
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500" />
-            Your location
-          </span>
+    <div>
+      <div className="row-actions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+        <div className="row-actions" style={{ gap: 18, fontSize: ".9rem" }}>
+          <span><span aria-hidden="true" style={{ display: "inline-block", width: 12, height: 12, borderRadius: 99, background: "#2563eb", marginRight: 6, verticalAlign: "middle" }} />Polling stations</span>
+          <span><span aria-hidden="true" style={{ display: "inline-block", width: 12, height: 12, borderRadius: 99, background: "#ef4444", marginRight: 6, verticalAlign: "middle" }} />Your location</span>
         </div>
-
-        <div className="text-sm text-gray-500">
-          {loading
-            ? "Updating stations..."
-            : `${stations.length} stations loaded`}
-        </div>
+        <span className="muted" role="status">{loading ? "Updating stations…" : `${stations.length} stations in view`}</span>
       </div>
-
-      <div
-        ref={containerRef}
-        className="w-full rounded-xl overflow-hidden border border-gray-200"
-        style={{ height: "650px" }}
-      />
+      <div ref={containerRef} style={{ width: "100%", height: "min(650px, 70vh)", borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" }}
+        role="region" aria-label="Map of approved polling stations" />
     </div>
   );
 }

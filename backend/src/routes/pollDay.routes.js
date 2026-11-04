@@ -1,4 +1,5 @@
 import express from "express";
+import { listStationReports, myStationRecords, recordMachineEvent, submitPoReport } from "../controllers/stationReport.controller.js";
 import { downloadPackage, listConflicts, publicKey, resolveConflict, sync } from "../controllers/offline.controller.js";
 import { verifyJWT, requirePasswordChanged, requireRole } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
@@ -11,7 +12,7 @@ import {
 const router = express.Router();
 router.use(verifyJWT, requirePasswordChanged);
 
-const STATION_TEAM = ["polling:conduct", "polling:identify-voter", "polling:mark-register", "polling:observe", "observer:report"];
+const STATION_TEAM = ["polling:conduct", "polling:identify-voter", "polling:mark-register", "polling:operate-evm", "polling:observe", "observer:report"];
 
 router.get("/station", authorize(...STATION_TEAM, "roll:view-part"), getStation);
 router.get("/electors", authorize("polling:conduct", "polling:identify-voter", "polling:mark-register", "roll:view-part"), searchElectors);
@@ -25,6 +26,12 @@ router.post("/cases/:id/resolve", authorize("polling:conduct"), resolveCase);
 router.post("/vab-slips/:epic", requireRole("blo", "admin"), authorize("roll:view-part"), issueVabSlip);
 router.get("/vab-slips/:slipId", authorize("polling:identify-voter", "polling:mark-register", "polling:conduct"), lookupVabSlip);
 router.get("/register", authorize("polling:conduct"), getRegister);
+
+// Machine log and the Presiding Officer's report (diary and account of votes recorded).
+router.get("/records", authorize("polling:conduct", "polling:operate-evm", "polling:report"), myStationRecords);
+router.post("/machine-events", authorize("polling:operate-evm", "polling:conduct"), recordMachineEvent);
+router.post("/po-report", authorize("polling:report"), submitPoReport);
+router.get("/station-reports", authorize("control:view", "record:read", "counting:read", "district:manage", "state:manage"), listStationReports);
 // Presiding officer assistant.
 router.get("/procedures", authorize(...STATION_TEAM), getProcedures);
 router.get("/assistant", authorize("polling:conduct"), getAssistant);

@@ -66,6 +66,11 @@ export const PERMISSION_TEXT = {
   "agent:appoint": "Appoint election, polling and counting agents",
   "scrutiny:delegate": "Delegate scrutiny of nominations to an ARO when unavoidably prevented",
   "permission:decide": "Grant or refuse campaign permissions",
-  "direction:issue": "Issue the Commission's directions to field officers"
+  "direction:issue": "Issue the Commission's directions to field officers",
+  "complaint:dispatch": "Send flying squads to Model Code of Conduct complaints",
+  "complaint:investigate": "Act on assigned complaints and record seizures",
+  "complaint:dispose": "Dispose of Model Code of Conduct complaints",
+  "appeal:decide-first": "Decide first appeals against the ERO's orders",
+  "appeal:decide-second": "Decide second appeals on the roll"
 };
 export const permissionText = (id) => PERMISSION_TEXT[id] || id;

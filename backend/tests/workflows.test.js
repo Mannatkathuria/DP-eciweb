@@ -235,3 +235,49 @@ test("polling-station issues, security, logistics, nodal and reports respect jur
     const national = await call("GET", "/reports/summary", undefined, eci.token);
     assert.equal(national.body.data.level, "state");
 });
+
+test("MCC complaints: anyone reports; the control room dispatches a flying squad of the constituency; the squad reports; only the RO disposes", needsRedis, async () => {
+    const { call, makeUser, grant, area, other, election } = await setup();
+    const deo = await makeUser("deo"); await grant(deo, "deo", { state: "Punjab", district: "Ludhiana" }, election.name);
+    const ro = await makeUser("ro"); await grant(ro, "ro", area, election.name);
+    const fst = await makeUser("flying_squad"); await grant(fst, "flying_squad", area, election.name);
+    const fstOther = await makeUser("flying_squad"); await grant(fstOther, "flying_squad", other, election.name);
+    const c = await call("POST", "/complaints", { ...area, category: "cash", description: "Envelopes handed out near the depot", place: "Ration depot" });
+    assert.equal(c.status, 201, JSON.stringify(c.body));
+    const ref = c.body.data.referenceId;
+    const queue = await call("GET", "/complaints?status=received", undefined, deo.token);
+    const item = queue.body.data.items.find((x) => x.referenceId === ref);
+    assert.ok(item && queue.body.data.squads.some((s) => s.epic === fst.user.epic));
+    assert.equal((await call("POST", `/complaints/${item._id}/dispatch`, { squadEpic: fstOther.user.epic }, deo.token)).status, 400, "a squad of another constituency cannot be sent");
+    assert.equal((await call("POST", `/complaints/${item._id}/dispatch`, { squadEpic: fst.user.epic }, deo.token)).status, 200);
+    assert.equal((await call("POST", `/complaints/${item._id}/field-report`, { actions: "Reached in 20 minutes, seized cash" }, fstOther.token)).status, 403);
+    assert.equal((await call("POST", `/complaints/${item._id}/field-report`, { actions: "Reached in 20 minutes, seized cash", found: true, seizures: [{ kind: "cash", value: 50000 }] }, fst.token)).status, 200);
+    assert.equal((await call("POST", `/complaints/${item._id}/dispose`, { outcome: "referred_police", note: "FIR registered" }, deo.token)).status, 403, "the control room does not dispose");
+    assert.equal((await call("POST", `/complaints/${item._id}/dispose`, { outcome: "referred_police", note: "FIR registered at the police station" }, ro.token)).status, 200);
+    const tracked = await call("GET", `/complaints/track/${ref}`);
+    assert.equal(tracked.body.data.status, "disposed");
+    assert.equal(JSON.stringify(tracked.body.data).includes(fst.user.epic), false, "the complainant never sees officers' identities");
+});
+
+test("roll appeals: first appeal to the DEO, an allowed appeal goes to the ERO to implement; second appeal to the CEO", needsRedis, async () => {
+    const { call, makeUser, grant, area } = await setup();
+    const blo = await makeUser("blo"); await grant(blo, "blo", area);
+    const ero = await makeUser("ero"); await grant(ero, "ero", area);
+    const deo = await makeUser("deo"); await grant(deo, "deo", { state: "Punjab", district: "Ludhiana" });
+    const ceo = await makeUser("ceo"); await grant(ceo, "ceo", { state: "Punjab" });
+    const sent = await call("POST", "/elector-forms/form-6a", { jurisdiction: area, application: { firstName: "MEERA", lastName: `JOSHI${crypto.randomInt(0, 1e6)}`, dateOfBirth: "1991-02-03", gender: "female", truthConfirmed: true } });
+    const ref = sent.body.data.referenceId;
+    const item = (await call("GET", "/elector-forms/staff?status=submitted", undefined, ero.token)).body.data.items.find((a) => a.referenceId === ref);
+    await call("POST", `/elector-forms/staff/${item._id}/field-report`, { recommendation: "reject", note: "Not found at the address" }, blo.token);
+    assert.equal((await call("POST", `/elector-forms/staff/${item._id}/decide`, { decision: "reject", reason: "Not ordinarily resident" }, ero.token)).status, 200);
+
+    assert.equal((await call("POST", "/appeals", { reference: ref, dateOfBirth: "1990-01-01", name: "Meera", grounds: "I was abroad for study only temporarily." })).status, 404, "date of birth must match");
+    const ap = await call("POST", "/appeals", { reference: ref, dateOfBirth: "1991-02-03", name: "Meera Joshi", grounds: "I was abroad for study only temporarily; the house is ours." });
+    assert.equal(ap.status, 201, JSON.stringify(ap.body));
+    const id = (await call("GET", "/appeals", undefined, deo.token)).body.data.items.find((a) => a.referenceId === ap.body.data.referenceId)._id;
+    assert.equal((await call("POST", `/appeals/${id}/first`, { outcome: "allowed", reason: "Heard; residence shown" }, ero.token)).status, 403, "the ERO does not hear appeals against itself");
+    assert.equal((await call("POST", `/appeals/${id}/first`, { outcome: "allowed", reason: "Heard the appellant; residence proved by documents" }, deo.token)).status, 200);
+    assert.equal((await call("POST", `/appeals/${id}/implement`, { note: "Entry made in part 7 by supplement" }, ero.token)).status, 200);
+    assert.equal((await call("GET", `/appeals/track/${ap.body.data.referenceId}`)).body.data.status, "implemented");
+    assert.equal((await call("POST", `/appeals/${id}/second`, { outcome: "dismissed", reason: "x" }, ceo.token)).status, 409);
+});

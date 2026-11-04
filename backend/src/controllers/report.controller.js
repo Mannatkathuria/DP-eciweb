@@ -38,8 +38,8 @@ export const summary = asyncHandler(async (req, res) => {
         listElectors(), listRegistrations(), listChangeRequests(), listTasks(), listStations(), listNominations(), listElections(), listAllAssignments(),
         loadSet("objections:all", "objection:")
     ]);
-    const [eforms, permissions, expenditure, reports, directions, nodalTasks] = await Promise.all(
-        ["eform", "campaign-permission", "expenditure", "observer-report", "direction", "nodal-task"].map((k) => store(k).list()));
+    const [eforms, permissions, expenditure, reports, directions, nodalTasks, complaints, appeals] = await Promise.all(
+        ["eform", "campaign-permission", "expenditure", "observer-report", "direction", "nodal-task", "mcc-complaint", "roll-appeal"].map((k) => store(k).list()));
 
     const myElectors = electors.filter((e) => e.isActive !== false && see(areaOfRecord(e)));
     const myRegs = registrations.filter((r) => see(areaOfRecord(r)));
@@ -99,6 +99,9 @@ export const summary = asyncHandler(async (req, res) => {
         observerReports: canObserver ? { total: myReports.length, open: myReports.filter((r) => r.status !== "closed").length, bySeverity: countBy(myReports.filter((r) => r.status !== "closed"), (r) => r.severity) } : null,
         directions: countBy(myDirections, (d) => d.status),
         nodalTasks: countBy(myNodal, (t) => t.status),
+        complaints: countBy(complaints.filter((c) => see(c.jurisdiction)), (c) => c.status),
+        seizures: complaints.filter((c) => see(c.jurisdiction)).flatMap((c) => c.seizures ?? []).reduce((n, x) => n + x.value, 0),
+        appeals: countBy(appeals.filter((a) => see(a.jurisdiction)), (a) => a.status),
         breakdown: [...rows.values()].sort((a, b) => a.area.localeCompare(b.area))
     } });
 });

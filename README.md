@@ -254,6 +254,10 @@ On Windows Command Prompt use `set TEST_REDIS_URL=redis://127.0.0.1:6390&& npm t
 
 During the ECI polling-station flow, the demonstration scanner token is `FP-<EPIC>` (for example, `FP-ABC1234567`). This token is a demo adapter, not a real fingerprint scan.
 
+## Full platform report
+
+See [docs/PLATFORM_REPORT.md](docs/PLATFORM_REPORT.md): every role and power, every frontend route and backend endpoint, how each workflow moves step by step, what changes what, the demo data and a demonstration script.
+
 ## Role desks and the data flows behind them
 
 Every role except the voter now signs in to its own desk at `/desk` (`frontend/src/pages/RoleDesk.jsx`, configured per role in `frontend/src/config/desks.js`). A desk shows the role's authority and assignment, what it may and may not do, a report for its jurisdiction where the role has one, its work panels, and links to its dedicated work screens (`/ero`, `/deo`, `/ro`, `/poll-day`, `/counting` and so on). Every panel calls the backend, which checks permission, jurisdiction and stage for each record.
@@ -272,6 +276,9 @@ New backend workflows (all audited, all jurisdiction-checked):
 | Nodal officers | `/api/v1/nodal` | A nodal assignment names its subject (`function`, e.g. `evm`); the officer reports only on that subject; the DEO / Deputy DEO / CEO give tasks and read all subjects. |
 | Reports | `/api/v1/reports/summary`, `/api/v1/reports/roll-part` | Counts for the caller's district, State or the country, one level broken down, with CSV download; the published roll of a BLA's or BLO's part (no addresses or documents). |
 | Counting | `recount_request` discrepancy type | Rule 63 written recount request, decided by the RO. |
+| MCC complaints (cVIGIL) | `/api/v1/complaints` | Anyone reports on `/report-violation`; DEO / Deputy DEO / RO / ARO dispatch a flying squad (new role `flying_squad`); the squad reports and records seizures; the RO/ARO disposes. 100-minute clock. |
+| Roll appeals | `/api/v1/appeals` | `/appeal`: first appeal to the DEO, second to the CEO (s. 24); an allowed appeal is implemented by the ERO. |
+| Presiding Officer's records | `/api/v1/poll-day/records`, `/machine-events`, `/po-report`, `/station-reports` | Machine log and the PO's report (Form 17C Part I), compared with the register; flags reach the RO, DEO, CEO and observers. |
 
 Two permissions were added: `permission:decide` (RO, ARO) and `direction:issue` (CEC, Election Commissioners). The seed adds demo records for the desks. The tests for these flows are in `backend/tests/workflows.test.js`; `tests/helpers/stationApproval.js` walks a station through the s. 25 stages.
 
@@ -304,6 +311,8 @@ Two permissions were added: `permission:decide` (RO, ARO) and `direction:issue` 
 /results          Read-only counting and turnout (registered source or labelled mock)
 /training         Training modules for the signed-in role, and staff progress for supervisors
 /desk             The signed-in role's own dashboard (every role except the voter)
+/map              Map of approved polling stations
+/appeal           Roll appeals (first and second)
 /voters/forms     Forms 2, 2A, 3, 6A, 6B, 7 and 8
 ```
 

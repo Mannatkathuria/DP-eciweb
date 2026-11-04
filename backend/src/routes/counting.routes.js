@@ -9,13 +9,13 @@ import {
 // the caller's jurisdiction and, where it matters, their specific role.
 const router = express.Router();
 router.use(verifyJWT, requirePasswordChanged);
-const COUNTING = ["counting:supervise", "result:declare", "counting:supervise-table", "counting:record", "counting:observe", "counting:object", "counting:read", "observer:report"];
+const COUNTING = ["counting:supervise", "counting:assist", "result:declare", "counting:supervise-table", "counting:record", "counting:observe", "counting:object", "counting:read", "observer:report"];
 router.get("/:electionId", authorize(...COUNTING), getCounting);
-router.get("/:electionId/staff", authorize("counting:supervise", "result:declare"), staffPool);
+router.get("/:electionId/staff", authorize("counting:supervise", "counting:assist", "result:declare"), staffPool);
 router.post("/:electionId/plan", authorize("counting:supervise", "result:declare"), savePlan);
 router.post("/:electionId/randomise", authorize("counting:supervise", "result:declare"), randomise);
 router.post("/:electionId/vvpat-draw", authorize("counting:supervise", "result:declare"), vvpatDraw);
-router.post("/:electionId/rounds/:round/tables/:table", authorize("counting:supervise", "result:declare", "counting:supervise-table"), recordTable);
+router.post("/:electionId/rounds/:round/tables/:table", authorize("counting:supervise", "counting:assist", "result:declare", "counting:supervise-table"), recordTable);
 router.post("/:electionId/rounds/:round/complete", authorize("counting:supervise", "result:declare"), completeRound);
 router.post("/:electionId/discrepancies", authorize("counting:object", "counting:supervise-table", "observer:report"), reportDiscrepancy);
 router.post("/:electionId/discrepancies/:id/decide", authorize("counting:supervise", "result:declare"), decideDiscrepancy);
