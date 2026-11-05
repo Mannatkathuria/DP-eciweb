@@ -432,7 +432,1562 @@ Eight short scenes, each handing a record from one role to the next; set `STEP_U
 | Expenditure | 30 entries for 4 candidates, with flags and an observer note; 1 shadow-register entry |
 | Observer reports, directions | 3 reports (general, micro, expenditure); 2 directions (one issued, one complied) |
 | Roll appeals | 1 first appeal |
-| Poll-day incidents | 4, of different severities and states |
+| Poll-day incidents | 4,4. ERONET — Electoral Roll Management
+
+Official link: ERONET / Electoral Roll Management
+Core election administration system
+
+ERONET is one of the most important systems in your list. Its purpose is the management of electoral rolls and the registration-related workflow handled by election officials.
+
+It has historically provided a centralised, standardised platform across States and Union Territories. ECI now describes its successor/integrated functionality as the Electoral Roll module, previously ERONET, within ECINET. 
+Election Commission of India+1
+A. Elector registration and application processing
+
+The system supports the principal electoral registration forms:
+
+Form
+	
+
+Purpose
+
+Form 6
+	
+
+Inclusion of name in the electoral roll
+
+Form 6A
+	
+
+Registration of overseas electors
+
+Form 7
+	
+
+Objection to inclusion / deletion of a name
+
+Form 8
+	
+
+Shifting of residence, correction, replacement EPIC and other permitted changes
+
+Associated functions:
+
+    Receive applications originating through the citizen-facing registration channels.
+
+    Maintain application records.
+
+    Forward applications into the election-official processing workflow.
+
+    Support BLO field verification.
+
+    Provide ERO/AERO decision-support functionality.
+
+    Record the outcome of applications.
+
+    Maintain the electoral database after decisions.
+
+    Support correction, migration, inclusion and deletion workflows.
+
+B. Electoral-roll database management
+
+    Maintain a common, standardised electoral-roll data structure.
+
+    Use common forms and data fields.
+
+    Maintain consistent electoral-roll templates.
+
+    Standardise the generation and printing of electoral rolls.
+
+    Support roll management across different States and Union Territories.
+
+    Maintain a unified database for electoral-roll operations.
+
+    Facilitate tracking of individual application progress.
+
+C. BLO and field-verification integration
+
+    Receive applications requiring field verification.
+
+    Enable BLO verification of submitted information.
+
+    Support verification of the elector's residence and registration particulars.
+
+    Feed field-verification findings into the ERO/AERO decision process.
+
+    Support the updating of elector records based on approved decisions.
+
+D. Duplicate and suspicious record detection
+
+ECI documentation describes two specific capabilities:
+
+    PSE — Photo Similar Entries: identification of potentially similar elector photographs.
+
+    DSE — Demographically Similar Entries: identification of potentially similar elector records using demographic information.
+
+The system uses AI-assisted identification to flag possible duplicate or problematic entries for administrative examination. These flags are not, by themselves, proof that an elector is ineligible or a substitute for the legally required verification and decision.
+E. Monitoring and analytics
+
+    Application progress tracking.
+
+    Officer-wise performance reporting.
+
+    Disposal and pendency monitoring.
+
+    Electoral-roll statistics.
+
+    Decision-support reports.
+
+    Analytics concerning registration and roll-management activities.
+
+The official ECI description also identifies multilingual support, including 14 languages and 11 scripts in its ERONET documentation. 
+Election Commission of India+1
+
+The important workflow: Citizen application → BLO verification, where required → ERO/AERO decision → electoral-roll update.
+
+What ERONET is not: It is not the polling-day voter-identification interface. It primarily manages electoral registration and roll data before the election.
+5. BLO App — GARUDA
+
+Official link: GARUDA / BLO Portal
+Current app listing: BLO App – ECI on iOS
+Field-level election administration
+
+GARUDA is associated with the dedicated mobile application for Booth Level Officers. The current ECI app is called BLO App.
+
+Its purpose is to move part of the BLO's work from paper-based registers and manual field reporting to mobile-based data collection and verification.
+A. Electoral registration and field verification
+
+    View and work on assigned elector-related forms.
+
+    Use a checklist for field verification.
+
+    Verify elector information in the field.
+
+    Fill and submit electoral forms on behalf of electors.
+
+    Conduct house-to-house verification using the online BLO Register.
+
+    Record verification-related information against elector records.
+
+    Digitise Enumeration Forms in applicable Special Intensive Revision workflows.
+
+    Upload supporting documents for elector verification.
+
+    Record comments or observations associated with verification.
+
+    Support field-level correction and discrepancy-handling workflows.
+
+B. Polling-station data collection
+
+This is an important feature set that is easy to overlook.
+
+    Collect AMF — Assured Minimum Facilities data.
+
+    Collect EMF — Essential Minimum Facilities data.
+
+    Capture polling-station GPS/GIS coordinates.
+
+    Update photographs of polling stations.
+
+    Record available facilities at the station.
+
+    Record distances to nearby facilities such as bus stands, police stations, fire stations, fuel pumps, hospitals and parking areas.
+
+These functions help election administrators assess polling-station accessibility and readiness. 
+Press Information Bureau+1
+C. Additional functions appearing in the current app's public update history
+
+The iOS app's release notes disclose additional workflows, including:
+
+    PSE and DSE activity.
+
+    Mobile-number viewing in PSE-related work.
+
+    National House Number capture.
+
+    VIP elector-related updates.
+
+    EPIC delivery-related functionality.
+
+    Notice delivery and hearing-related workflows.
+
+    Uploading death certificates in applicable cases.
+
+    Supporting-document uploads for logical discrepancies.
+
+    Additional BLO comments in SIR workflows.
+
+    Identification of incorrect self-mapping across States.
+
+    Training videos in Hindi and English after login.
+
+Some release notes concern specific States or revision exercises. They should not be assumed to be enabled for every BLO in every election. The app-store changelog also does not expose the complete logged-in feature set. 
+App Store+2
+D. What it does not establish
+
+The publicly documented BLO App functionality should not be confused with a complete polling-day voter authentication system. BLO field verification, electoral-roll maintenance and polling-station readiness are different tasks from checking an elector at the polling station when they arrive to vote.
+6. ECI eBooks
+
+Official link: ECI eBooks
+Digital publication library
+
+This is an electronic publication and reading facility.
+
+Features
+
+    Digital access to ECI books and publications.
+
+    Online book reading.
+
+    Chapter or table-of-contents navigation where supported.
+
+    Page-by-page navigation.
+
+    Mobile-friendly reading interfaces for supported publications.
+
+    Page selection and printing options in supported readers.
+
+    Printable or downloadable publication access where provided.
+
+    Access to election-related historical publications, statistical material and educational content.
+
+Examples include ECI's Leap of Faith publications and interactive election-statistics material such as the ECI Atlas. The exact reader functions vary by publication; not every eBook necessarily supports the same print or download options. 
+eci.gov.in+2
+
+Difference from Handbooks: eBooks primarily provide reading and educational/publication material. Handbooks and manuals are more directly structured around operational procedures and officer responsibilities.
+7. ECI FAQ
+
+Official link: ECI Frequently Asked Questions
+Public information and knowledge base
+
+The FAQ portal is designed to answer questions about the electoral process and ECI procedures.
+Categories covered
+
+Category
+	
+
+Subject
+
+Elections
+	
+
+General election procedures
+
+EVM
+	
+
+Electronic Voting Machines and related safeguards
+
+Political parties
+	
+
+Registration of political parties
+
+Model Code of Conduct
+	
+
+MCC rules and restrictions
+
+Conduct of Elections
+	
+
+Election procedures and administration
+
+Voters/Electors
+	
+
+Registration and elector rights
+
+Council of States
+	
+
+Rajya Sabha elections
+
+Presidential Election
+	
+
+Presidential election procedures
+
+RO/DEO FAQs
+	
+
+Operational questions for election officers
+
+Election Machinery
+	
+
+Election administration structure
+
+Parliament
+	
+
+Parliamentary election-related information
+
+Delimitation
+	
+
+Constituency delimitation
+
+Contesting Elections
+	
+
+Candidate eligibility and process
+
+Counting and Declaration
+	
+
+Vote counting and result declaration
+
+How to Register
+	
+
+Elector registration instructions
+
+eci.gov.in
+EVM FAQ: more detailed coverage
+
+The EVM FAQ alone is a substantial reference, with 129 questions in its indexed edition. Topics include:
+
+    General introduction to EVMs.
+
+    Administrative procedures and safeguards.
+
+    Technical features and safeguards.
+
+    Legal provisions and judicial scrutiny.
+
+    Common misconceptions about EVMs.
+
+The cited edition was updated on 15 July 2025. 
+Election Commission of India
+Voter registration FAQs
+
+The registration guidance explains the purpose of Forms 6, 6A, 7 and 8 and how electors use them for inclusion, overseas-elector registration, objection/deletion and corrections or shifting. 
+Election Commission of India
+
+What it does not do: The FAQ is not an application-processing engine. It explains how to use services; the actual application is filed through the relevant service.
+8. Election Planning Portal — ePlan
+
+Official link: Election Planning Portal
+Internal election planning and scheduling system
+
+ePlan is primarily intended for higher-level election planning by the ECI and Chief Electoral Officers (CEOs) of States and Union Territories.
+
+It is not a voter-facing platform. It helps administrators prepare for upcoming elections, maintain schedules and monitor planning activities.
+Features
+
+Module
+	
+
+Functionality
+
+Vacancy management
+	
+
+Track vacancies that may require bye-elections
+
+Upcoming elections
+	
+
+Maintain information about upcoming election requirements
+
+Bye-election planning
+	
+
+Plan elections arising from vacancies
+
+Election scheduler
+	
+
+Assist with the scheduling of elections
+
+Holiday management
+	
+
+Record and manage holidays relevant to election planning
+
+Security management
+	
+
+Support security-related election planning
+
+Electoral data dashboard
+	
+
+Provide a quick overview of electoral data
+
+Planning dashboard
+	
+
+Give officials a consolidated view of state and parliamentary election planning
+
+Automatic alerts
+	
+
+Alert officials about planned activities and overdue tasks
+
+SMS communication
+	
+
+Communicate planning updates to State officials
+
+Email communication
+	
+
+Send notifications and updates to relevant officials
+
+The ECI's documentation describes access for CEOs of States/UTs and relevant ECI planning and zonal divisions. 
+Election Commission of India+2
+
+The central idea: It helps officials answer what elections are coming, what preparation is required, when activities are due and where planning is falling behind.
+9. Training Materials
+
+Official link: ECI Training Materials
+Training and capacity-building repository
+
+This is a resource collection for election officials. Its purpose is to prepare different categories of election staff to perform their duties correctly.
+Subjects covered
+
+Training area
+	
+
+Topics
+
+IT Applications
+	
+
+Use of ECI's digital election applications
+
+Poll Process
+	
+
+Procedures before, during and after polling
+
+Counting of Votes
+	
+
+Counting procedures and result-related processes
+
+Nomination
+	
+
+Candidate nomination and scrutiny
+
+Paid News
+	
+
+Detection and handling of paid-news cases
+
+MCMC
+	
+
+Media Certification and Monitoring Committee processes
+
+Vulnerability Mapping
+	
+
+Identification of vulnerable polling areas and voters
+
+EVM/VVPAT
+	
+
+Handling, preparation, use and safeguards
+
+MCC
+	
+
+Model Code of Conduct implementation
+
+Symbol Allotment
+	
+
+Procedures for allotment of election symbols
+
+These subjects are explicitly identified in the ECI training-material description. 
+Election Commission of India+1
+Practical training covered in the material
+
+Examples include:
+
+    EVM and VVPAT handling.
+
+    Mock-poll procedures.
+
+    Polling-station preparation.
+
+    Clearing data and preparing equipment.
+
+    Responsibilities of Presiding Officers and Polling Officers.
+
+    Election-day operational procedures.
+
+    Counting-related training.
+
+    Training for officials working in different election-management roles. 
+    2सत्यमेव जयतेCHECKLIST FOR
+
+Important limitation: The existence of training material does not establish that the old page is a complete Learning Management System. I could verify the training-resource collection, but not a comprehensive public facility for course enrolment, assessments, certificates or individual progress tracking.
+10. Observer's Portal and Observer App
+
+Official reference: ECI Observer Portal
+Election monitoring and independent oversight
+
+The Observer system supports officials appointed to monitor the conduct of elections.
+
+The principal observer categories include:
+
+    General Observers.
+
+    Police Observers.
+
+    Expenditure Observers.
+
+It has a web-facing portal and a mobile application. These are related but should not be treated as identical interfaces.
+A. Observer web portal
+
+1. Observer profile and deployment
+
+    View personal information.
+
+    Update or correct personal information where permitted.
+
+    Maintain bank details and local contact information.
+
+    View assigned State and constituency.
+
+    View deployment information.
+
+    View deployment dates.
+
+    Access nodal-officer contact details.
+
+    Check observer deployment status.
+
+2. Reports and documentation
+
+    Submit arrival reports.
+
+    Submit daily reports.
+
+    Submit post-poll reports.
+
+    View and review submitted reports.
+
+    Upload required reports and documents.
+
+    Access prescribed reporting formats.
+
+    Download relevant election documents.
+
+3. Communication
+
+    View Commission instructions.
+
+    Access notices and messages.
+
+    Receive communication from the Commission.
+
+    Access observer-related information and updates.
+
+4. Election information
+
+    View constituency-related details.
+
+    Access candidate information.
+
+    View the final contesting-candidate list, including information from Form 7A.
+
+    Access relevant observer deployment and election reports.
+
+    Download or print the observer identity card where the portal supports it.
+
+These functions are documented in the official observer-portal and observer-handbook material. 
+Election Commission of India+1
+B. Observer mobile app
+
+The mobile interface supports field-level use.
+
+Its publicly documented functions include:
+
+    Observer login using observer ID, code and password.
+
+    View observer deployment schedule.
+
+    View constituency details.
+
+    View polling-station numbers and elector information.
+
+    Access RO office details.
+
+    Submit arrival and departure reports.
+
+    View notices and Commission communications.
+
+    Access cVIGIL complaint-related information.
+
+    Record observer remarks.
+
+    View flying-squad locations on a map.
+
+    Access contact information for relevant election officials.
+
+    Submit reports and access observer-related information while deployed.
+
+The mobile app and portal are intended to keep observers connected to the Commission and provide a structured way to monitor and report election-related activities. 
+Election Commission of India+2
+
+The distinction: An observer is not simply another administrative user. The Observer system is designed around monitoring, reporting and oversight of the election machinery.
+11. ENCORE — Election Management and Candidate/Election Official Workflows
+
+Official link: ENCORE
+Major election-official workflow platform
+
+This is one of the most functionally significant platforms in your list.
+
+Your provided description focuses on the nodal-officer permission workflow. That is only one part of the broader election-management functionality.
+
+ECI documentation describes ENCORE as the election-officials module previously known as ENCORE within ECINET. The documented functionality covers nomination, scrutiny, election permissions, counting, expenditure monitoring and post-election reporting. 
+eci.gov.in+1
+A. Candidate nomination management
+
+The candidate nomination workflow supports:
+
+    Candidate profile creation.
+
+    Candidate information entry.
+
+    Nomination form completion.
+
+    Affidavit entry and upload.
+
+    Criminal antecedent disclosures.
+
+    Security deposit information.
+
+    Multiple nominations by the same candidate.
+
+    Candidate nomination status tracking.
+
+    Digitisation of nominations submitted physically.
+
+    RO-side nomination record management.
+
+    Publication of candidate information and affidavits through related public interfaces.
+
+Candidates can initiate information submission electronically, but this does not mean the entire legal nomination process is completed online. The prescribed physical submission requirements still apply under the documented Suvidha workflow. 
+Election Commission of India+1
+B. Scrutiny and finalisation
+
+After nominations are filed, the RO uses the relevant system functionality to handle the scrutiny process.
+
+Features:
+
+    View filed nominations.
+
+    Examine nomination records.
+
+    Mark nominations as accepted or rejected.
+
+    Record nomination decisions.
+
+    Manage multiple nominations submitted by the same candidate.
+
+    Record withdrawals.
+
+    Allot election symbols.
+
+    Finalise the list of contesting candidates.
+
+    Serialise the final candidate list.
+
+    Generate Form 7A.
+
+This module connects candidate nomination to the final contesting-candidate list. 
+Election Commission of India
+C. Election Permissions — Suvidha integration
+
+This is the module described in the link you supplied.
+
+It acts as a single-window permission-management system for candidates and political parties.
+
+Applicant-side functionality
+
+    Create a candidate/party profile.
+
+    Submit requests for election-related permissions.
+
+    Submit permission requests online.
+
+    View application reference numbers.
+
+    Track the status of requests.
+
+    View approval or rejection.
+
+    Download permission orders.
+
+    Access permission-related documents.
+
+    View the permission application history.
+
+Permission categories
+
+Examples of permissions include:
+
+    Public meetings.
+
+    Rallies.
+
+    Loudspeakers.
+
+    Campaign vehicles.
+
+    Temporary campaign offices.
+
+    Other campaign-related activities requiring permission.
+
+Nodal-officer functionality
+
+    Receive permission applications assigned to the relevant department.
+
+    Review applications.
+
+    Record objections.
+
+    Record no-objection decisions.
+
+    Approve or reject requests through the designated workflow.
+
+    Handle requests originating online or entered into the system after physical submission.
+
+    Manage assignments across multiple nodal officers.
+
+    Track pending applications.
+
+    Send status updates.
+
+    Provide approved permission documents.
+
+The Nodal Officer's mobile interface is especially relevant: it allows the assigned department to act on requests without relying exclusively on the central web interface. 
+Election Commission of India+1
+D. Counting management
+
+This module becomes particularly important on counting day.
+
+Features:
+
+    Preparation of the counting module before counting day.
+
+    Activation of counting functionality in phases.
+
+    Digitisation of EVM vote counts.
+
+    Digitisation of postal-ballot counts.
+
+    Entry of round-wise counting data.
+
+    Tabulation of results.
+
+    Consolidation of constituency-level results.
+
+    Recording of counting information.
+
+    Support for result declaration.
+
+The ECI describes the counting module as part of the overall ENCORE election-management system. 
+Election Commission of India+1
+E. Online Index Card
+
+The Index Card is a post-election statistical reporting function.
+
+It captures information throughout the election cycle.
+
+Features:
+
+    Enter election schedule information.
+
+    Record electoral-roll information.
+
+    Record voter participation data.
+
+    Enter candidate details.
+
+    Enter party information.
+
+    Record votes obtained.
+
+    Record results.
+
+    Record information about returned candidates.
+
+    Submit the Index Card online.
+
+    Allow CEO-level and ECI-level examination.
+
+    Identify data inconsistencies through validation.
+
+    Finalise and lock the approved statistical information.
+
+ECI documentation also specifies publication of the Index Card within 72 hours of result declaration under the relevant process. 
+Election Commission of India+1
+F. Candidate expenditure monitoring
+
+    Record candidate expenditure information.
+
+    Maintain candidate-wise expenditure reports.
+
+    Support online submission of expense statements.
+
+    Provide DEO-level scrutiny and monitoring.
+
+    Generate summary reports.
+
+    Support compliance monitoring under election-expenditure rules.
+
+    Maintain information submitted physically as well as online.
+
+Election Commission of India
+
+Important: ENCORE should not be understood as one screen or one application. It is a collection of election-management workflows connected to different roles and stages of the election.
+12. cVIGIL — Citizen Complaint and Enforcement System
+
+Official citizen portal: cVIGIL information
+Dedicated case-management portal: cVIGIL
+Real-time violation reporting and field enforcement
+
+cVIGIL is designed to enable citizens to report potential violations of the Model Code of Conduct and election-expenditure rules.
+
+It is different from an ordinary grievance portal because its focus is on time-sensitive evidence and action by field enforcement teams.
+A. Citizen-facing application
+
+    Capture a photograph of a suspected violation.
+
+    Record a video of the incident.
+
+    Automatically capture geographical location through GPS/GIS.
+
+    Capture date and time information.
+
+    Select or describe the type of violation.
+
+    Submit the complaint.
+
+    Receive a unique complaint/reference ID.
+
+    Track complaint status.
+
+    Submit complaints anonymously where the feature is available.
+
+The use of live location-linked evidence is a defining feature of the system. 
+Election Commission of India+1
+B. District Control Room functionality
+
+The District Control Room is an important component of the workflow.
+
+    Receive submitted complaints.
+
+    View complaint evidence.
+
+    Check geolocation information.
+
+    Screen irrelevant or frivolous complaints.
+
+    Register valid cases.
+
+    Assign cases to the appropriate Flying Squad Team.
+
+    Monitor response progress.
+
+    Track the status of the assigned case.
+
+C. Flying Squad Team functionality
+
+    Receive an assigned complaint.
+
+    Access incident information.
+
+    Navigate towards the reported location.
+
+    Investigate the reported incident.
+
+    Capture field-level evidence.
+
+    Record action taken.
+
+    Submit an investigation report.
+
+    Update the complaint status.
+
+D. Returning Officer and election-administration functionality
+
+    View complaint information.
+
+    Review field investigation findings.
+
+    Examine the uploaded evidence.
+
+    Decide the further action.
+
+    Drop a complaint where appropriate.
+
+    Dispose of a complaint after action.
+
+    Escalate a complaint when required.
+
+    Monitor case disposal and response time.
+
+E. Time-bound workflow
+
+ECI's documented process uses a 100-minute response timeline as the intended service standard for cVIGIL complaint handling. This is a process target, not a guarantee that every investigation or legal proceeding is completed within 100 minutes. 
+Election Commission of India
+F. What makes cVIGIL distinctive?
+
+It connects:
+
+Citizen report → Evidence and location → District Control Room → Flying Squad → Field investigation → RO decision → Closure/escalation.
+
+This is one of the strongest examples in the ECI ecosystem of a digitally coordinated field-response workflow.
+13. ETPBMS and Service Voter Portal
+
+Official link: ETPBMS
+Service-voter enrolment and postal-ballot administration
+
+This link represents two related but distinct functions:
+
+    Service Voter Portal: registration and management of service voters.
+
+    ETPBMS: electronic transmission and management of postal ballots for eligible service voters.
+
+Do not confuse ETPBMS with online voting. The elector still marks a physical postal ballot and returns it according to the prescribed procedure.
+A. Service Voter Portal
+
+    Record Officer access.
+
+    Service-voter enrolment.
+
+    Entry of service-voter application information.
+
+    Form processing.
+
+    Upload of structured/XML data.
+
+    Forwarding of enrolment information to the ERO.
+
+    ERO-side completion of enrolment.
+
+    Maintenance of service-voter records.
+
+B. Electronic Postal Ballot Transmission
+
+For eligible service voters:
+
+    Generate the relevant postal-ballot package.
+
+    Generate the electronically transmitted postal ballot as a password-protected PDF.
+
+    Transmit the ballot electronically to the designated Unit Officer.
+
+    Send the corresponding PIN through a separate process to the Record Officer.
+
+    Allow the service voter to access the ballot using the prescribed information.
+
+    Enable printing of the ballot and required forms.
+
+    Allow the service voter to mark the physical ballot.
+
+    Return the marked ballot using the prescribed postal procedure.
+
+The package includes Forms 13A, 13B and 13C, along with the postal ballot, as applicable. 
+Election Commission of India
+C. Security and authenticity
+
+    Password-protected ballot access.
+
+    Separate transmission of password/PIN information.
+
+    Secure electronic transmission.
+
+    End-to-end encryption in the documented process.
+
+    Duplicate-prevention mechanisms.
+
+    Verification of postal-ballot authenticity.
+
+    Validation at the counting stage.
+
+    Monitoring of service-voter ballot status.
+
+D. India Post integration
+
+ECI's more recent documentation describes integration with India Post, including free Speed Post return of service-voter postal ballots and enhanced dashboards and reporting for relevant stakeholders. 
+Election Commission of India
+
+Important distinction: The ballot is electronically transmitted, but the vote itself is cast on paper and returned through the postal process. It is not electronic ballot casting over the internet.
+14. National Grievance Services Portal — NGSP
+
+Official portal: NGSP
+Multi-stakeholder grievance redressal
+
+NGSP is a grievance-management system for complaints connected with election administration.
+
+The officer login you shared is the administrative side of a broader complaint-handling system.
+A. Citizen and stakeholder complaint submission
+
+    Register a user profile.
+
+    Use a mobile number for identification/contact.
+
+    File a complaint.
+
+    Select the appropriate complaint category.
+
+    Describe the issue.
+
+    Upload supporting documents where required.
+
+    Receive a complaint/reference ID.
+
+    Receive acknowledgement through SMS/email.
+
+    Track complaint progress.
+
+    View the response.
+
+    View the response time.
+
+    Submit suggestions through the relevant integrated citizen-facing functionality.
+
+B. Complaint categories
+
+The documented scope includes:
+
+    Electoral registration.
+
+    Polling booths.
+
+    EVM-related issues.
+
+    Election expenditure.
+
+    Electoral malpractice.
+
+    Other election-administration complaints.
+
+C. Officer-side functionality
+
+    Receive complaints.
+
+    Assign complaints to the relevant authority.
+
+    Route complaints to the appropriate official.
+
+    View complaint details.
+
+    Review uploaded supporting documents.
+
+    Record responses.
+
+    Update complaint status.
+
+    Monitor pending complaints.
+
+    Provide a response to the complainant.
+
+    Track time taken for resolution.
+
+D. Stakeholder coverage
+
+The scope is broader than individual citizens. ECI documentation identifies complaints from:
+
+    Citizens.
+
+    Electors.
+
+    Political parties.
+
+    Candidates.
+
+    Media.
+
+    Election officials.
+
+Complaints can be routed through national, State and district-level election-administration structures. 
+Election Commission of India+1
+E. Current citizen-facing integration
+
+The current ECI service ecosystem also exposes complaint registration and tracking through ECINET-related services, alongside the Voter Mitra chatbot. 
+Voters
+
+Difference between NGSP and cVIGIL:
+
+NGSP
+	
+
+cVIGIL
+
+General election-related grievance handling
+	
+
+MCC and expenditure-violation reporting
+
+Broad stakeholder coverage
+	
+
+Primarily citizen reporting and election enforcement
+
+Officer assignment and response workflow
+	
+
+District Control Room and Flying Squad workflow
+
+Supporting documents and complaint details
+	
+
+Live photo/video and location-linked evidence
+
+General grievance tracking
+	
+
+Time-sensitive investigation and action
+
+This distinction is important when designing a unified complaint system. A general grievance should not automatically be treated as an MCC violation requiring immediate Flying Squad deployment.
+15. Additional ECI modules you should know about
+
+These were not all individually listed in your links, but they are relevant because ECI's more recent documentation identifies them as part of its broader election-management ecosystem.
+
+Leaving them out would give you an incomplete picture of the technology used during elections.
+A. PRO Module — Presiding Officer Application
+Directly relevant to polling day
+
+The PRO module is designed for Presiding Officers to report polling-station activities.
+
+Documented functionality:
+
+    Report arrival of the polling party.
+
+    Report completion of mock poll.
+
+    Record poll commencement.
+
+    Capture voter-turnout information.
+
+    Record poll closure.
+
+    Submit polling-station reports.
+
+    Provide near-real-time polling updates.
+
+    Enable ECI, CEO, DEO and RO officials to monitor polling activity across constituencies.
+
+This is an important component because it connects polling-station activity to the election-control hierarchy. 
+Election Commission of India
+B. ESMS — Election Seizure Management System
+
+Purpose: Coordinate enforcement agencies and monitor suspected election-related inducements and seizures.
+
+Documented functions:
+
+    Record cash interceptions and seizures.
+
+    Record liquor-related interceptions and seizures.
+
+    Record drug-related seizures.
+
+    Record precious-metal seizures.
+
+    Record freebies and other seized items.
+
+    Digitise field-level interception reports.
+
+    Coordinate information across State and Central enforcement agencies.
+
+    Generate automated reports.
+
+    Reduce duplicate data entry.
+
+    Provide analytical information to CEO-level authorities.
+
+Election Commission of India
+C. IEMS — Integrated Election Expenditure Monitoring System
+
+Purpose: Monitor political-party expenditure and financial compliance.
+
+Documented functions:
+
+    Receive political-party contribution reports, including Form 24A.
+
+    Receive annual audit accounts.
+
+    Receive election-expenditure statements.
+
+    Digitise contribution details.
+
+    Maintain expenditure-related records.
+
+    Provide real-time compliance dashboards.
+
+    Validate mandatory fields.
+
+    Support bulk Excel imports.
+
+    Send SMS/email alerts.
+
+    Generate acknowledgements.
+
+    Support Aadhaar e-sign.
+
+Election Commission of India
+D. EMS 2.0 — EVM Management System
+
+Purpose: Manage the inventory and allocation of Electronic Voting Machines.
+
+Documented functionality:
+
+    Maintain EVM inventory.
+
+    Conduct first-stage randomisation.
+
+    Conduct second-stage randomisation.
+
+    Involve political-party/candidate representatives in prescribed randomisation processes.
+
+    Maintain machine identification information.
+
+    Generate lists of uniquely identified machines.
+
+    Support commissioning.
+
+    Record mock-poll-related information.
+
+This is relevant because EVM allocation and traceability are important parts of election preparedness. 
+Election Commission of India
+16. Consolidated feature matrix — all 13 platforms
+
+This table is useful for comparing the responsibilities of the systems without confusing their roles.
+
+Platform
+	
+
+Primary user
+	
+
+Main functionality
+	
+
+Election stage
+
+Handbooks / Manuals
+	
+
+All election officials
+	
+
+Procedures, responsibilities, checklists
+	
+
+All stages
+
+Compendium
+	
+
+Officials, legal and administrative staff
+	
+
+Instructions, circulars and rules
+	
+
+All stages
+
+ERONET
+	
+
+BLO, AERO, ERO
+	
+
+Electoral registration and roll management
+	
+
+Pre-election
+
+BLO App
+	
+
+BLO
+	
+
+Field verification, elector data, station facilities
+	
+
+Pre-election / field work
+
+eBooks
+	
+
+Public, officials, researchers
+	
+
+Digital publications
+	
+
+General
+
+FAQ
+	
+
+Citizens, candidates, officials
+	
+
+Procedural information
+	
+
+All stages
+
+ePlan
+	
+
+ECI, CEO and planning officials
+	
+
+Election scheduling and planning
+	
+
+Pre-election
+
+Training Materials
+	
+
+Polling and election staff
+	
+
+Training and operational guidance
+	
+
+All stages
+
+Observer Portal
+	
+
+General, Police, Expenditure Observers
+	
+
+Monitoring, deployment and reporting
+	
+
+All stages
+
+ENCORE
+	
+
+RO, DEO, CEO and other officials
+	
+
+Nomination, scrutiny, permissions, counting and reporting
+	
+
+Pre-election to post-election
+
+cVIGIL
+	
+
+Citizens, DCC, FST, RO
+	
+
+MCC/expenditure complaint and enforcement
+	
+
+Election period
+
+ETPBMS
+	
+
+Service voters, Record Officers and EROs
+	
+
+Service-voter postal-ballot management
+	
+
+Pre-election to counting
+
+NGSP
+	
+
+Citizens and election officials
+	
+
+Grievance registration, assignment and resolution
+	
+
+All stages
+17. Which systems handle which election activities?
+
+This is the more important architectural view.
+
+ECI election workflow — technology mapping
+
+    Election preparation
+
+    ePlan · Handbooks · Compendiums · Training Materials
+
+    Planning, instructions, staff readiness and election schedules.
+
+    Electoral-roll preparation
+
+    ERONET · BLO App · Service Voter Portal
+
+    Registration, verification, corrections, roll management and service-voter enrolment.
+
+    Candidate nomination and campaign preparation
+
+    ENCORE · Suvidha · Candidate Affidavit Portal · KYC
+
+    Nominations, scrutiny, candidate details, permissions and expenditure-related procedures.
+
+    Election monitoring
+
+    Observer Portal · cVIGIL · NGSP · ESMS · IEMS
+
+    Observer reporting, violation reporting, grievances, enforcement and expenditure monitoring.
+
+    Polling-day operations
+
+    PRO Module · EMS 2.0 · Observer App
+
+    Polling-party reporting, mock poll, poll commencement, turnout, equipment allocation and field oversight.
+
+    Counting and declaration
+
+    ENCORE Counting · ETPBMS
+
+    EVM/postal-ballot count entry, round-wise tabulation, service-voter ballot validation and results.
+
+    Post-election reporting
+
+    ENCORE Index Card · Observer Portal · IEMS
+
+    Election statistics, observer reports and expenditure statements.
+
+This mapping is based on ECI's published module descriptions, rather than an assumption that every module shares one common database or API. 
+Election Commission of India+3
+18. The most important findings for a polling-day management system
+
+I want to highlight something that could materially affect your project architecture.
+
+The ECI ecosystem already has considerable functionality for electoral rolls, polling-party reporting, EVM management, observer monitoring and complaints.
+
+So simply reproducing these functions under a new UI would not be meaningful differentiation.
+
+There is, however, an important distinction between monitoring a polling station and managing the actual elector-verification interaction at its entrance.
+
+Requirement
+	
+
+Existing ECI functionality identified
+	
+
+What still needs careful examination
+
+Find an elector
+	
+
+Electoral-roll search and roll-management facilities
+	
+
+Fast, polling-station-scoped lookup under heavy load
+
+Establish voter eligibility
+	
+
+Electoral-roll records and prescribed identification procedures
+	
+
+A guided, auditable polling-day verification interface
+
+Prevent repeat voting
+	
+
+Existing prescribed polling procedures and records
+	
+
+A reliable station-level duplicate-attempt and exception workflow
+
+Polling-station readiness
+	
+
+BLO App and EMS-related facilities
+	
+
+Live polling-station readiness and operational issue tracking
+
+Monitor polling
+	
+
+PRO module and Observer systems
+	
+
+Consolidated control-room view with actionable alerts
+
+Handle complaints
+	
+
+cVIGIL and NGSP
+	
+
+Routing a complaint to the correct polling-day authority
+
+Handle connectivity failure
+	
+
+Offline processes are part of election operations
+	
+
+A carefully reconciled, signed, station-specific offline application package
+
+Manage queues
+	
+
+No complete queue-management workflow established by the cited material
+	
+
+Queue estimation, accessibility priority and station-level coordination
+
+Handle exceptions
+	
+
+Existing election rules and reporting processes
+	
+
+Structured exception states, escalation and reasoned action records
+
+Reconcile polling activity
+	
+
+PRO reporting and other election records
+	
+
+A unified, auditable polling-station reconciliation workflow
+
+One particularly important finding: The PRO module documents arrival, mock-poll, commencement, turnout and closure reporting. It does not, in the cited description, establish a complete individual voter-authentication interface. Likewise, ERONET is principally an electoral-roll management system, not a polling-booth entrance workflow. 
+Election Commission of India+1
+
+That is a distinction worth preserving in your technical design.
+19. What I could and could not verify
+
+You asked for each and every feature. There is a limit to what can be honestly established from public information.
+
+I have catalogued the functions disclosed in ECI's official pages, published descriptions, available manuals and public app release notes. I cannot certify every internal screen, button, permission, API endpoint or role-specific feature in the logged-in applications without access to those accounts and their respective environments.
+
+In particular:
+
+    ERONET, BLO App, ENCORE, Observer and NGSP: Their full role-specific internal interfaces are not publicly documented.
+
+    ePlan: Its live planning workflows are restricted to authorised users.
+
+    ETPBMS: Its complete operational workflow depends on service-voter and election-official access.
+
+    cVIGIL: The citizen interface and official investigation interface expose different capabilities.
+
+    ECINET: Its integration means that older standalone descriptions are not necessarily a complete picture of the current interface.
+
+So treat this as a comprehensive publicly documented feature inventory, not a security-audited inventory of every hidden system capability. of different severities and states |
 | Logistics | Steps for every Ludhiana South station |
 | Security | 15 assessments (normal, sensitive, critical), 4 deployments, 4 situation reports |
 | Nodal | 5 reports, 4 tasks |
