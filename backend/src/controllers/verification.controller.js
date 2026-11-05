@@ -1,4 +1,3 @@
-import { BLO_ID_PATTERN } from "../services/blo.service.js";
 import crypto from "crypto";
 import { getElectorByEpic } from "../repositories/elector.repository.js";
 import { getUserByEpic } from "../repositories/user.repository.js";
@@ -347,16 +346,11 @@ export const sendDemoOtp = asyncHandler(async (req, res) => {
     }
 
     const epic = electorId.trim().toUpperCase();
-    if (BLO_ID_PATTERN.test(epic)) throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     if (!/^[A-Z]{3}\d{7}$/.test(epic)) throw new ApiError(400, "Enter a valid EPIC number (three letters and seven digits).");
     const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
     if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
-    }
-    // BLOs must use their BLO ID, password and mobile OTP; this EPIC-only path is not for them.
-    if (user?.role === "blo") {
-        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
     await issueOtp(epic);
@@ -380,16 +374,11 @@ export const verifyDemoOtp = asyncHandler(async (req, res) => {
     }
 
     const epic = electorId.trim().toUpperCase();
-    if (BLO_ID_PATTERN.test(epic)) throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     if (!/^[A-Z]{3}\d{7}$/.test(epic)) throw new ApiError(400, "Enter a valid EPIC number (three letters and seven digits).");
     const [elector, user] = await Promise.all([getElectorByEpic(epic), getUserByEpic(epic)]);
 
     if (!(elector && elector.isActive) && !user) {
         throw new ApiError(404, "Active electoral record not found.");
-    }
-    // BLOs must use their BLO ID, password and mobile OTP; this EPIC-only path is not for them.
-    if (user?.role === "blo") {
-        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
     }
 
     await checkOtp(epic, otp);

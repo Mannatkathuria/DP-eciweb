@@ -28,7 +28,7 @@ export const ROLES = [
   role("aero", "Assistant electoral registration officer", "roll", "Assists the electoral registration officer."),
   role("blo_supervisor", "BLO supervisor", "roll", "Supervises and coordinates booth level officers."),
   role("record_officer", "Record officer (service voters)", "roll", "Verifies service voters' particulars and passes postal-ballot PINs to them."),
-  role("blo", "Booth level officer", "roll", "Field-level roll work: verifies applicants in the field and recommends a decision to the ERO. Appointed by the government.", { mode: "blo" }),
+  role("blo", "Booth level officer", "roll", "Field-level roll work: verifies applicants in the field and recommends a decision to the ERO. Appointed by the government."),
 
   role("ro", "Returning officer", "conduct", "Legally responsible for conducting the election: nomination, scrutiny, polling arrangements and counting."),
   role("aro", "Assistant returning officer", "conduct", "Assists the returning officer with assigned election duties."),
@@ -66,7 +66,7 @@ export const ROLES = [
 export const DEMO_IDS = {
   voter: "ABC1234567", candidate: "CAN1000001", election_agent: "EAG1000001", polling_agent: "PAG1000001",
   counting_agent: "CAG1000001", bla: "BLA1000001", ero: "ERO1000001", aero: "AER1000001", blo_supervisor: "BLS1000001",
-  blo: "BLO-PB-000001", ro: "ROF1000001", aro: "ARO1000001", sector_officer: "SCO1000001", sector_police_officer: "SPO1000001", flying_squad: "FST1000001",
+  blo: "BLO1000001", ro: "ROF1000001", aro: "ARO1000001", sector_officer: "SCO1000001", sector_police_officer: "SPO1000001", flying_squad: "FST1000001",
   presiding_officer: "PRO1000001", polling_officer: "POL1000001", counting_supervisor: "CSU1000001", counting_assistant: "CAS1000001",
   deo: "DEO1000001", deputy_deo: "DDO1000001", district_nodal_officer: "DNO1000001", district_police_officer: "DPO1000001",
   ceo: "CEO1000001", state_nodal_officer: "SNO1000001", state_police_nodal: "SPN1000001", eci: "ECI1234567", cec: "CEC1000001",

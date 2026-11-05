@@ -44,10 +44,6 @@ export const login = asyncHandler(async (req, res) => {
         throw new ApiError(404, "This EPIC number is not registered. Apply for registration first; you can sign in once a Booth Level Officer approves it.");
     }
 
-    // BLO accounts sign in with their BLO ID, password and a mobile OTP (see blo.controller.js).
-    if (user.role === "blo") {
-        throw new ApiError(403, "BLO accounts sign in with their BLO ID and password.");
-    }
 
     const allowed = portalRoles(portal);
     if (allowed && !allowed.includes(user.role)) {

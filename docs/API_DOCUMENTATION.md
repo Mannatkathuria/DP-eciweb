@@ -45,13 +45,6 @@ Generated from the route files on 3 November 2026 (180 endpoints). Request and r
 | GET | `/api/v1/auth/me` | auth → `me` | session | — |  |  |
 | POST | `/api/v1/auth/step-up/request` | auth → `requestStepUp` | session | — |  | loginLimiter |
 | POST | `/api/v1/auth/step-up/verify` | auth → `verifyStepUp` | session | — |  | loginLimiter |
-| POST | `/api/v1/auth/blo/login` | auth → `bloLogin` | public | — |  | bloLimiter |
-| POST | `/api/v1/auth/blo/verify` | auth → `bloVerifyOtp` | public | — |  | bloLimiter |
-| POST | `/api/v1/auth/blo/resend` | auth → `bloResendOtp` | public | — |  | bloLimiter |
-| POST | `/api/v1/auth/blo/password` | auth → `changeBloPassword` | session | — |  |  |
-| POST | `/api/v1/auth/blo/forgot` | auth → `bloForgotPassword` | public | — |  | bloResetLimiter |
-| POST | `/api/v1/auth/blo/forgot/resend` | auth → `bloResendResetOtp` | public | — |  | bloResetLimiter |
-| POST | `/api/v1/auth/blo/reset` | auth → `bloResetPassword` | public | — |  | bloResetLimiter |
 | GET | `/api/v1/admin/verifications` | admin → `listVerifications` | session | role: blo, admin |  |  |
 | PATCH | `/api/v1/admin/verifications/:id/resolve` | admin → `resolveVerification` | session | role: blo, admin |  |  |
 | GET | `/api/v1/admin/stats` | admin → `getStats` | session | role: blo, admin |  |  |

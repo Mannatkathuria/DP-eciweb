@@ -5,7 +5,7 @@
 // `portal` value the sign-in pages send, so "ero" signs in at /signin/ero.
 //
 // Three ids are kept from the original prototype so existing routes and tests keep working:
-//   voter, blo (BLO ID + password + mobile OTP) and eci (ECI administrator).
+//   voter, blo (BLO ID such as BLO1000001 + one-time code, like every officer) and eci (ECI administrator).
 // These ids are application identifiers, not official ECI login names.
 
 export const ROLE_GROUPS = {

@@ -239,8 +239,7 @@ function Admin() {
         }
     };
 
-    if (!logged) return <Navigate to="/blo/login" replace />;
-    if (userData?.role === "blo" && userData.mustChangePassword) return <Navigate to="/blo/password" replace />;
+    if (!logged) return <Navigate to="/signin/blo" replace />;
     if (userData?.role !== "blo" && userData?.role !== "admin") {
         return <Navigate to={userData?.role === "eci" ? "/eci/dashboard" : "/dashboard"} replace />;
     }

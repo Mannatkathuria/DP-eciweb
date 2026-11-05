@@ -58,7 +58,7 @@ npm run create-blo -- --name "Ravi Kumar" --mobile 9876543210 --state UP
 npm run dev
 ```
 
-In `backend/.env`, replace `ACCESS_TOKEN_SECRET` with a long random string before starting the server. Keep `REDIS_URL=redis://127.0.0.1:6379` for the Docker Redis above. `npm run create-blo` prints a BLO ID and temporary password (see [BLO accounts](#blo-accounts)); run it in a separate terminal if the server is already running.
+In `backend/.env`, replace `ACCESS_TOKEN_SECRET` with a long random string before starting the server. Keep `REDIS_URL=redis://127.0.0.1:6379` for the Docker Redis above. `npm run create-blo` prints a BLO ID (see [BLO accounts](#blo-accounts)); run it in a separate terminal if the server is already running.
 
 Set these values in `backend/.env` using the Persona Sandbox dashboard:
 
@@ -118,15 +118,13 @@ Voters and ECI officials sign in with the EPIC only. The backend generates an OT
 
 ### BLO accounts
 
-BLOs sign in with a **BLO ID and password**, followed by an OTP sent to their registered mobile number that is valid for **2 minutes** (in this prototype the OTP is printed in the backend terminal). Create a BLO from the `backend` folder:
+BLOs sign in like every other officer, on `/signin/blo`: their **BLO ID** (shaped like an EPIC, for example `BLO1000001`) and a one-time code (in this prototype the code is printed in the backend terminal). There is no password. Create a BLO from the `backend` folder:
 
 ```bash
 npm run create-blo -- --name "Ravi Kumar" --mobile 9876543210 --state UP
 ```
 
-The command prints the BLO ID (for example `BLO-UP-000001`) and a one-time temporary password. On first sign-in the BLO must set their own password before reaching `/admin`. Five wrong passwords lock the account for 15 minutes.
-
-A BLO who forgets their password uses **Forgot password?** on the sign-in page: an OTP (valid 2 minutes) is sent to the mobile number registered for that BLO ID, and after entering it plus the new password twice, the stored password is replaced. A reset also clears a lockout and signs out existing sessions.
+The command prints the BLO ID (the next in one national series: `BLO1000002`, `BLO1000003`, ...). Older accounts with IDs like `BLO1000001` are renamed, and their passwords removed, by `npm run migrate:blo-ids` (which `npm run seed` also runs). Every reference is rewritten, except the audit trail and event history, which keep the old ID as a record of what happened.
 
 ## Voter registration (Form 6) and corrections (Form 8): BLO verifies, ERO decides
 
@@ -227,7 +225,7 @@ The seed adds a completed "Demo past bye-election, Ludhiana South" with a publis
   - `POST /api/v1/assignments/:id/revoke` `{ reason }`.
   - Promoting a voter to BLO from the ECI dashboard assigns them to the constituency they are enrolled in.
 - **Audit trail**: append-only, in Redis (`audit:event:*`). There is no endpoint to change or delete an event. `GET /api/v1/audit` and `GET /api/v1/audit/:type/:id` (for example `/audit/registration/<id>`) need `audit:read` (ERO, AERO, BLO supervisor, DEO, CEO, ECI, CEC, ECs, general observer) and only return events from inside the caller's jurisdiction.
-- `npm run seed` gives every seeded staff account an assignment in the demo jurisdiction (Ludhiana South, Ludhiana, Punjab). The demo BLO `BLO-PB-000001` is assigned to part 18, Government Girls Senior Secondary School, and the demo ERO is `ERO1000001`. A BLO created with `npm run create-blo` has no jurisdiction until one is assigned through the API.
+- `npm run seed` gives every seeded staff account an assignment in the demo jurisdiction (Ludhiana South, Ludhiana, Punjab). The demo BLO `BLO1000001` is assigned to part 18, Government Girls Senior Secondary School, and the demo ERO is `ERO1000001`. A BLO created with `npm run create-blo` has no jurisdiction until one is assigned through the API.
 
 ### State, district and constituency data
 
@@ -291,9 +289,7 @@ Two permissions were added: `permission:decide` (RO, ARO) and `direction:issue` 
 /login            Voter sign-in
 /register         Voter registration request (address, PIN code, State/District/Constituency)
 /electoral-roll   Electoral-roll search, including assigned part number and polling station
-/blo/login        BLO sign-in (BLO ID, password, mobile OTP)
-/blo/password     BLO password change (required on first sign-in)
-/blo/forgot       BLO forgot password (mobile OTP, then new password)
+/signin/blo       BLO sign-in (BLO ID such as BLO1000001, then a one-time code; /blo/* redirects here)
 /login/otp        OTP confirmation
 /dashboard        Voter dashboard and Persona status
 /verify           Embedded Persona document and face verification

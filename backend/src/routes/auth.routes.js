@@ -1,10 +1,6 @@
 import express from "express";
 import { limiter } from "../middlewares/rateLimit.middleware.js";
 import { login, me, logout, logoutEverywhere, submitRegistration, getRegistrationStatus, getGeography, getRoles } from "../controllers/auth.controller.js";
-import {
-    bloLogin, bloResendOtp, bloVerifyOtp, changeBloPassword,
-    bloForgotPassword, bloResendResetOtp, bloResetPassword
-} from "../controllers/blo.controller.js";
 import { verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import { requestStepUp, verifyStepUp } from "../controllers/stepUp.controller.js";
 import { respondToInformationRequest } from "../controllers/followUp.controller.js";
@@ -31,17 +27,5 @@ router.get("/me", verifyJWT, me);
 // Re-authentication before sensitive approvals: a fresh code, then a 10-minute step-up token.
 router.post("/step-up/request", loginLimiter, verifyJWT, requestStepUp);
 router.post("/step-up/verify", loginLimiter, verifyJWT, verifyStepUp);
-
-// BLO sign-in: BLO ID + password, then an OTP sent to the BLO's mobile (valid 2 minutes).
-const bloLimiter = limiter("blo", { windowMs: 15 * 60 * 1000, limit: 30, message: "Too many sign-in attempts. Try again later." });
-router.post("/blo/login", bloLimiter, bloLogin);
-router.post("/blo/verify", bloLimiter, bloVerifyOtp);
-router.post("/blo/resend", bloLimiter, bloResendOtp);
-router.post("/blo/password", verifyJWT, changeBloPassword);
-// Forgot password: OTP to the registered mobile, then a new password. Limited separately from
-// sign-in so failed sign-in attempts do not block a reset.
-const bloResetLimiter = limiter("bloReset", { windowMs: 15 * 60 * 1000, limit: 20, message: "Too many password reset attempts. Try again later." });
-router.post("/blo/forgot", bloResetLimiter, bloForgotPassword);
-router.post("/blo/forgot/resend", bloResetLimiter, bloResendResetOtp);
-router.post("/blo/reset", bloResetLimiter, bloResetPassword);
+// BLOs sign in here too: their BLO ID (BLO1000001) is shaped like an EPIC; there is no password.
 export default router;

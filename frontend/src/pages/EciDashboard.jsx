@@ -152,10 +152,9 @@ function EciDashboard() {
                 <div className="admin-notice" style={{ maxWidth: "1100px", margin: "0 auto 24px", background: "#e8f5e9", borderLeft: "4px solid #56a581" }}>
                     <h3 style={{ margin: "0 0 6px", color: "#2e7d32" }}>✓ BLO Account Successfully Created / Promoted</h3>
                     <p style={{ margin: "4px 0" }}><strong>BLO ID:</strong> <code>{newBloCredentials.bloId}</code></p>
-                    <p style={{ margin: "4px 0" }}><strong>Temporary Password:</strong> <code>{newBloCredentials.temporaryPassword}</code></p>
                     <p style={{ margin: "4px 0" }}><strong>Linked Voter EPIC:</strong> {newBloCredentials.epic} ({newBloCredentials.name})</p>
                     <small style={{ color: "var(--text-secondary)" }}>
-                        Share these credentials with the officer. They can now sign in at the <strong>/blo/login</strong> portal.
+                        Give the officer this BLO ID. They sign in at <strong>/signin/blo</strong> with the BLO ID and a one-time code; there is no password.
                     </small>
                 </div>
             )}

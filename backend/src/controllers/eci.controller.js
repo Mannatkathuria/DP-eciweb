@@ -1,10 +1,7 @@
 import crypto from "crypto";
 import { getUserByEpic, saveUser, listUsers } from "../repositories/user.repository.js";
 import { getElectorByEpic, listElectors } from "../repositories/elector.repository.js";
-import {
-    createBlo, generateTemporaryPassword, hashPassword,
-    STATE_CODE_PATTERN, MOBILE_PATTERN, normaliseBloId
-} from "../services/blo.service.js";
+import { allocateBloId, BLO_ID_PATTERN } from "../services/blo.service.js";
 import { redis, transaction } from "../config/redis.js";
 import { listAssignmentsForUser, saveAssignment } from "../repositories/assignment.repository.js";
 import { validateJurisdiction } from "../services/authority.service.js";
@@ -55,12 +52,8 @@ export const assignBloRole = asyncHandler(async (req, res) => {
     const stateCode = String(state || elector.state || "UP").slice(0, 2).toUpperCase();
     const cleanMobile = String(mobile || "9876543210").replace(/[\s-]/g, "");
 
-    // Generate unique BLO serial and ID
-    const serial = await redis().incr(`blo:serial:${stateCode}`);
-    const bloId = `BLO-${stateCode}-${String(serial).padStart(6, "0")}`;
-
-    const temporaryPassword = generateTemporaryPassword();
-    const passwordHash = await hashPassword(temporaryPassword);
+    // The BLO signs in with this ID (shaped like an EPIC) and a one-time code; no password.
+    const bloId = existingUser?.role === "blo" && BLO_ID_PATTERN.test(existingUser.bloId ?? "") ? existingUser.bloId : await allocateBloId();
 
     const bloUser = {
         _id: existingUser?._id || crypto.randomUUID(),
@@ -71,8 +64,6 @@ export const assignBloRole = asyncHandler(async (req, res) => {
         role: "blo",
         mobile: cleanMobile,
         state: stateCode,
-        passwordHash,
-        mustChangePassword: false, // allow immediate sign in with generated password
         createdAt: new Date().toISOString()
     };
 
@@ -114,7 +105,6 @@ export const assignBloRole = asyncHandler(async (req, res) => {
             bloId,
             epic: cleanEpic,
             name: elector.name,
-            temporaryPassword,
             mobile: cleanMobile,
             state: stateCode,
             assignment,
@@ -139,14 +129,12 @@ export const removeBloRole = asyncHandler(async (req, res) => {
 
     // Demote to voter
     user.role = "voter";
+    const bloId = user.bloId;
     user.bloId = null;
-    user.passwordHash = null;
     user.updatedAt = new Date().toISOString();
 
     await saveUser(user);
-    if (identifier.startsWith("BLO-")) {
-        await redis().del(`user:${identifier}`);
-    }
+    if (bloId && bloId !== user.epic) await redis().del(`user:${bloId}`);
 
     // Revoke (never delete) the BLO's assignments, with an audit record for each.
     const now = new Date().toISOString();

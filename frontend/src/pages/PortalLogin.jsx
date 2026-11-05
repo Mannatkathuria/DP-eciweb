@@ -7,8 +7,8 @@ import { DEMO_IDS, GROUPS, roleById } from "../config/roles";
 const EPIC_PATTERN = /^[A-Z]{3}\d{7}$/;
 
 /**
- * Sign-in for every role that signs in with an identifier and a one-time code. Booth level officers
- * have their own page (BLO ID, password and mobile OTP), so they are sent there.
+ * Sign-in for every role: an EPIC-shaped identifier and a one-time code. Booth level officers use
+ * their BLO ID here (for example BLO1000001); there are no passwords.
  */
 export default function PortalLogin() {
   const { roleId } = useParams();
@@ -20,7 +20,6 @@ export default function PortalLogin() {
   const [error, setError] = useState("");
 
   if (!role) return <Navigate to="/signin" replace />;
-  if (role.mode === "blo") return <Navigate to="/blo/login" replace />;
 
   const group = GROUPS.find((g) => g.id === role.group);
 

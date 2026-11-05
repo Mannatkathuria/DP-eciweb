@@ -22,7 +22,7 @@ npm install
 npm run dev                   # http://localhost:5173
 ```
 
-The seed prints its demo accounts. They include ECI1234567 (ECI administrator), DEO1000001, ROF1000001 (RO), ARO1000001, ERO1000001, PRO1000001 (presiding officer), SCO1000001 (sector officer), CAN1000001 (candidate), EAG1000001 (election agent) and BLO-PB-000001 (BLO, part 18 Ludhiana South). OTPs appear in the backend terminal as `[DEMO OTP] ...`.
+The seed prints its demo accounts. They include ECI1234567 (ECI administrator), DEO1000001, ROF1000001 (RO), ARO1000001, ERO1000001, PRO1000001 (presiding officer), SCO1000001 (sector officer), CAN1000001 (candidate), EAG1000001 (election agent) and BLO1000001 (BLO, part 18 Ludhiana South). OTPs appear in the backend terminal as `[DEMO OTP] ...`.
 
 ## Long-running server (recommended for poll day)
 

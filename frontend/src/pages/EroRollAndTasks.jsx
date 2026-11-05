@@ -54,7 +54,7 @@ export function EroTasks({ canAssign }) {
                                         {t.assignedTo ? t.assignedTo.epic : (canAssign && t.status === "open" ? (
                                             <div className="booth-assignment">
                                                 <label>Assign to BLO ID
-                                                    <input value={assignTo[t._id] || ""} onChange={(e) => setAssignTo((a) => ({ ...a, [t._id]: e.target.value }))} placeholder="BLO-PB-000001" />
+                                                    <input value={assignTo[t._id] || ""} onChange={(e) => setAssignTo((a) => ({ ...a, [t._id]: e.target.value }))} placeholder="BLO1000001" />
                                                 </label>
                                                 <button className="btn-approve" onClick={() => assign(t)}>Assign</button>
                                             </div>

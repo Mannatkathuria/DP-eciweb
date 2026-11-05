@@ -202,7 +202,7 @@ every read model matches Redis.
 
 1. **ECI administrator (ECI1234567)** → *Data stores*: every read model "in sync"; document counts in MongoDB. *Election planning*: the Ludhiana West bye-election calendar, a holiday clash warning, overdue alerts, *Announce the election*.
 2. **ERO (ERO1000001)** → *Duplicates (PSE/DSE) and deaths*: *Scan the roll*, then take a DSE pair through notice → (BLO) delivery → delete with reasons; the entry disappears from the active roll.
-3. **BLO (BLO-PB-000001)** → *Polling-station facilities*: survey a station with GPS and a photo; open `/map` and the station's facilities line; *House-to-house register*; *Report a death*.
+3. **BLO (BLO1000001)** → *Polling-station facilities*: survey a station with GPS and a photo; open `/map` and the station's facilities line; *House-to-house register*; *Report a death*.
 4. **DEO (DEO1000001)** → *EVMs*: inventory, FLC, first randomisation with witnesses; **RO (ROF1000001)** → second randomisation, commissioning; the station's machine list.
 5. **Citizen** → `/report-violation`; DEO dispatches; **flying squad (FST1000001)** reports a cash seizure → it appears in *Seizures* (DEO, CEO, expenditure observer) tagged cVIGIL.
 6. **RO** → *Postal ballots*: generate and transmit; **Record Officer (REC1000001)** reads the PIN; `/postal-ballot` opens, prints and posts it; RO receives and scans it (a second scan is refused).

@@ -33,13 +33,9 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     next();
 });
 
-// BLOs still on their temporary password may only change it.
-export const requirePasswordChanged = (req, res, next) => {
-    if (req.user?.role === "blo" && req.user.mustChangePassword) {
-        return next(new ApiError(403, "Set a new password before using the BLO portal."));
-    }
-    next();
-};
+// Kept so the routes that use it need not change. No account has a password any more (BLOs sign
+// in with their BLO ID and a one-time code like every officer), so there is nothing to enforce.
+export const requirePasswordChanged = (req, res, next) => next();
 
 export const requireRole = (...roles) => (req, res, next) => {
     if (!roles.includes(req.user?.role)) {

@@ -15,7 +15,7 @@ import { getUserByEpic, saveUser } from "./repositories/user.repository.js";
 import { getVerification, saveVerification } from "./repositories/verification.repository.js";
 import { getRegistration, saveRegistration } from "./repositories/registration.repository.js";
 import { getChangeRequest, saveChangeRequest } from "./repositories/changeRequest.repository.js";
-import { hashPassword } from "./services/blo.service.js";
+import { migrateBloIds } from "./migrations/bloIds.js";
 import { EPIC_PATTERN } from "./controllers/auth.controller.js";
 import { ROLES, DEMO_JURISDICTION, jurisdictionFor } from "./config/roles.js";
 import { listAssignmentsForUser, saveAssignment } from "./repositories/assignment.repository.js";
@@ -86,7 +86,7 @@ const ensureDemoVoter = async () => {
         name: "Mannat Kathuria",
         role: "voter",
         verified: true,
-        approvedBy: "BLO-PB-000001",
+        approvedBy: "BLO1000001",
         createdAt: new Date().toISOString(),
         demoAccount: true
     };
@@ -128,25 +128,17 @@ const ensureRoleAccounts = async () => {
 };
 
 const ensureDemoBlo = async () => {
-    const bloId = "BLO-PB-000001";
-    // Never reset an existing account (its password may have been changed since).
+    // The demo BLO signs in like every officer: BLO ID, then a one-time code. No password.
+    const bloId = "BLO1000001";
+    await redis().set("blo:serial", "1000001", { NX: true });
+    if (Number(await redis().get("blo:serial")) < 1000001) await redis().set("blo:serial", "1000001");
     if (await getUserByEpic(bloId)) return;
-    const passwordHash = await hashPassword("Password123");
     const bloUser = {
-        _id: crypto.randomUUID(),
-        epic: bloId,
-        bloId,
-        name: "Gurpreet Singh",
-        role: "blo",
-        mobile: "9876543210",
-        state: "PB",
-        passwordHash,
-        mustChangePassword: false,
-        createdAt: new Date().toISOString()
+        _id: crypto.randomUUID(), epic: bloId, bloId, name: "Gurpreet Singh", role: "blo",
+        mobile: "9876543210", state: "PB", createdAt: new Date().toISOString()
     };
     await saveUser(bloUser);
-    await redis().set(`user:${bloId}`, JSON.stringify(bloUser));
-    console.log(`Created demo BLO account: ${bloId} (Password: Password123)`);
+    console.log(`Created demo BLO account: ${bloId} (sign in with a one-time code)`);
 };
 
 // Every seeded staff account below national level gets one active assignment in the demo
@@ -161,7 +153,7 @@ const DEMO_NODAL_FUNCTION = { district_nodal_officer: "evm", state_nodal_officer
 const ensureDemoAssignments = async () => {
     const accounts = [
         ...ROLES.filter((role) => role.demoEpic && role.scope.length).map((role) => [role.demoEpic, role.id]),
-        ["BLO-PB-000001", "blo"],
+        ["BLO1000001", "blo"],
         [process.env.ADMIN_EPIC || "ADM0000001", "blo"]
     ];
     for (const [epic, roleId] of accounts) {
@@ -523,6 +515,8 @@ const seedMockResults = async () => {
 };
 
 await connectRedis();
+// Older data: BLO-XX-NNNNNN accounts become BLO1000001-style and lose their passwords.
+await migrateBloIds();
 
 // Existing roll records are left alone: they may have been corrected (Form 8) or marked as voted.
 for (const row of electors) {

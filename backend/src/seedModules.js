@@ -266,15 +266,15 @@ export const seedModulesDemo = async () => {
     const fdocs2 = dupes.map(([a, b], i) => ({ _id: id(), type: "dse", fingerprint: fp("dse", [a.epic, b.epic]), entries: [entry(a), entry(b)], jurisdiction: LS, crossConstituency: false, status: stages[i],
         reasons: ["Same name (folded spelling), relative's name, date of birth and gender"],
         fieldCheck: i >= 1 ? { askedBy: actor("ERO1000001", "ero"), at: ago(60 * 24 * 5), note: "Check both addresses" } : undefined,
-        fieldReport: i >= 2 ? { finding: "same_person", note: "Lives at the first address; the second entry is old.", by: actor("BLO-PB-000001", "blo"), at: ago(60 * 24 * 4) } : undefined,
-        notice: i >= 2 ? { number: `N/LUD/${100200 + i}`, epic: b.epic, hearingOn: day(-1), issuedAt: ago(60 * 24 * 3), issuedBy: actor("ERO1000001", "ero"), text: `You are asked to appear to show why the entry ${b.epic} should not be deleted.`, delivered: { mode: "in_person", on: day(-2), by: actor("BLO-PB-000001", "blo") } } : undefined,
+        fieldReport: i >= 2 ? { finding: "same_person", note: "Lives at the first address; the second entry is old.", by: actor("BLO1000001", "blo"), at: ago(60 * 24 * 4) } : undefined,
+        notice: i >= 2 ? { number: `N/LUD/${100200 + i}`, epic: b.epic, hearingOn: day(-1), issuedAt: ago(60 * 24 * 3), issuedBy: actor("ERO1000001", "ero"), text: `You are asked to appear to show why the entry ${b.epic} should not be deleted.`, delivered: { mode: "in_person", on: day(-2), by: actor("BLO1000001", "blo") } } : undefined,
         decision: i === 3 ? { outcome: "keep_all", deleted: null, reason: "Heard both; they are cousins with similar names and the same father's name, born the same year.", by: actor("ERO1000001", "ero"), at: ago(60 * 10) } : undefined,
         timeline: [{ step: "flagged", at: ago(60 * 24 * 6), by: actor("ERO1000001", "ero") }], createdAt: ago(60 * 24 * 6), demo: "modules" }));
     if (pse.length === 2) fdocs2.push({ _id: id(), type: "pse", fingerprint: fp("pse", pse.map((e) => e.epic)), entries: pse.map(entry), jurisdiction: LS, crossConstituency: false, status: "open", reasons: ["Same photograph fingerprint"],
         timeline: [{ step: "flagged", at: ago(60 * 24 * 2), by: actor("ERO1000001", "ero") }], createdAt: ago(60 * 24 * 2), demo: "modules" });
     for (const e of ls.slice(-5, -3)) fdocs2.push({ _id: id(), type: "death", fingerprint: fp("death", [e.epic]), entries: [entry(e)], jurisdiction: LS, status: "field_reported",
         certificate: { registrationNumber: `D/LDH/2026/${int(1000, 9999)}`, dateOfDeath: day(-int(20, 200)), issuedBy: "Municipal Corporation, Ludhiana", hasCopy: false }, certificateCopy: null,
-        fieldReport: { finding: "dead", note: "Family confirmed; certificate seen.", by: actor("BLO-PB-000001", "blo"), at: ago(60 * 24) }, timeline: [{ step: "death_reported", at: ago(60 * 24), by: actor("BLO-PB-000001", "blo") }], createdAt: ago(60 * 24), demo: "modules" });
+        fieldReport: { finding: "dead", note: "Family confirmed; certificate seen.", by: actor("BLO1000001", "blo"), at: ago(60 * 24) }, timeline: [{ step: "death_reported", at: ago(60 * 24), by: actor("BLO1000001", "blo") }], createdAt: ago(60 * 24), demo: "modules" });
     await flags.insertMany(fdocs2);
 
     // ---- BLO App: facility surveys, register, EPIC delivery ----
@@ -292,7 +292,7 @@ export const seedModulesDemo = async () => {
         const distances = { bus_stand: +(rnd() * 3).toFixed(1), police_station: +(0.5 + rnd() * 4).toFixed(1), fire_station: +(1 + rnd() * 8).toFixed(1), hospital: +(0.3 + rnd() * 5).toFixed(1), fuel_pump: +(0.2 + rnd() * 3).toFixed(1), parking: +(rnd() * 0.5).toFixed(1) };
         const doc = { _id: id(), stationId: s._id, stationName: s.name, partNumber: s.partNumber, jurisdiction: { state: s.state, district: s.district, constituency: s.constituency }, amf, emf, amfScore, missing, gps,
             gpsOffsetM: off ? 450 : 35, gpsFlag: off ? "GPS position is 450 m from the recorded location; the DEO should check it." : null, distances, photo: null, remarks: missing.length ? "Asked the school to arrange the missing items before the poll." : null,
-            by: actor(s.constituency === "Ludhiana South" ? "BLO-PB-000001" : "SCO1000001", s.constituency === "Ludhiana South" ? "blo" : "sector_officer"), createdAt: ago(60 * 24 * int(1, 15)), demo: "modules" };
+            by: actor(s.constituency === "Ludhiana South" ? "BLO1000001" : "SCO1000001", s.constituency === "Ludhiana South" ? "blo" : "sector_officer"), createdAt: ago(60 * 24 * int(1, 15)), demo: "modules" };
         sdocs.push(doc);
         const fresh = await getStation(s._id);
         if (fresh) saveStation({ ...fresh, facilitySurvey: { surveyId: doc._id, at: doc.createdAt, amfScore, missing, distances, gpsFlag: doc.gpsFlag, hasPhoto: false, by: doc.by.epic } }, stTx);
@@ -302,9 +302,9 @@ export const seedModulesDemo = async () => {
     const FIND = ["present", "present", "present", "present", "shifted", "dead", "not_found", "new_eligible", "duplicate"];
     await register.insertMany(ls.slice(0, 60).map((e, i) => ({ _id: id(), epic: e.epic, name: e.name, partNumber: e.partNumber, serialNumber: e.serialNumber ?? null, jurisdiction: LS, houseNumber: e.houseNumber ?? String(i + 1),
         nationalHouseNumber: `NHN-PB-LDH-${String(200000 + i * 13)}`, finding: FIND[i % FIND.length], note: FIND[i % FIND.length] === "present" ? null : "Recorded during house-to-house verification.", document: null, mobileSeen: null,
-        visitedOn: day(-int(1, 25)), by: actor("BLO-PB-000001", "blo"), createdAt: ago(60 * 24 * int(1, 25)), demo: "modules" })));
+        visitedOn: day(-int(1, 25)), by: actor("BLO1000001", "blo"), createdAt: ago(60 * 24 * int(1, 25)), demo: "modules" })));
     await deliveries.insertMany(ls.slice(60, 75).map((e, i) => ({ _id: id(), epic: e.epic, name: e.name, jurisdiction: LS, kind: i % 4 ? "new" : "replacement", receivedBy: i % 3 ? "self" : "family_member", deliveredOn: day(-int(1, 30)), note: null,
-        by: actor("BLO-PB-000001", "blo"), createdAt: ago(60 * 24 * int(1, 30)), demo: "modules" })));
+        by: actor("BLO1000001", "blo"), createdAt: ago(60 * 24 * int(1, 30)), demo: "modules" })));
 
     // ---- Observers: profiles; flying squads: positions ----
     const profiles = docStore("observer_profiles");

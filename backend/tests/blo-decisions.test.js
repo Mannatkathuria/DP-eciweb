@@ -255,13 +255,12 @@ test("approve: many approvals at once never share an EPIC", needsRedis, async ()
 test("authorization: only an ERO/AERO can decide applications; a BLO can only verify", needsRedis, async () => {
     const { call, submit, makeUser, getRegistration, voter, eci, blo, area } = await setup();
     const id = await submit();
-    const newBlo = await makeUser("blo", { mustChangePassword: true, jurisdiction: area });
     // A BLO sees the application but cannot decide it.
     assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, blo.token)).status, 403);
     assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "No" }, blo.token)).status, 403);
     assert.equal((await call("GET", "/admin/registrations", undefined, blo.token)).status, 200);
     const forged = jwt.sign({ _id: crypto.randomUUID(), epic: "BLO0000009", role: "blo" }, "wrong-secret");
-    for (const [token, expected] of [[undefined, 401], [forged, 401], [voter.token, 403], [eci.token, 403], [newBlo.token, 403]]) {
+    for (const [token, expected] of [[undefined, 401], [forged, 401], [voter.token, 403], [eci.token, 403]]) {
         assert.equal((await call("POST", `/admin/registrations/${id}/approve`, assignment, token)).status, expected);
         assert.equal((await call("POST", `/admin/registrations/${id}/reject`, { note: "No" }, token)).status, expected);
         assert.equal((await call("GET", "/admin/registrations", undefined, token)).status, expected);

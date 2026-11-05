@@ -89,7 +89,7 @@ Demo identifiers sign in with an OTP printed in the backend terminal. BLOs sign 
 | ERO | ERO1000001 (also ERO1000002, Amritsar East) | Forms 2-8, Appeal orders, BLOs, Station problems, Audit | `/ero` |
 | AERO | AER1000001 | Forms 2-8, Appeal orders, Audit | `/ero` |
 | BLO supervisor | BLS1000001 | Team and tasks, Field verification, Roll, Audit | — |
-| BLO | BLO-PB-000001 | Forms 2-8 field verification, Roll of your part, Station problems | `/admin`, `/poll-day` (voter assistance booth) |
+| BLO | BLO1000001 | Forms 2-8 field verification, Roll of your part, Station problems | `/admin`, `/poll-day` (voter assistance booth) |
 | Returning officer | ROF1000001 | MCC complaints, Campaign permissions, Station reports, Directions, Station problems | `/ro`, `/counting`, `/control-room` |
 | ARO | ARO1000001 | MCC complaints, Campaign permissions, Station reports, Station problems | `/ro`, `/control-room` |
 | Sector officer | SCO1000001 | Polling logistics, Station problems, Directions | `/control-room` |
@@ -194,7 +194,7 @@ Demo identifiers sign in with an OTP printed in the backend terminal. BLOs sign 
 | `/signin` | SignInHub: choose your role |
 | `/signin/:roleId` | PortalLogin: EPIC-format ID, then OTP |
 | `/login/otp` | LoginOtp |
-| `/blo/login`, `/blo/password`, `/blo/forgot` | BLO ID and password, first-time password change, reset by mobile OTP |
+| `/blo/*` | Redirects to `/signin/blo`: BLOs sign in with their BLO ID (BLO1000001) and a one-time code, like every officer; no password |
 
 ### 4.3 Signed-in work screens
 
@@ -414,7 +414,7 @@ The register stores who voted (serial, document type, time, officer), **never ho
    - Back on `/report-violation` → Follow a report: it shows disposed and the time against the 100-minute target.
 3. **Roll (5 min).**
    - Open `/voters/forms/form-8` as the public: address it to Ludhiana South, use EPIC `DMB5000003`, correct the name, submit.
-   - Sign in as **BLO-PB-000001** → desk → Forms 2-8: field-verify it.
+   - Sign in as **BLO1000001** → desk → Forms 2-8: field-verify it.
    - Sign in as **ERO1000001** → Forms 2-8: approve it. `/electoral-roll` now shows the corrected name.
    - Show the demo rejected Form 6A and its appeal: as **DEO1000001** → Roll appeals, allow it; as **ERO1000001** → Appeal orders, mark it implemented.
 4. **Polling station change (4 min).**
@@ -554,13 +554,6 @@ These names in the tables are constants defined in the route files:
 | GET | `/api/v1/auth/me` | Public (or signed-in, checked inside) |
 | POST | `/api/v1/auth/step-up/request` | Public (or signed-in, checked inside) |
 | POST | `/api/v1/auth/step-up/verify` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/login` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/verify` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/resend` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/password` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/forgot` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/forgot/resend` | Public (or signed-in, checked inside) |
-| POST | `/api/v1/auth/blo/reset` | Public (or signed-in, checked inside) |
 
 #### `/api/v1/admin`
 

@@ -24,9 +24,6 @@ import ElectoralRoll from "./pages/ElectoralRoll";
 import SignInHub from "./pages/SignInHub";
 import PortalLogin from "./pages/PortalLogin";
 import LoginOtp from "./pages/LoginOtp";
-import BloLogin from "./pages/BloLogin";
-import BloChangePassword from "./pages/BloChangePassword";
-import BloForgotPassword from "./pages/BloForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Verify from "./pages/Verify";
 import Admin from "./pages/Admin";
@@ -105,9 +102,8 @@ function App() {
                     <Route path="/signin" element={<SignInHub />} />
                     <Route path="/signin/:roleId" element={<PortalLogin />} />
                     <Route path="/login/otp" element={<LoginOtp />} />
-                    <Route path="/blo/login" element={<BloLogin />} />
-                    <Route path="/blo/password" element={<BloChangePassword />} />
-                    <Route path="/blo/forgot" element={<BloForgotPassword />} />
+                    {/* BLOs sign in on the normal officer page with their BLO ID and a one-time code. */}
+                    <Route path="/blo/*" element={<Navigate to="/signin/blo" replace />} />
 
                     {/* Each role's own section */}
                     <Route path="/dashboard" element={<Dashboard />} />
