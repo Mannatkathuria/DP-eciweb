@@ -546,6 +546,8 @@ await patchNodalAssignments();
 await seedWorkflowDemo();
 const { seedBulkDemo } = await import("./seedData.js");
 await seedBulkDemo();
+const { seedModulesDemo } = await import("./seedModules.js");
+await seedModulesDemo();
 
 console.log("Redis seed complete with sample data for all voter, blo, and eci tabs.");
 await redis().quit();

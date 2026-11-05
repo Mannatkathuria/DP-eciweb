@@ -42,6 +42,18 @@ import nodalRoutes from "./routes/nodal.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import complaintRoutes from "./routes/complaint.routes.js";
 import appealRoutes from "./routes/appeal.routes.js";
+import libraryRoutes from "./routes/library.routes.js";
+import eplanRoutes from "./routes/eplan.routes.js";
+import rollQualityRoutes from "./routes/rollQuality.routes.js";
+import fieldRoutes from "./routes/field.routes.js";
+import observerRoutes from "./routes/observer.routes.js";
+import indexCardRoutes from "./routes/indexCard.routes.js";
+import etpbRoutes from "./routes/etpb.routes.js";
+import grievanceRoutes from "./routes/grievance.routes.js";
+import seizureRoutes from "./routes/seizure.routes.js";
+import partyFilingRoutes from "./routes/partyFiling.routes.js";
+import evmRoutes from "./routes/evm.routes.js";
+import dataStoreRoutes from "./routes/dataStore.routes.js";
 import { isTraining } from "./config/appMode.js";
 import { mongoStatus } from "./config/mongo.js";
 import { redis } from "./config/redis.js";
@@ -102,6 +114,8 @@ app.use((req, res, next) => {
     if (req.method === "POST" && req.path === "/api/v1/auth/register") return registrationJson(req, res, next);
     if (req.method === "POST" && req.path.startsWith("/api/v1/elector-forms/") && !req.path.includes("/staff/")) return electorFormJson(req, res, next);
     if (req.method === "POST" && req.path === "/api/v1/complaints") return registrationJson(req, res, next);
+    // Grievance documents, station survey photographs and death certificates (up to 2 MB each).
+    if (req.method === "POST" && (req.path === "/api/v1/grievances" || req.path.startsWith("/api/v1/field/") || req.path === "/api/v1/roll-quality/death-report")) return registrationJson(req, res, next);
     return defaultJson(req, res, next);
 });
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
@@ -161,6 +175,18 @@ app.use("/api/v1/nodal", nodalRoutes);
 app.use("/api/v1/reports", reportRoutes);
 app.use("/api/v1/complaints", complaintRoutes);
 app.use("/api/v1/appeals", appealRoutes);
+app.use("/api/v1/library", libraryRoutes);
+app.use("/api/v1/eplan", eplanRoutes);
+app.use("/api/v1/roll-quality", rollQualityRoutes);
+app.use("/api/v1/field", fieldRoutes);
+app.use("/api/v1/observers", observerRoutes);
+app.use("/api/v1/index-cards", indexCardRoutes);
+app.use("/api/v1/etpb", etpbRoutes);
+app.use("/api/v1/grievances", grievanceRoutes);
+app.use("/api/v1/seizures", seizureRoutes);
+app.use("/api/v1/party-filings", partyFilingRoutes);
+app.use("/api/v1/evm", evmRoutes);
+app.use("/api/v1/data-stores", dataStoreRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

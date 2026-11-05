@@ -170,6 +170,9 @@ export const fieldReportComplaint = asyncHandler(async (req, res) => {
         const report = { found: req.body?.found === true, actions: requireText(req.body?.actions, "What you found and did", { min: 10, max: 2000 }), reachedAt: clean(req.body?.reachedAt, 5) || null, by: actorOf(req.user), at };
         return { next: { ...c, status: "field_reported", fieldReport: report, seizures, timeline: [...c.timeline, { step: "field_reported", at, by: req.user.epic }] }, note: report.actions };
     }, "complaint.field_reported");
+    // Seizures in the field report go straight into the Election Seizure Management System.
+    const { recordComplaintSeizures } = await import("./seizure.controller.js");
+    await recordComplaintSeizures(req, out);
     res.json({ success: true, data: out });
 });
 

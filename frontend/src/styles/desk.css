@@ -51,3 +51,67 @@ button.kpi:hover { border-color: var(--brand); }
 .steps-line li { padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
 .steps-line li.done { background: var(--success-soft); border-color: var(--success); color: var(--text); }
 .steps-line li.now { background: var(--warning-soft); border-color: var(--warning); color: var(--text); font-weight: 600; }
+
+/* Proportional bars (seizures by kind, grievances by category, ...) */
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(110px, 30%) 1fr auto; gap: 10px; align-items: center; font-size: .9rem; }
+.bar-label { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 10px; background: var(--paper); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+.bar-fill { display: block; height: 100%; background: var(--brand, #1f4e79); border-radius: 99px; }
+.bar-value { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 64px; text-align: right; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.subhead { margin: 18px 0 8px; font-size: 1rem; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 14px; }
+.steps-line { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.steps-line span { font-size: .78rem; padding: 2px 8px; border-radius: 99px; background: var(--paper); border: 1px solid var(--line); color: var(--muted); }
+.steps-line span.on { background: var(--brand-soft); color: var(--text); border-color: transparent; font-weight: 600; }
+.id-card { max-width: 360px; border: 2px solid var(--brand, #1f4e79); border-radius: 12px; padding: 16px; background: var(--surface); }
+.id-card h3 { margin: 0 0 6px; }
+@media print { .no-print { display: none !important; } }
+
+/* Desk navigation: grouped side menu on wide screens, a menu button list on narrow ones */
+.desk-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+.desk-layout > .stack { min-width: 0; }
+.desk-nav { position: sticky; top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px; }
+.desk-nav h3 { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 10px 8px 4px; }
+.desk-nav button { display: block; width: 100%; text-align: left; font: inherit; font-size: .92rem; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; }
+.desk-nav button:hover { background: var(--paper); }
+.desk-nav button[aria-current="page"] { background: var(--brand-soft); font-weight: 700; }
+.desk-nav-select { display: none; }
+@media (max-width: 860px) {
+  .desk-layout { grid-template-columns: minmax(0, 1fr); }
+  .desk-nav { display: none; }
+  .desk-nav-select { display: block; width: 100%; padding: 10px; font: inherit; font-weight: 600; }
+}
+
+/* Library reader */
+.reader { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
+.reader-toc { position: sticky; top: 12px; }
+.reader-toc ol { padding-left: 18px; margin: 0 0 12px; }
+.reader-toc li button { font: inherit; text-align: left; background: none; border: 0; padding: 4px 0; color: var(--brand); cursor: pointer; }
+.reader-toc li button.on { font-weight: 700; color: var(--text); }
+.reader-page { min-height: 320px; }
+.print-all { display: none; }
+.faq-item { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.faq-item summary { cursor: pointer; }
+.faq-item p { margin: 8px 0 0; }
+.ballot-sheet td, .ballot-sheet th { padding: 10px; }
+@media (max-width: 860px) { .reader { grid-template-columns: 1fr; } .reader-toc { position: static; } }
+@media print {
+  .reader { display: block; }
+  .reader-page > *:not(.print-all) { display: none; }
+  .print-all { display: block; }
+  header, footer, nav, .page-head .crumbs { display: none !important; }
+}
+
+/* Inline controls in an action row keep their natural width */
+.desk-actions > select, .desk-actions > input:not([type="checkbox"]) { width: auto !important; min-width: 0; flex: 0 1 auto; margin: 0; }
+.desk-actions > input[type="date"] { flex: 0 0 auto; }
+.desk-actions .btn { flex: 0 0 auto; }
+
+/* Library */
+.lib-search { display: grid; gap: 6px; }
+.lib-search-label { font-weight: 600; }
+.lib-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.lib-search-row input { flex: 1 1 280px; min-width: 0; }
+.lib-card small { display: block; margin-top: 6px; }

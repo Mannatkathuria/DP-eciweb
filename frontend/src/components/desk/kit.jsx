@@ -138,3 +138,56 @@ export function useMyAssignments() {
     const { data } = useLoad("/assignments/me");
     return data?.assignments ?? [];
 }
+
+/** Elections (newest poll first). */
+export function useElections() {
+    const { data } = useLoad("/elections");
+    return data?.items ?? [];
+}
+
+/** An election picker; defaults to the first election in `filter`. */
+export function ElectionSelect({ value, onChange, filter = () => true, id = "el-pick", text = "Election" }) {
+    const list = useElections().filter(filter);
+    useEffect(() => { if (!value && list[0]) onChange(list[0]._id); }, [value, list, onChange]);
+    return (
+        <Field id={id} text={text}>
+            <select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+                {!list.length && <option value="">No elections</option>}
+                {list.map((e) => <option key={e._id} value={e._id}>{e.name}</option>)}
+            </select>
+        </Field>
+    );
+}
+
+/** Reads a chosen file as a data URL (images and PDFs up to `maxMb`). */
+export const fileToDataUrl = (file, maxMb = 2) => new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+    if (file.size > maxMb * 1024 * 1024) return reject(new Error(`The file must be under ${maxMb} MB.`));
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("The file could not be read."));
+    r.readAsDataURL(file);
+});
+
+/** The area of the caller's first assignment that has the given field. */
+export function useMyArea(field = "constituency") {
+    const a = useMyAssignments();
+    const hit = a.find((x) => x.jurisdiction?.[field]) ?? a.find((x) => x.jurisdiction?.state);
+    return hit?.jurisdiction ?? {};
+}
+
+/** A small bar list: label, value and a proportional bar. */
+export function Bars({ rows, format = (v) => v }) {
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    return (
+        <div className="bars">
+            {rows.map((r) => (
+                <div key={r.label} className="bar-row">
+                    <span className="bar-label">{r.label}</span>
+                    <span className="bar-track"><span className="bar-fill" style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} /></span>
+                    <span className="bar-value">{format(r.value)}</span>
+                </div>
+            ))}
+        </div>
+    );
+}

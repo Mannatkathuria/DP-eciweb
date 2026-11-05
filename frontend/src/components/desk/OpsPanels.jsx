@@ -26,7 +26,8 @@ export function SummaryPanel({ title = "Report for your jurisdiction", focus = "
         d.observerReports && { label: "Open observer reports", value: d.observerReports.open, tone: d.observerReports.bySeverity.critical ? "bad" : d.observerReports.open ? "warn" : undefined },
         { label: "Open Commission directions", value: d.directions.issued ?? 0, tone: d.directions.issued ? "warn" : undefined },
         focus !== "roll" && d.complaints && { label: "MCC complaints open", value: (d.complaints.received ?? 0) + (d.complaints.assigned ?? 0) + (d.complaints.field_reported ?? 0), tone: d.complaints.received ? "warn" : undefined },
-        focus !== "roll" && d.seizures > 0 && { label: "Seized (cash, liquor, freebies)", value: inr(d.seizures) },
+        focus !== "roll" && d.seizures > 0 && { label: "Seized (ESMS register)", value: inr(d.seizures) },
+        d.grievancesOpen > 0 && { label: "Grievances open", value: d.grievancesOpen, tone: "warn" },
         d.appeals && (d.appeals.first_appeal || d.appeals.second_appeal || d.appeals.with_ero) && { label: "Roll appeals pending", value: (d.appeals.first_appeal ?? 0) + (d.appeals.second_appeal ?? 0) + (d.appeals.with_ero ?? 0), tone: "warn" }
     ];
     return (

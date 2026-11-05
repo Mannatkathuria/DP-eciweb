@@ -22,10 +22,12 @@ export const ROLES = [
   role("polling_agent", "Polling agent", "citizen", "Observes polling at an assigned station on behalf of a candidate."),
   role("counting_agent", "Counting agent", "citizen", "Observes counting on behalf of a candidate. Not a government official."),
   role("bla", "Booth level agent (party)", "citizen", "Appointed by a political party for roll work. Not the same as a booth level officer."),
+  role("party_treasurer", "Political party treasurer", "citizen", "Files the party's contribution reports, audited accounts and election expenditure statements."),
 
   role("ero", "Electoral registration officer", "roll", "Prepares, revises and maintains the electoral roll for a constituency."),
   role("aero", "Assistant electoral registration officer", "roll", "Assists the electoral registration officer."),
   role("blo_supervisor", "BLO supervisor", "roll", "Supervises and coordinates booth level officers."),
+  role("record_officer", "Record officer (service voters)", "roll", "Verifies service voters' particulars and passes postal-ballot PINs to them."),
   role("blo", "Booth level officer", "roll", "Field-level roll work: verifies applicants in the field and recommends a decision to the ERO. Appointed by the government.", { mode: "blo" }),
 
   role("ro", "Returning officer", "conduct", "Legally responsible for conducting the election: nomination, scrutiny, polling arrangements and counting."),
@@ -33,6 +35,7 @@ export const ROLES = [
   role("sector_officer", "Sector officer", "conduct", "Supervises polling station locations, arrangements and logistics in a sector."),
   role("flying_squad", "Flying squad / surveillance team", "conduct", "Acts on Model Code of Conduct complaints and records seizures. Decides nothing."),
   role("sector_police_officer", "Sector police officer", "conduct", "Coordinates the police and security side of a sector."),
+  role("enforcement_officer", "Enforcement agency officer (ESMS)", "conduct", "Excise, income tax, NCB, customs or police officer recording seizures."),
 
   role("presiding_officer", "Presiding officer", "polling", "In charge of the polling station and conducts polling by procedure."),
   role("polling_officer", "Polling officer", "polling", "Voter identification, the voter register or EVM duties, as assigned."),

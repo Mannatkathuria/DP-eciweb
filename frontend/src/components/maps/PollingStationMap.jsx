@@ -55,7 +55,8 @@ function toGeoJSON(stations = []) {
           partNumber: s.partNumber,
           facilities: Object.entries(s.accessibility ?? {}).filter(([, v]) => v).map(([k]) => FACILITY[k] ?? k).join(", "),
           missing: Object.entries(s.accessibility ?? {}).filter(([, v]) => !v).map(([k]) => FACILITY[k] ?? k).join(", "),
-          relocated: s.relocationNotice ? `Moved from ${s.relocationNotice.from}` : ""
+          relocated: s.relocationNotice ? `Moved from ${s.relocationNotice.from}` : "",
+          survey: s.facilitySurvey ? `Facility survey ${new Date(s.facilitySurvey.at).toLocaleDateString("en-IN")}: ${s.facilitySurvey.amfScore}% of assured minimum facilities${s.facilitySurvey.missing?.length ? `; missing ${s.facilitySurvey.missing.slice(0, 3).join(", ")}` : ""}${s.facilitySurvey.distances?.hospital !== undefined ? `; hospital ${s.facilitySurvey.distances.hospital} km` : ""}` : ""
         }
       }))
   };
@@ -272,6 +273,8 @@ export default function PollingStationMap({
         missing.textContent = p.missing ? `Not available: ${p.missing}` : "";
         const moved = document.createElement("p");
         moved.textContent = p.relocated || "";
+        const survey = document.createElement("p");
+        survey.textContent = p.survey || "";
         const directions = document.createElement("a");
         directions.href = `https://www.google.com/maps/dir/?api=1&destination=${feature.geometry.coordinates[1]},${feature.geometry.coordinates[0]}`;
         directions.target = "_blank";
@@ -285,7 +288,7 @@ export default function PollingStationMap({
           district,
           constituency,
           part,
-          ...[facilities, missing, moved].filter((x) => x.textContent),
+          ...[facilities, missing, survey, moved].filter((x) => x.textContent),
           directions
         );
 

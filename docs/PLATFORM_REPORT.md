@@ -6,6 +6,8 @@ This is a prototype. All demo data is synthetic, and the platform never counts v
 
 ---
 
+> **Update, 5 November 2026:** the modules from the ECI systems inventory (reference library, ePlan, PSE/DSE roll quality, BLO App surveys and register, observer portal, ENCORE deposits/symbols/Index Card, ETPBMS, NGSP, ESMS, IEMS, EMS 2.0), the Redis/MongoDB data split and the cross-module data flows are documented in [ECI_SYSTEMS_COVERAGE.md](ECI_SYSTEMS_COVERAGE.md), with 79 new endpoints and three new roles (party treasurer, record officer, enforcement officer).
+
 ## 1. What changed in this round
 
 | Area | Change |

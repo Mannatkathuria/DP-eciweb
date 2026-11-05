@@ -76,7 +76,9 @@ const parseArea = (body = {}) => {
 const publicView = (s) => ({
     _id: s._id, stationCode: s.stationCode, state: s.state, district: s.district, constituency: s.constituency, partNumber: s.partNumber,
     name: s.name, address: s.address, location: s.location, accessibility: s.accessibility,
-    relocationNotice: s.relocationNotice ?? null, version: s.source?.version ?? null, verifiedAt: s.source?.verifiedAt ?? null
+    relocationNotice: s.relocationNotice ?? null, version: s.source?.version ?? null, verifiedAt: s.source?.verifiedAt ?? null,
+    // The latest BLO facility survey: the score, what is missing and distances (no photo, no surveyor).
+    facilitySurvey: s.facilitySurvey ? { at: s.facilitySurvey.at, amfScore: s.facilitySurvey.amfScore, missing: s.facilitySurvey.missing, distances: s.facilitySurvey.distances } : null
 });
 
 const proposeOne = (body, user, existing) => {

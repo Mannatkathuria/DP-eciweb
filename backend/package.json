@@ -8,7 +8,7 @@
     "seed": "node src/seed.js",
     "create-blo": "node scripts/create-blo.js",
     "check-db": "node src/checkDb.js",
-    "test": "node --test tests/backend.test.js tests/registration.test.js tests/blo-auth.test.js tests/workflow-integration.test.js tests/blo-decisions.test.js tests/form6.test.js tests/phase1.test.js tests/phase2.test.js tests/phase3.test.js tests/phase4.test.js tests/phase5.test.js tests/phase6.test.js tests/phase7.test.js tests/realtime.test.js tests/offline.test.js tests/queue.test.js tests/counting.test.js tests/form7.test.js tests/readmodel.test.js tests/workflows.test.js",
+    "test": "node --test --test-force-exit tests/backend.test.js tests/registration.test.js tests/blo-auth.test.js tests/workflow-integration.test.js tests/blo-decisions.test.js tests/form6.test.js tests/phase1.test.js tests/phase2.test.js tests/phase3.test.js tests/phase4.test.js tests/phase5.test.js tests/phase6.test.js tests/phase7.test.js tests/realtime.test.js tests/offline.test.js tests/queue.test.js tests/counting.test.js tests/form7.test.js tests/readmodel.test.js tests/workflows.test.js tests/modules.test.js",
     "mongo:sync": "node scripts/mongo-sync.js"
   },
   "dependencies": {

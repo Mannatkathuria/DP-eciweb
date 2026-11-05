@@ -2,7 +2,7 @@ import { mongo, mongoConfigured } from "../config/mongo.js";
 import { jsonGet, redis } from "../config/redis.js";
 import { listStations } from "../repositories/election.repository.js";
 import { coversAny } from "./authority.service.js";
-import { drainProjector } from "./projector.service.js";
+import { ensureDrained } from "./projector.service.js";
 
 // Queries over the MongoDB read models, each with a Redis fallback that gives the same answer
 // (more slowly) when MongoDB is not configured or unreachable. Every result says which store
@@ -25,8 +25,8 @@ export const distanceKm = (a, b) => {
 const withFallback = async (label, viaMongo, viaRedis) => {
     if (mongoConfigured()) {
         try {
-            const drained = await drainProjector(); // read-your-writes: copy anything just committed
-            if (!drained?.error) return { ...(await viaMongo()), source: "mongodb" };
+            // Read-your-writes: answer from MongoDB only once everything committed has been copied.
+            if (await ensureDrained()) return { ...(await viaMongo()), source: "mongodb" };
         } catch (err) {
             console.error(`${label}: MongoDB query failed, using Redis:`, err.message);
         }

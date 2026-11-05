@@ -14,6 +14,9 @@ import { Directions, ObserverReports } from "../components/desk/OversightPanels"
 import { LogisticsPanel, NodalPanel, SecurityPanel } from "../components/desk/FieldPanels";
 import { AuditPanel, BloTeam, RollPart, StationIssues, StationWorkflow, SummaryPanel } from "../components/desk/OpsPanels";
 import { AppealsPanel, AssistedNomination, ComplaintsPanel, StationRecords, StationReports } from "../components/desk/CasePanels";
+import { BloRegisterPanel, FieldSurveyPanel, RecordOfficerPanel, RollQualityPanel } from "../components/desk/RollPanels";
+import { EncorePanel, EplanPanel, EtpbPanel, EvmPanel, IndexCardPanel } from "../components/desk/ElectionPanels";
+import { DataStoresPanel, GrievancesPanel, LibraryAdminPanel, ObserverPortalPanel, PartyCompliancePanel, PartyFilingsPanel, SeizuresPanel, SquadPanel } from "../components/desk/MonitorPanels";
 import "../styles/desk.css";
 
 // The signed-in home of every election role: who you are, where your authority runs, what you
@@ -51,8 +54,39 @@ const PANELS = {
     appeals: () => <AppealsPanel />,
     stationRecords: () => <StationRecords />,
     stationReports: () => <StationReports />,
-    assisted: () => <AssistedNomination />
+    assisted: () => <AssistedNomination />,
+    rollQuality: () => <RollQualityPanel />,
+    fieldSurvey: () => <FieldSurveyPanel canSurvey />,
+    fieldSurveyRead: () => <FieldSurveyPanel />,
+    bloRegister: () => <BloRegisterPanel />,
+    recordOfficer: () => <RecordOfficerPanel />,
+    eplan: () => <EplanPanel />,
+    evm: () => <EvmPanel />,
+    encore: () => <EncorePanel />,
+    indexCard: () => <IndexCardPanel />,
+    etpb: () => <EtpbPanel />,
+    grievances: () => <GrievancesPanel />,
+    seizures: () => <SeizuresPanel />,
+    squads: () => <SquadPanel />,
+    partyFilings: () => <PartyFilingsPanel />,
+    partyCompliance: () => <PartyCompliancePanel />,
+    observerPortal: () => <ObserverPortalPanel />,
+    library: () => <LibraryAdminPanel />,
+    dataStores: () => <DataStoresPanel />
 };
+
+// Desks with many panels get a grouped side menu instead of one long row of tabs.
+const GROUP_OF = {
+    formsField: "Electoral roll", formsDecide: "Electoral roll", formsRead: "Electoral roll", rollPart: "Electoral roll", rollQuality: "Electoral roll", bloRegister: "Electoral roll", appeals: "Electoral roll", recordOfficer: "Electoral roll", bloTeam: "Electoral roll",
+    eplan: "Election work", encore: "Election work", assisted: "Election work", permApply: "Election work", permStaff: "Election work", expRegister: "Election work", evm: "Election work", etpb: "Election work", indexCard: "Election work", partyFilings: "Election work", partyCompliance: "Election work",
+    stationsDeo: "Stations and field", stationsCeo: "Stations and field", stationsEci: "Stations and field", fieldSurvey: "Stations and field", fieldSurveyRead: "Stations and field", issues: "Stations and field", issuesClose: "Stations and field",
+    logistics: "Stations and field", security: "Stations and field", stationRecords: "Stations and field", stationReports: "Stations and field", nodal: "Stations and field",
+    complaints: "Complaints and monitoring", squads: "Complaints and monitoring", seizures: "Complaints and monitoring", grievances: "Complaints and monitoring", expObserve: "Complaints and monitoring",
+    observerPortal: "Oversight", observerFile: "Oversight", observerRead: "Oversight", observerReview: "Oversight", directions: "Oversight", directionsIssue: "Oversight",
+    audit: "Records and administration", library: "Records and administration", dataStores: "Records and administration"
+};
+const GROUP_ORDER = ["Oversight", "Electoral roll", "Election work", "Stations and field", "Complaints and monitoring", "Records and administration"];
+const GROUPED_FROM = 6;
 
 export default function RoleDesk() {
     const { logged, userData } = useContext(AuthContext);
@@ -68,6 +102,11 @@ export default function RoleDesk() {
     const summaryKey = desk?.tabs.find(([id]) => id.startsWith("summary"))?.[0] ?? null;
     const workTabs = useMemo(() => (desk?.tabs ?? []).filter(([id]) => !id.startsWith("summary")), [desk]);
     const tabs = useMemo(() => [{ id: "overview", label: "Overview" }, ...workTabs.map(([id, label]) => ({ id, label }))], [workTabs]);
+    const grouped = useMemo(() => {
+        const m = new Map();
+        for (const t of workTabs) { const g = GROUP_OF[t[0]] ?? "Other work"; if (!m.has(g)) m.set(g, []); m.get(g).push(t); }
+        return [...m.entries()].sort((a, b) => (GROUP_ORDER.indexOf(a[0]) + 99) % 99 - (GROUP_ORDER.indexOf(b[0]) + 99) % 99);
+    }, [workTabs]);
     const [tab, setTab] = useState(params.get("tab") && tabs.some((t) => t.id === params.get("tab")) ? params.get("tab") : "overview");
     useEffect(() => { document.title = `${role?.label ?? "Desk"} · ECI`; }, [role]);
 
@@ -92,7 +131,23 @@ export default function RoleDesk() {
             </PageHead>
             <section className="section">
                 <div className="container stack">
-                    {tabs.length > 1 && <Tabs tabs={tabs} active={tab} onChange={change} label="Your work" />}
+                    {tabs.length > 1 && tabs.length <= GROUPED_FROM && <Tabs tabs={tabs} active={tab} onChange={change} label="Your work" />}
+                    <div className={tabs.length > GROUPED_FROM ? "desk-layout" : undefined}>
+                    {tabs.length > GROUPED_FROM && (
+                        <>
+                            <nav className="desk-nav" aria-label="Your work">
+                                <button type="button" aria-current={tab === "overview" ? "page" : undefined} onClick={() => change("overview")}>Overview</button>
+                                {grouped.map(([g, list]) => (
+                                    <div key={g}><h3>{g}</h3>{list.map(([id, l]) => <button key={id} type="button" aria-current={tab === id ? "page" : undefined} onClick={() => change(id)}>{l}</button>)}</div>
+                                ))}
+                            </nav>
+                            <select className="desk-nav-select" aria-label="Your work" value={tab} onChange={(e) => change(e.target.value)}>
+                                <option value="overview">Overview</option>
+                                {grouped.map(([g, list]) => <optgroup key={g} label={g}>{list.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</optgroup>)}
+                            </select>
+                        </>
+                    )}
+                    <div className="stack">
                     {tab === "overview" ? (
                         <>
                             {summaryKey && PANELS[summaryKey]({ area })}
@@ -105,7 +160,10 @@ export default function RoleDesk() {
                             {workTabs.length > 0 && (
                                 <section className="panel">
                                     <h2>On this desk</h2>
-                                    <div className="screens">{workTabs.map(([id, label]) => <button key={id} type="button" className="screen-card" style={{ textAlign: "left", font: "inherit", cursor: "pointer" }} onClick={() => change(id)}><strong>{label}</strong></button>)}</div>
+                                    {grouped.map(([g, list]) => (
+                                        <div key={g}>{grouped.length > 1 && <h3 className="subhead">{g}</h3>}
+                                            <div className="screens">{list.map(([id, label]) => <button key={id} type="button" className="screen-card" style={{ textAlign: "left", font: "inherit", cursor: "pointer" }} onClick={() => change(id)}><strong>{label}</strong></button>)}</div></div>
+                                    ))}
                                 </section>
                             )}
                             <section className="panel powers">
@@ -121,6 +179,8 @@ export default function RoleDesk() {
                             </section>
                         </>
                     ) : me.loading ? <p className="muted" role="status">Loading your assignment…</p> : Panel ? <Panel area={area} /> : null}
+                    </div>
+                    </div>
                 </div>
             </section>
         </>

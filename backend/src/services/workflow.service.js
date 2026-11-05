@@ -6,6 +6,8 @@
 // `<kind>:<id>` with the ids in the set `<kind>:all`.
 import crypto from "crypto";
 import { acquireLock, jsonGet, redis } from "../config/redis.js";
+import { mongo, mongoConfigured } from "../config/mongo.js";
+import { caseKinds, ensureDrained, queueDoc, unprojected } from "./projector.service.js";
 import { listElections } from "../repositories/election.repository.js";
 import { coversAny, validateJurisdiction } from "./authority.service.js";
 import { assignmentInElection } from "./election.service.js";
@@ -16,14 +18,27 @@ export const norm = (v) => clean(v).toLowerCase();
 export const newId = () => crypto.randomUUID();
 export const nowIso = () => new Date().toISOString();
 
-/** A tiny repository for one kind of record. */
+/**
+ * A tiny repository for one kind of record. Redis is authoritative (the record is written in the
+ * caller's MULTI transaction, with its audit event); in the same transaction it is queued for the
+ * MongoDB `case_records` read model, and `list()` is answered from MongoDB when it is configured.
+ */
 export const store = (kind) => {
     const key = (id) => `${kind}:${id}`;
     const setKey = `${kind}:all`;
+    caseKinds.add(kind);
+    const fromRedis = async () => (await Promise.all((await redis().sMembers(setKey)).map((id) => jsonGet(key(id))))).filter(Boolean);
     return {
         get: (id) => jsonGet(key(String(id ?? ""))),
-        save: (doc, tx) => { tx.set(key(doc._id), JSON.stringify(doc)); tx.sAdd(setKey, doc._id); return doc; },
-        list: async () => (await Promise.all((await redis().sMembers(setKey)).map((id) => jsonGet(key(id))))).filter(Boolean),
+        save: (doc, tx) => { tx.set(key(doc._id), JSON.stringify(doc)); tx.sAdd(setKey, doc._id); queueDoc("case_records", key(doc._id), tx); return doc; },
+        list: async () => {
+            if (mongoConfigured()) {
+                try {
+                    if (await ensureDrained()) return (await mongo().collection("case_records").find({ _kind: kind }).toArray()).map(unprojected);
+                } catch (err) { console.error(`case_records ${kind}: MongoDB read failed, using Redis:`, err.message); }
+            }
+            return fromRedis();
+        },
         withLock: async (id, fn) => {
             const release = await acquireLock(`${kind}:lock:${id}`, 15);
             if (!release) throw new ApiError(409, "This record is being updated. Try again in a moment.");
@@ -105,3 +120,21 @@ export const dateOf = (value, label = "Date") => {
     if (!DATE.test(v) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) throw new ApiError(400, `${label} must be a date (YYYY-MM-DD).`);
     return v;
 };
+
+/**
+ * Audits a change to a record that lives outside Redis (a MongoDB document store), optionally
+ * with operational events for the live screens. The record is written first; the audit event
+ * then names it, so the trail never points at something that was not saved.
+ */
+export const auditChange = async (req, action, resource, jurisdiction = {}, { after = null, before = null, note = null, events = [] } = {}) => {
+    const { auditEvent, recordAudit } = await import("./audit.service.js");
+    const { transaction } = await import("../config/redis.js");
+    const tx = transaction();
+    await recordAudit(auditEvent({ actor: req.user, action, resource, jurisdiction, after, before, note }), tx);
+    if (events.length) { const { recordEvent } = await import("./events.service.js"); for (const e of events) recordEvent(e, tx); }
+    await tx.exec();
+    if (events.length) { const { publishEvents } = await import("./events.service.js"); await publishEvents(...events); }
+};
+
+/** A short human reference: prefix + date + random digits, e.g. GRV-20261105-48213. */
+export const referenceOf = (prefix) => `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(crypto.randomInt(0, 1e5)).padStart(5, "0")}`;

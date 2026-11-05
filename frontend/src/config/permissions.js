@@ -71,6 +71,25 @@ export const PERMISSION_TEXT = {
   "complaint:investigate": "Act on assigned complaints and record seizures",
   "complaint:dispose": "Dispose of Model Code of Conduct complaints",
   "appeal:decide-first": "Decide first appeals against the ERO's orders",
-  "appeal:decide-second": "Decide second appeals on the roll"
+  "appeal:decide-second": "Decide second appeals on the roll",
+  "station:survey": "Survey polling-station facilities (AMF/EMF), GPS and photographs",
+  "service:record": "Verify service voters' particulars and pass on postal-ballot PINs",
+  "party:file": "File the party's Form 24A, audited accounts and expenditure statements",
+  "party:review": "Review political parties' statutory filings",
+  "seizure:record": "Record interceptions and seizures (ESMS)",
+  "seizure:read": "Read the seizure register and its totals",
+  "seizure:release": "Release seized cash on the district committee's order",
+  "grievance:handle": "Answer and route grievances (NGSP)",
+  "index:prepare": "Prepare and submit the Index Card",
+  "index:examine": "Examine Index Cards (CEO)",
+  "index:finalise": "Finalise and lock Index Cards",
+  "etpb:manage": "Generate, receive and validate service voters' postal ballots",
+  "evm:manage": "Register EVMs, record FLC and keep the warehouse",
+  "evm:randomise-first": "Conduct the first randomisation of EVMs",
+  "evm:allocate": "Conduct the second randomisation and commission EVMs",
+  "evm:view": "See EVM inventory and randomisations",
+  "plan:manage": "Plan elections: vacancies, calendars, announcements",
+  "plan:state": "Update the State's election-planning activities",
+  "library:manage": "Publish handbooks, instructions, FAQ and training material"
 };
 export const permissionText = (id) => PERMISSION_TEXT[id] || id;

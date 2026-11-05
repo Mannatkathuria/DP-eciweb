@@ -16,6 +16,7 @@ import { assignmentInEffect, hasPermission } from "../services/authority.service
 import { electionStage } from "../services/election.service.js";
 import { inScope, nowIso, store } from "../services/workflow.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { docStore } from "../services/docStore.service.js";
 
 const countBy = (items, fn) => items.reduce((acc, x) => { const k = fn(x) ?? "unknown"; acc[k] = (acc[k] ?? 0) + 1; return acc; }, {});
 const areaOfRecord = (r) => ({ state: r.state, district: r.district, constituency: r.assemblyConstituency ?? r.constituency });
@@ -100,7 +101,9 @@ export const summary = asyncHandler(async (req, res) => {
         directions: countBy(myDirections, (d) => d.status),
         nodalTasks: countBy(myNodal, (t) => t.status),
         complaints: countBy(complaints.filter((c) => see(c.jurisdiction)), (c) => c.status),
-        seizures: complaints.filter((c) => see(c.jurisdiction)).flatMap((c) => c.seizures ?? []).reduce((n, x) => n + x.value, 0),
+        // From the seizure register (ESMS), which also holds the seizures in cVIGIL field reports.
+        seizures: (await docStore("seizures").find({ status: "seized" })).filter((x) => see(x.jurisdiction)).reduce((n, x) => n + x.value, 0),
+        grievancesOpen: (await docStore("grievances").find({ status: { $in: ["open", "in_progress", "reopened"] } })).filter((g) => g.jurisdiction?.state && see(g.jurisdiction)).length,
         appeals: countBy(appeals.filter((a) => see(a.jurisdiction)), (a) => a.status),
         breakdown: [...rows.values()].sort((a, b) => a.area.localeCompare(b.area))
     } });

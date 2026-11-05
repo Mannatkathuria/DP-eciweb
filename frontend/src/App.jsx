@@ -59,6 +59,10 @@ import Form6B from "./pages/electoral-forms/Form6B";
 import Form7 from "./pages/electoral-forms/Form7";
 import Form8 from "./pages/electoral-forms/Form8";
 import PollingStationMapPage from "./pages/PollingStationMapPage";
+import Library, { LibraryReader } from "./pages/Library";
+import Grievance from "./pages/Grievance";
+import PostalBallot from "./pages/PostalBallot";
+import Observers from "./pages/Observers";
 
 
 
@@ -83,12 +87,17 @@ function App() {
                     <Route path="/states/:slug" element={<StatePortal />} />
                     <Route path="/media" element={<Media />} />
                     <Route path="/roles" element={<Roles />} />
+                    <Route path="/library" element={<Library />} />
+                    <Route path="/library/:slug" element={<LibraryReader />} />
+                    <Route path="/observers" element={<Observers />} />
 
                     {/* Voter services */}
                     <Route path="/register" element={<Register />} />
                     <Route path="/check-request" element={<CheckRequest />} />
                     <Route path="/objection" element={<Objection />} />
                     <Route path="/appeal" element={<Appeal />} />
+                    <Route path="/grievance" element={<Grievance />} />
+                    <Route path="/postal-ballot" element={<PostalBallot />} />
                     <Route path="/electoral-roll" element={<ElectoralRoll />} />
                     <Route path="/booths" element={<Booths />} />
 
@@ -129,6 +138,9 @@ function App() {
                     <Route path="/services" element={<Navigate to="/voters" replace />} />
                     <Route path="/cvigil" element={<Navigate to="/report-violation" replace />} />
                     <Route path="/suvidha" element={<Navigate to="/candidates" replace />} />
+                    <Route path="/faq" element={<Navigate to="/library" replace />} />
+                    <Route path="/ngsp" element={<Navigate to="/grievance" replace />} />
+                    <Route path="/etpbs" element={<Navigate to="/postal-ballot" replace />} />
                     <Route path="/encore" element={<Navigate to="/results" replace />} />
                     <Route path="/ceo-himachal" element={<Navigate to="/states/himachal-pradesh" replace />} />
                     <Route path="/workflows" element={<Navigate to="/roles" replace />} />

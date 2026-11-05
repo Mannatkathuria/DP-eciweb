@@ -1,5 +1,5 @@
 import { acquireLock, jsonGet, redis } from "../config/redis.js";
-import { queueStation } from "../services/projector.service.js";
+import { queueDoc, queueStation } from "../services/projector.service.js";
 
 // Elections, polling stations, nominations and published lists of contesting candidates.
 const get = (k) => jsonGet(k);
@@ -17,7 +17,7 @@ export const listStations = () => all("stations:all", "station:");
 export const lockStation = (id) => acquireLock(`station:lock:${id}`);
 
 export const getNomination = (id) => get(`nomination:${id}`);
-export const saveNomination = (n, tx) => put(tx, "nomination:", "nominations:all", n);
+export const saveNomination = (n, tx) => { put(tx, "nomination:", "nominations:all", n); queueDoc("nominations", `nomination:${n._id}`, tx); };
 export const listNominations = () => all("nominations:all", "nomination:");
 export const lockNomination = (id) => acquireLock(`nomination:lock:${id}`);
 

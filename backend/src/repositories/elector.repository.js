@@ -1,17 +1,19 @@
-import { jsonGet, jsonSet, redis, scanKeys } from "../config/redis.js";
+import { jsonGet, redis, scanKeys } from "../config/redis.js";
+import { queueDoc } from "../services/projector.service.js";
 
 const key = (epic) => `elector:${String(epic).trim().toUpperCase()}`;
 
 export const getElectorByEpic = async (epic) => jsonGet(key(epic));
 
+// Every save is queued, in the same transaction, for the MongoDB `electors` read model (roll
+// search, photo/demographic similarity scans and roll statistics).
 export const saveElector = async (elector, tx = null) => {
-    if (tx) {
-        tx.set(key(elector.epic), JSON.stringify(elector));
-        tx.sAdd("electors:all", elector.epic);
-        return elector;
-    }
-    await jsonSet(key(elector.epic), elector);
-    await redis().sAdd("electors:all", elector.epic);
+    const own = !tx;
+    const t = tx ?? redis().multi();
+    t.set(key(elector.epic), JSON.stringify(elector));
+    t.sAdd("electors:all", elector.epic);
+    queueDoc("electors", key(elector.epic), t);
+    if (own) await t.exec();
     return elector;
 };
 

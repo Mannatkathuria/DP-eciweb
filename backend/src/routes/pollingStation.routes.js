@@ -12,7 +12,7 @@ import {
 const router = express.Router();
 router.use(verifyJWT, requirePasswordChanged);
 
-router.get("/", authorize("station:view", "station:propose", "station:approve", "state:manage"), listStationsForStaff);
+router.get("/", authorize("station:view", "station:propose", "station:approve", "state:manage", "station:survey"), listStationsForStaff);
 
 // Problems with a station, reported by anyone working in the area; the DEO closes them.
 const CAN_REPORT_ISSUE = ["station:view", "station:propose", "polling:inspect", "roll:view-part", "application:decide", "roll:claims-objections", "nomination:submit"];

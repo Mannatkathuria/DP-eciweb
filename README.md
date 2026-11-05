@@ -2,6 +2,8 @@
 
 A React + Express election-management prototype with role-based dashboards, OTP sign-in, voter registration, and Persona Sandbox identity verification.
 
+> **ECI systems coverage** (every ERONET, BLO App, ePlan, Observer, ENCORE, cVIGIL, ETPBMS, NGSP, ESMS, IEMS and EMS 2.0 feature, where it is, which database holds it and how data flows): [docs/ECI_SYSTEMS_COVERAGE.md](docs/ECI_SYSTEMS_COVERAGE.md)
+
 ## Architecture
 
 ```text

@@ -1,10 +1,13 @@
 import crypto from "crypto";
 import { acquireLock, jsonGet, redis } from "../config/redis.js";
 import { connectMongo, mongo, mongoConfigured, mongoReady } from "../config/mongo.js";
+import { nameKey, photoHashOf } from "../utils/nameKey.js";
 
 // The projector copies committed Redis records into MongoDB read models. It is the only writer to
 // MongoDB, runs as one instance at a time (Redis lock), and is idempotent: every write is an upsert
 // by id, so running it twice, or after a crash, gives the same result.
+//
+// It also copies electors, nominations and every case-style workflow record (DOC_OUTBOX below).
 //
 // What feeds it (all written by Redis in the same transaction as the change itself, so nothing
 // committed can be missed):
@@ -18,6 +21,7 @@ import { connectMongo, mongo, mongoConfigured, mongoReady } from "../config/mong
 // even with recomputed per-event hashes and counter, then no longer matches the checkpoints.
 
 export const STATION_OUTBOX = "mongo:outbox:stations";
+export const DOC_OUTBOX = "mongo:outbox:docs";          // sorted set of "<collection>\t<redis key>"
 export const EVENT_OUTBOX = "mongo:outbox:events";
 const AUDIT_CURSOR = "mongo:cursor:audit";
 const AUDIT_CHAIN = "mongo:chain:audit";        // chain value after the last archived entry
@@ -29,6 +33,37 @@ export const GENESIS = "0".repeat(64);
 export const queueStation = (id, tx) => { if (mongoConfigured()) tx.zAdd(STATION_OUTBOX, { score: Date.now(), value: id }); };
 /** Called inside a Redis transaction when an operational event is recorded. */
 export const queueEvent = (id, tx) => { if (mongoConfigured()) tx.rPush(EVENT_OUTBOX, id); };
+
+/**
+ * Records copied from Redis to a MongoDB collection, keyed by their Redis key:
+ *   electors      elector:<EPIC>          the whole electoral roll (search, PSE/DSE scans, statistics)
+ *   nominations   nomination:<id>         candidate nominations (scrutiny, Form 7A, index card)
+ *   case_records  <kind>:<id>             every case-style workflow record (services/workflow.service.js)
+ */
+const DOC_COLLECTIONS = {
+    electors: { id: (key) => key.slice("elector:".length) },
+    nominations: { id: (key) => key.slice("nomination:".length) },
+    case_records: { id: (key) => key }
+};
+export const caseKinds = new Set();
+
+/** Called inside a Redis transaction when a projected record is saved. */
+export const queueDoc = (collection, redisKey, tx) => {
+    if (mongoConfigured()) tx.zAdd(DOC_OUTBOX, { score: Date.now(), value: `${collection}\t${redisKey}` });
+};
+
+/** A projected record as a MongoDB document; `_rid` keeps the record's own id. */
+export const projectedDoc = (collection, key, doc) => {
+    const out = { ...doc, _id: DOC_COLLECTIONS[collection].id(key), _rid: doc._id ?? null, projectedAt: new Date() };
+    if (collection === "case_records") out._kind = key.slice(0, key.indexOf(":"));
+    if (collection === "electors") { out.nameKey = nameKey(doc.name); out.relativeNameKey = nameKey(doc.relativeName); out.photoHash = photoHashOf(doc); }
+    return out;
+};
+/** The record as it is in Redis (projection fields removed). */
+export const unprojected = ({ _rid, _kind, projectedAt, nameKey: _n, relativeNameKey: _r, photoHash: _p, ...doc }) => { // eslint-disable-line no-unused-vars
+    if (_rid === null || _rid === undefined) { delete doc._id; return doc; }
+    return { ...doc, _id: _rid };
+};
 
 export const chainNext = (prev, hash) => crypto.createHash("sha256").update(`${prev}${hash}`).digest("hex");
 
@@ -63,6 +98,26 @@ const projectStations = async () => {
         }
         await mongo().collection("polling_stations").bulkWrite(ops, { ordered: false });
         await redis().eval(REMOVE_IF_UNCHANGED, { keys: [STATION_OUTBOX], arguments: queued.flatMap(({ value, score }) => [value, String(score)]) });
+        total += queued.length;
+    }
+};
+
+const projectDocs = async () => {
+    let total = 0;
+    for (;;) {
+        const queued = await redis().zRangeWithScores(DOC_OUTBOX, 0, BATCH - 1);
+        if (!queued.length) return total;
+        const byCollection = {};
+        for (const { value } of queued) {
+            const [collection, key] = value.split("\t");
+            if (!DOC_COLLECTIONS[collection]) continue;
+            const doc = await jsonGet(key);
+            (byCollection[collection] ??= []).push(doc
+                ? { replaceOne: { filter: { _id: DOC_COLLECTIONS[collection].id(key) }, replacement: projectedDoc(collection, key, doc), upsert: true } }
+                : { deleteOne: { filter: { _id: DOC_COLLECTIONS[collection].id(key) } } });
+        }
+        for (const [collection, ops] of Object.entries(byCollection)) await mongo().collection(collection).bulkWrite(ops, { ordered: false });
+        await redis().eval(REMOVE_IF_UNCHANGED, { keys: [DOC_OUTBOX], arguments: queued.flatMap(({ value, score }) => [value, String(score)]) });
         total += queued.length;
     }
 };
@@ -129,7 +184,7 @@ export const drainProjector = async () => {
             if (!release) return { skipped: "busy" };
             try {
                 const { hashEvent } = await import("./audit.service.js");
-                return { stations: await projectStations(), events: await projectEvents(), audit: await projectAudit(hashEvent) };
+                return { stations: await projectStations(), docs: await projectDocs(), events: await projectEvents(), audit: await projectAudit(hashEvent) };
             } finally { await release(); }
         } catch (err) {
             console.error("MongoDB projector:", err.message);
@@ -139,11 +194,30 @@ export const drainProjector = async () => {
     return running;
 };
 
+/**
+ * Read-your-writes for MongoDB reads: copies everything queued and returns true only if nothing is
+ * left waiting. If another instance holds the projector lock, waits for it (up to `waitMs`) and
+ * tries again. A caller that gets false must answer from Redis, never from a stale copy.
+ */
+export const ensureDrained = async (waitMs = 3000) => {
+    const deadline = Date.now() + waitMs;
+    for (;;) {
+        const r = await drainProjector();
+        if (r?.error) return false;
+        if (!r?.skipped) {
+            const b = await projectorBacklog();
+            if (!b.stations && !b.docs && !b.events) return true;
+        }
+        if (Date.now() >= deadline) return false;
+        await new Promise((res) => setTimeout(res, 100));
+    }
+};
+
 /** How much is waiting to be copied (for health and the admin status screen). */
 export const projectorBacklog = async () => {
-    const [stations, events, auditLen, cursor] = await redis().multi()
-        .zCard(STATION_OUTBOX).lLen(EVENT_OUTBOX).lLen("audit:events").get(AUDIT_CURSOR).exec();
-    return { stations, events, audit: Math.max(0, auditLen - Number(cursor ?? 0)) };
+    const [stations, docs, events, auditLen, cursor] = await redis().multi()
+        .zCard(STATION_OUTBOX).zCard(DOC_OUTBOX).lLen(EVENT_OUTBOX).lLen("audit:events").get(AUDIT_CURSOR).exec();
+    return { stations, docs, events, audit: Math.max(0, auditLen - Number(cursor ?? 0)) };
 };
 
 /**
@@ -153,15 +227,22 @@ export const projectorBacklog = async () => {
 export const rebuildReadModels = async () => {
     if (!mongoConfigured()) throw new Error("MONGODB_URI is not set.");
     await connectMongo();
-    const release = await acquireLock(LOCK, 600);
+    let release = await acquireLock(LOCK, 600);
+    for (let i = 0; !release && i < 70; i += 1) { await new Promise((r) => setTimeout(r, 1000)); release = await acquireLock(LOCK, 600); }
     if (!release) throw new Error("The projector is running; try again in a minute.");
     try {
-        for (const name of ["polling_stations", "operational_events", "audit_archive", "audit_checkpoints"]) await mongo().collection(name).deleteMany({});
+        for (const name of ["polling_stations", "operational_events", "audit_archive", "audit_checkpoints", ...Object.keys(DOC_COLLECTIONS)]) await mongo().collection(name).deleteMany({});
         const stationIds = await redis().sMembers("stations:all");
         const eventIds = await redis().zRange("ops:events", 0, -1);
-        const tx = redis().multi().del(STATION_OUTBOX).del(EVENT_OUTBOX).del(AUDIT_CURSOR).del(AUDIT_CHAIN);
+        const docKeys = [
+            ...(await redis().sMembers("electors:all")).map((epic) => `electors\telector:${epic}`),
+            ...(await redis().sMembers("nominations:all")).map((id) => `nominations\tnomination:${id}`)
+        ];
+        for (const kind of caseKinds) for (const id of await redis().sMembers(`${kind}:all`)) docKeys.push(`case_records\t${kind}:${id}`);
+        const tx = redis().multi().del(STATION_OUTBOX).del(DOC_OUTBOX).del(EVENT_OUTBOX).del(AUDIT_CURSOR).del(AUDIT_CHAIN);
         const now = Date.now();
         if (stationIds.length) tx.zAdd(STATION_OUTBOX, stationIds.map((value) => ({ score: now, value })));
+        for (let i = 0; i < docKeys.length; i += 5000) tx.zAdd(DOC_OUTBOX, docKeys.slice(i, i + 5000).map((value) => ({ score: now, value })));
         if (eventIds.length) tx.rPush(EVENT_OUTBOX, eventIds);
         await tx.exec();
     } finally { await release(); }
@@ -174,6 +255,7 @@ export const rebuildReadModels = async () => {
  */
 export const verifyAuditChain = async (hashEvent) => {
     if (!mongoConfigured()) return { checked: false, reason: "MongoDB is not configured, so there is no external chain to compare with." };
+    await connectMongo();
     await drainProjector();
     const checkpoints = await mongo().collection("audit_checkpoints").find({}, { projection: { _id: 0 } }).sort({ count: 1 }).toArray();
     const ids = await redis().lRange("audit:events", 0, -1);

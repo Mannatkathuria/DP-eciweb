@@ -10,7 +10,8 @@ const R_STATUS = { submitted: "Submitted", acknowledged: "Acknowledged", informa
 export function ObserverReports({ area, canFile }) {
     const { data, error, loading, reload } = useLoad("/oversight/observer-reports");
     const [run, st] = useAction(reload);
-    const [f, setF] = useState({ topic: "poll_day", severity: "routine", title: "", facts: "", recommendation: "", pollingStation: "" });
+    const [f, setF] = useState({ reportType: "daily", topic: "poll_day", severity: "routine", title: "", facts: "", recommendation: "", pollingStation: "", place: "", stayingAt: "", localContact: "" });
+    const movement = f.reportType === "arrival" || f.reportType === "departure";
     const [reply, setReply] = useState({});
     const [where, setWhere] = useState(area ?? {});
     const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -20,6 +21,13 @@ export function ObserverReports({ area, canFile }) {
             {canFile && (
                 <form className="desk-form" onSubmit={(e) => { e.preventDefault(); run(() => api.post("/oversight/observer-reports", { ...where, ...f }), "Report filed.").then((ok) => ok && setF({ ...f, title: "", facts: "", recommendation: "" })); }}>
                     <AreaPicker value={where} onChange={setWhere} />
+                    <Field id="or-type" text="Report"><select id="or-type" value={f.reportType} onChange={set("reportType")}>{Object.entries(data?.reportTypes ?? { daily: "Daily report" }).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                    {movement ? <>
+                        <Field id="or-place" text={f.reportType === "arrival" ? "Arrived at" : "Leaving from"}><input id="or-place" value={f.place} onChange={set("place")} /></Field>
+                        <Field id="or-stay" text="Staying at"><input id="or-stay" value={f.stayingAt} onChange={set("stayingAt")} /></Field>
+                        <Field id="or-ph" text="Local contact number"><input id="or-ph" value={f.localContact} onChange={set("localContact")} /></Field>
+                        <div className="wide"><button className="btn btn-primary" disabled={st.busy}>File {f.reportType} report</button></div>
+                    </> : <>
                     <Field id="or-topic" text="Topic"><select id="or-topic" value={f.topic} onChange={set("topic")}>{Object.entries(data?.topics ?? {}).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
                     <Field id="or-sev" text="Severity"><select id="or-sev" value={f.severity} onChange={set("severity")}>{Object.keys(SEV).map((k) => <option key={k} value={k}>{label(k)}</option>)}</select></Field>
                     <Field id="or-ps" text="Polling station (optional)"><input id="or-ps" value={f.pollingStation} onChange={set("pollingStation")} /></Field>
@@ -27,13 +35,14 @@ export function ObserverReports({ area, canFile }) {
                     <Field id="or-facts" text="Facts observed (what, where, when, who was present)" wide><textarea id="or-facts" rows={4} value={f.facts} onChange={set("facts")} required minLength={20} /></Field>
                     <Field id="or-rec" text="Recommendation (optional)" wide><textarea id="or-rec" rows={2} value={f.recommendation} onChange={set("recommendation")} /></Field>
                     <div className="wide"><button className="btn btn-primary" disabled={st.busy}>File report</button></div>
+                    </>}
                 </form>
             )}
             <Status error={error || st.error} notice={st.notice} loading={loading} />
             {data && (data.items.length ? data.items.map((r) => (
                 <div className="desk-item" key={r._id}>
                     <h4>{r.title} <Badge tone={SEV[r.severity]}>{label(r.severity)}</Badge> <Badge>{R_STATUS[r.status] ?? r.status}</Badge></h4>
-                    <p className="meta">{label(r.kind)} observer {r.filedBy.epic} · {data.topics[r.topic]} · {r.jurisdiction.constituency ?? r.jurisdiction.district ?? r.jurisdiction.state}{r.pollingStation ? ` · ${r.pollingStation}` : ""} · {when(r.filedAt)}</p>
+                    <p className="meta">{data.reportTypes?.[r.reportType ?? "adhoc"] ?? "Report"} · {label(r.kind)} observer {r.filedBy.epic} · {data.topics[r.topic]} · {r.jurisdiction.constituency ?? r.jurisdiction.district ?? r.jurisdiction.state}{r.pollingStation ? ` · ${r.pollingStation}` : ""} · {when(r.filedAt)}</p>
                     <p style={{ margin: "6px 0" }}>{r.facts}</p>
                     {r.recommendation && <p className="meta">Recommendation: {r.recommendation}</p>}
                     {r.review.map((x, i) => <p key={i} className="meta">{label(x.action)} by {x.by.epic} ({when(x.at)}){x.note ? `: ${x.note}` : ""}</p>)}

@@ -41,7 +41,11 @@ export const DIRECTION_BASIS = {
     expenditure: "Expenditure monitoring instructions",
     administrative: "Administrative instruction"
 };
-export const ADDRESSEES = ["ceo", "deo", "ro", "ero", "sector_officer", "district_police_officer", "state_police_nodal", "presiding_officer"];
+export const ADDRESSEES = ["ceo", "deo", "ro", "ero", "sector_officer", "district_police_officer", "state_police_nodal", "presiding_officer", "general_observer", "police_observer", "expenditure_observer", "counting_observer"];
+// The observer's reporting calendar (ECI Handbook for Observers): arrival on reaching the
+// constituency, a daily report through the campaign, the poll-day and post-poll reports, the final
+// report after counting, departure, and an ad hoc report whenever something needs the Commission.
+export const REPORT_TYPES = { arrival: "Arrival report", daily: "Daily report", poll_day: "Poll-day report", post_poll: "Post-poll report", final: "Final report", departure: "Departure report", adhoc: "Ad hoc report" };
 const D_STATUS = { issued: "Issued, awaiting compliance", complied: "Compliance reported", closed: "Closed by the Commission" };
 
 // ---- Observer reports ----
@@ -63,11 +67,18 @@ export const fileReport = asyncHandler(async (req, res) => {
     if (!area) throw new ApiError(400, "Name the area the report is about.");
     assertScope(req, area, "This area");
     const at = nowIso();
+    const reportType = oneOf(body.reportType ?? "adhoc", REPORT_TYPES, "reportType");
+    const movement = reportType === "arrival" || reportType === "departure";
+    if (movement && (await reports.list()).some((r) => r.filedBy.epic === req.user.epic && r.reportType === reportType && r.jurisdiction.constituency === area.constituency && (body.electionId ? r.electionId === body.electionId : true))) {
+        throw new ApiError(409, `You have already filed your ${REPORT_TYPES[reportType].toLowerCase()} for this constituency.`);
+    }
     const report = {
         _id: newId(), kind: KIND_OF_ROLE[req.user.role] ?? "general", electionId: clean(body.electionId, 80) || null, election: mine?.election ?? null,
         jurisdiction: area, pollingStation: clean(body.pollingStation, 200) || mine?.jurisdiction?.pollingStation || null,
-        topic: oneOf(body.topic ?? "other", REPORT_TOPICS, "topic"), severity: oneOf(body.severity ?? "routine", SEVERITY, "severity"),
-        title: requireText(body.title, "Title", { min: 5, max: 150 }), facts: requireText(body.facts, "Facts observed", { min: 20, max: 4000 }),
+        reportType, topic: oneOf(body.topic ?? (reportType === "adhoc" ? "other" : "preparedness"), REPORT_TOPICS, "topic"), severity: oneOf(body.severity ?? "routine", SEVERITY, "severity"),
+        title: movement ? `${REPORT_TYPES[reportType]}: ${area.constituency ?? area.district ?? area.state}` : requireText(body.title, "Title", { min: 5, max: 150 }),
+        facts: movement ? requireText(body.facts || `${REPORT_TYPES[reportType]} on ${body.on ?? at.slice(0, 10)} at ${body.place ?? "the constituency headquarters"}.`, "Details", { min: 5, max: 4000 }) : requireText(body.facts, "Facts observed", { min: 20, max: 4000 }),
+        movement: movement ? { on: body.on ? dateOf(body.on, "Date") : at.slice(0, 10), place: clean(body.place, 200) || null, stayingAt: clean(body.stayingAt, 200) || null, localContact: clean(body.localContact, 20) || null } : null,
         recommendation: clean(body.recommendation, 1500) || null, reportTo: req.user.role === "micro_observer" ? ["general_observer", "commission"] : ["commission"],
         confidential: true, status: "submitted", filedBy: actorOf(req.user), filedAt: at, review: [], directionIds: []
     };
@@ -81,9 +92,9 @@ export const fileReport = asyncHandler(async (req, res) => {
 export const listReports = asyncHandler(async (req, res) => {
     const q = req.query;
     const items = (await reports.list()).filter((r) => reportVisible(req, r))
-        .filter((r) => (!q.status || r.status === q.status) && (!q.severity || r.severity === q.severity) && (!q.kind || r.kind === q.kind));
+        .filter((r) => (!q.status || r.status === q.status) && (!q.severity || r.severity === q.severity) && (!q.kind || r.kind === q.kind) && (!q.reportType || (r.reportType ?? "adhoc") === q.reportType));
     const counts = Object.fromEntries(SEVERITY.map((s) => [s, items.filter((r) => r.severity === s && r.status !== "closed").length]));
-    res.json({ success: true, data: { items: page(items, q, "filedAt"), counts, topics: REPORT_TOPICS,
+    res.json({ success: true, data: { items: page(items, q, "filedAt"), counts, topics: REPORT_TOPICS, reportTypes: REPORT_TYPES,
         can: { review: NATIONAL(req) && (hasPermission(req.user, "direction:issue") || hasPermission(req.user, "national:manage")), direct: hasPermission(req.user, "direction:issue"), file: hasPermission(req.user, "observer:report") } } });
 });
 
