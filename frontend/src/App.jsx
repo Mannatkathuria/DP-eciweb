@@ -77,6 +77,7 @@ function App() {
 
                     {/* Public information */}
                     <Route path="/voters" element={<Voters />} />
+                    <Route path="/help" element={<Navigate to="/voters" replace />} />
                     <Route path="/report-violation" element={<ReportViolation />} />
                     <Route path="/candidates" element={<Candidates />} />
                     <Route path="/results" element={<Results />} />

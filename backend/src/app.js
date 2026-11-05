@@ -54,6 +54,8 @@ import seizureRoutes from "./routes/seizure.routes.js";
 import partyFilingRoutes from "./routes/partyFiling.routes.js";
 import evmRoutes from "./routes/evm.routes.js";
 import dataStoreRoutes from "./routes/dataStore.routes.js";
+import assistRoutes from "./routes/assist.routes.js";
+import inboxRoutes from "./routes/inbox.routes.js";
 import { isTraining } from "./config/appMode.js";
 import { mongoStatus } from "./config/mongo.js";
 import { redis } from "./config/redis.js";
@@ -92,7 +94,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Step-Up", "X-Requested-With", "X-Device-Id", "X-Device-Token"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Step-Up", "X-Requested-With", "X-Device-Id", "X-Device-Token", "Idempotency-Key"],
     exposedHeaders: ["X-App-Mode"]
   })
 );
@@ -187,6 +189,8 @@ app.use("/api/v1/seizures", seizureRoutes);
 app.use("/api/v1/party-filings", partyFilingRoutes);
 app.use("/api/v1/evm", evmRoutes);
 app.use("/api/v1/data-stores", dataStoreRoutes);
+app.use("/api/v1/assist", assistRoutes);
+app.use("/api/v1/inbox", inboxRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });

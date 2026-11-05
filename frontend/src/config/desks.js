@@ -60,21 +60,21 @@ export const DESKS = {
     ero: {
         basis: "RP Act 1950, ss. 13B, 22, 23; Registration of Electors Rules, 1960",
         mission: "You prepare, revise and publish the roll of your constituency and decide every claim and objection with a reasoned order.",
-        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["rollQuality", "Duplicates (PSE/DSE) and deaths"], ["appeals", "Appeal orders"], ["bloTeam", "BLOs"], ["fieldSurveyRead", "Station facilities"], ["grievances", "Grievances"], ["issues", "Polling-station problems"], ["audit", "Audit trail"]],
+        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["rollQuality", "Duplicates (PSE/DSE) and deaths"], ["appeals", "Appeal orders"], ["bloTeam", "BLOs"], ["fieldSurveyRead", "Station facilities"], ["grievances", "Grievances"], ["issues", "Polling-station problems"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [s("/ero", "Form 6, Form 8 and Form 7 decisions", "Applications, new-voter tasks and roll versions"), s("/electoral-roll", "Electoral roll search"), TRAINING, LIBRARY],
         cannot: ["Change records outside your constituency", "Skip the notice and hearing steps", "Act on an expired appointment"]
     },
     aero: {
         basis: "RP Act 1950, s. 13C",
         mission: "You perform the ERO functions delegated to you, under the ERO's control, for the same constituency.",
-        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["rollQuality", "Duplicates (PSE/DSE) and deaths"], ["appeals", "Appeal orders"], ["grievances", "Grievances"], ["audit", "Audit trail"]],
+        tabs: [["summaryRoll", "Overview"], ["formsDecide", "Forms 2-8"], ["rollQuality", "Duplicates (PSE/DSE) and deaths"], ["appeals", "Appeal orders"], ["grievances", "Grievances"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [s("/ero", "Application decisions", "Form 6, Form 8 and Form 7"), TRAINING, LIBRARY],
         cannot: ["Act outside your delegation", "Override the ERO or the Commission", "Publish the roll (the ERO does)"]
     },
     blo_supervisor: {
         basis: "ECI Manual on Electoral Rolls, 2023 (field supervision)",
         mission: "You allocate and check the field work of the BLOs in your area and send back incomplete reports. The ERO decides applications.",
-        tabs: [["bloTeam", "Team and tasks"], ["formsField", "Field verification"], ["summaryRoll", "Overview"], ["rollQuality", "Duplicates and deaths"], ["bloRegister", "House-to-house register"], ["rollPart", "Roll"], ["audit", "Audit trail"]],
+        tabs: [["bloTeam", "Team and tasks"], ["formsField", "Field verification"], ["summaryRoll", "Overview"], ["rollQuality", "Duplicates and deaths"], ["bloRegister", "House-to-house register"], ["rollPart", "Roll"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [TRAINING],
         cannot: ["Decide claims, objections or deletions", "Change the roll"]
     },
@@ -170,7 +170,7 @@ export const DESKS = {
         basis: "RP Act 1950, s. 13AA; RP Act 1951, ss. 20A, 25, 26",
         mission: "You run the election machinery of the district: polling stations (with the Commission's prior approval), polling staff, nodal officers and district reports to the CEO.",
         tabs: [["summary", "District report"], ["stationsDeo", "Polling-station changes"], ["fieldSurveyRead", "Station facilities"], ["issuesClose", "Station problems"], ["evm", "EVMs: warehouse, FLC, 1st randomisation"], ["complaints", "MCC control room"], ["squads", "Flying squads"], ["seizures", "Seizures"],
-            ["grievances", "Grievances"], ["appeals", "Roll appeals"], ["nodal", "Nodal officers"], ["stationReports", "Station reports"], ["observerRead", "Observer reports"], ["directions", "Directions"], ["permStaff", "Permissions"], ["audit", "Audit trail"]],
+            ["grievances", "Grievances"], ["appeals", "Roll appeals"], ["nodal", "Nodal officers"], ["stationReports", "Station reports"], ["observerRead", "Observer reports"], ["directions", "Directions"], ["permStaff", "Permissions"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [s("/deo", "Polling stations and staff", "Propose stations and relocations; appoint election staff"), CONTROL, TRAINING, LIBRARY],
         cannot: ["Make a polling-station change without the Commission's prior approval", "Redraw constituency boundaries", "Decide roll applications (the ERO does)"]
     },
@@ -200,7 +200,7 @@ export const DESKS = {
         basis: "RP Act 1950, s. 13A; RP Act 1951, s. 20",
         mission: "You supervise roll and election work across the State, forward district proposals to the Commission and carry out its directions.",
         tabs: [["summary", "State report"], ["eplan", "Election planning"], ["stationsCeo", "Station proposals to forward"], ["indexCard", "Index Cards to examine"], ["appeals", "Second appeals"], ["evm", "EVMs"], ["seizures", "Seizures"], ["grievances", "Grievances"],
-            ["stationReports", "Station reports"], ["nodal", "State nodal officers"], ["directions", "Directions"], ["audit", "Audit trail"]],
+            ["stationReports", "Station reports"], ["nodal", "State nodal officers"], ["directions", "Directions"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [CONTROL, s("/states", "State election offices"), LIBRARY],
         cannot: ["Replace the Commission's prior approval with your own", "Decide matters reserved to the ERO or RO"]
     },
@@ -223,7 +223,7 @@ export const DESKS = {
         basis: "Platform administration (a technical role, not a statutory office)",
         mission: "You manage the platform's national configuration, role assignments, data sources and verification review, and record the Commission's decisions with their order references.",
         tabs: [["summary", "National picture"], ["eplan", "Election planning"], ["stationsEci", "Polling-station approvals"], ["indexCard", "Index Cards to finalise"], ["partyCompliance", "Party filings"], ["observerReview", "Observer reports"],
-            ["seizures", "Seizures"], ["grievances", "Grievances"], ["evm", "EVMs"], ["library", "Library"], ["dataStores", "Data stores"], ["audit", "Audit trail"]],
+            ["seizures", "Seizures"], ["grievances", "Grievances"], ["evm", "EVMs"], ["library", "Library"], ["dataStores", "Data stores"], ["audit", "Audit trail"], ["workload", "Workload"]],
         screens: [s("/eci/dashboard", "Administration", "Accounts, roles, assignments and verification cases"), s("/eci/elections", "Elections", "Announce elections and revise schedules"), s("/eci/integrations", "Data sources", "Approved sources for the new-voter pipeline, audit integrity"), s("/eci/voting-verification", "Voting verification"), CONTROL],
         cannot: ["Create a Commission order without the Commission's decision", "Reverse a declared result"]
     },

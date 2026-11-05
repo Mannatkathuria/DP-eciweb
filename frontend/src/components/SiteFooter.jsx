@@ -19,7 +19,7 @@ export default function SiteFooter() {
           <ul>
             <li><Link to="/electoral-roll">Electoral roll search</Link></li>
             <li><Link to="/check-request">Application status</Link></li>
-            <li><Link to="/voters">Forms and services</Link></li>
+            <li><Link to="/voters">Voter Mitra</Link></li>
           </ul>
         </div>
         <div>

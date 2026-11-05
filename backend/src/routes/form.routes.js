@@ -1,3 +1,4 @@
+import { idempotent } from "../middlewares/idempotency.middleware.js";
 import express from "express";
 import { optionalJWT, requirePasswordChanged, verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
@@ -25,6 +26,6 @@ router.post("/staff/:id/field-report", verifyJWT, requirePasswordChanged, author
 router.post("/staff/:id/decide", verifyJWT, requirePasswordChanged, authorize("application:decide"), requireStepUp, decideForm);
 
 // Submission last, so "staff", "status" and "mine" are never taken for a form name.
-router.post("/:form", intakeLimiter, optionalJWT, submitForm);
+router.post("/:form", intakeLimiter, idempotent("eform"), optionalJWT, submitForm);
 
 export default router;

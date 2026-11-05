@@ -75,7 +75,7 @@ export default function StatePortal() {
               <p className="muted">The same services apply in every State and Union Territory. Choose your state and district when you apply.</p>
               <div className="cluster">
                 <Link className="btn btn-primary" to="/electoral-roll">Search the roll</Link>
-                <Link className="btn btn-quiet" to="/voters">Forms and services</Link>
+                <Link className="btn btn-quiet" to="/voters">Voter Mitra</Link>
               </div>
             </div>
             <div className="panel">

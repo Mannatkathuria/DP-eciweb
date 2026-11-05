@@ -2,15 +2,17 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import { PROOF_TYPES, PROOF_MAX_BYTES, readProofDocument } from "../proofDocument";
+import { PROOF_TYPES, PROOF_MAX_BYTES } from "../proofDocument";
+import { preflightDocument } from "../preflight";
+import PreflightNotes from "../components/PreflightNotes";
 import { RELATIONS, AGE_DOCS, ADDRESS_DOCS, DOC_HOLDERS, MONTHS, formatSize } from "./electoral-forms/form6Options";
 
 /*
  * Form 6 (Application Form for New Voters), split into stages.
  *
  * Every field is sent to POST /auth/register as { form6, documents } (see buildPayload) and is
- * validated again and stored by the backend (backend/src/utils/form6.js). Nothing is saved to the
- * browser's storage: the form lives in memory while the page is open, until it is submitted.
+ * validated again and stored by the backend (backend/src/utils/form6.js). Answers (never files or
+ * the Aadhaar number) are kept as a draft on this device so the applicant can come back later.
  */
 
 const STEPS = [
@@ -363,12 +365,6 @@ function CheckField({ name, checked, onChange, required, error, children }) {
     );
 }
 
-// First bytes of each accepted image type, so a renamed file is refused.
-const SIGNATURES = {
-    "image/jpeg": (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
-    "image/png": (b) => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((x, i) => b[i] === x),
-    "image/webp": (b) => [0x52, 0x49, 0x46, 0x46].every((x, i) => b[i] === x) && [0x57, 0x45, 0x42, 0x50].every((x, i) => b[8 + i] === x)
-};
 const TYPE_LABELS = { "image/jpeg": "JPG / JPEG", "image/png": "PNG", "image/webp": "WebP" };
 
 
@@ -390,10 +386,8 @@ function FileField({ name, label, purpose, types, value, onChange, required, err
         if (file.size > PROOF_MAX_BYTES) { setLocalError(`This file is ${formatSize(file.size)}. The limit is ${MAX_MB} MB.`); return; }
         setReading(true);
         try {
-            const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-            if (!SIGNATURES[file.type](head)) { setLocalError("This file is not a real image of the type its name says. Choose another file."); return; }
-            const dataUrl = await readProofDocument(file);
-            onChange({ dataUrl, fileName: file.name, size: file.size });
+            const checked = await preflightDocument(file, { types, maxBytes: PROOF_MAX_BYTES, label: "This file" });
+            onChange({ dataUrl: checked.dataUrl, fileName: file.name, size: file.size, warnings: checked.warnings });
         } catch (err) {
             setLocalError(err.message || "The file could not be read. Choose it again.");
         } finally {
@@ -417,7 +411,9 @@ function FileField({ name, label, purpose, types, value, onChange, required, err
                             <span className="f6-upload-status">✓ Attached · {formatSize(value.size)}</span>
                         </div>
                     </div>
-                ) : (
+                ) : null}
+                {value?.warnings?.length > 0 && <PreflightNotes warnings={value.warnings} />}
+                {value ? null : (
                     <p className="f6-upload-empty">{reading ? "Reading file…" : "No file attached yet."}</p>
                 )}
                 <div className="f6-upload-actions">
@@ -447,6 +443,8 @@ function Section({ title, children, intro }) {
 
 // ---- the page -------------------------------------------------------------------------------
 
+const DRAFT_KEY = "draft:FORM_6";
+
 function Register() {
     const { t } = useTranslation();
     const [form, setForm] = useState(emptyForm);
@@ -460,6 +458,9 @@ function Register() {
     const headingRef = useRef(null);
     const cardRef = useRef(null);
     const shownStep = useRef(0);
+    const attemptKey = useRef(null); // one per attempt, so a retried submission is not filed twice
+    const [draft, setDraft] = useState(() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; } });
+    const dropDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ } setDraft(null); };
 
 
     const [geography, setGeography] = useState(null);
@@ -481,8 +482,15 @@ function Register() {
     const selectedConstituency = constituencyOptions.find((a) => a.id === form.assemblyConstituency) || null;
     const geo = { constituencyOptions, constituencyLabel };
 
-    // Work in progress is kept only in memory, so warn before the tab is closed or reloaded.
+    // Files are kept only in memory, so warn before the tab is closed or reloaded.
     const dirty = !submitted && (JSON.stringify(form) !== JSON.stringify(emptyForm) || Object.values(files).some(Boolean));
+    useEffect(() => {
+        attemptKey.current = null;
+        if (!dirty || draft) return undefined;
+        const keep = Object.fromEntries(Object.entries(form).filter(([k]) => !/aadhaar/i.test(k)));
+        const timer = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: keep, step, savedAt: new Date().toISOString() })); } catch { /* storage unavailable */ } }, 600);
+        return () => clearTimeout(timer);
+    }, [form, files, step, dirty, draft]);
     useEffect(() => {
         if (!dirty) return undefined;
         const warn = (event) => { event.preventDefault(); event.returnValue = ""; };
@@ -602,8 +610,10 @@ function Register() {
         }
         setError(""); setLoading(true);
         try {
-            const { data } = await api.post("/auth/register", buildPayload());
+            attemptKey.current ??= crypto.randomUUID();
+            const { data } = await api.post("/auth/register", buildPayload(), { headers: { "Idempotency-Key": attemptKey.current } });
             setSubmitted(data.data);
+            dropDraft();
             setForm(emptyForm);
             setFiles(emptyFiles);
             setReturnToReview(false);
@@ -1005,6 +1015,17 @@ function Register() {
                             )}
                             <p className="f6-hint">{t("register.saveReference")}{" "}
                                 <Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>{t("register.checkRequest")}</Link></p>
+                            <p className="no-print"><button type="button" className="f6-btn f6-btn-secondary" onClick={() => { document.body.classList.add("printing-receipt"); window.addEventListener("afterprint", () => document.body.classList.remove("printing-receipt"), { once: true }); window.print(); }}>Print or save receipt</button></p>
+                        </div>
+                    )}
+
+                    {draft && !submitted && (
+                        <div className="f6-draft" role="status">
+                            <span>You have a saved draft from {new Date(draft.savedAt).toLocaleString("en-IN")}. Attached files and your Aadhaar number must be added again.</span>
+                            <span style={{ display: "flex", gap: 8 }}>
+                                <button type="button" className="f6-btn f6-btn-primary f6-btn-small" onClick={() => { setForm({ ...emptyForm, ...draft.form }); setStep(Math.min(draft.step ?? 0, STEPS.length - 1)); setDraft(null); }}>Resume</button>
+                                <button type="button" className="f6-btn f6-btn-text" onClick={dropDraft}>Start again</button>
+                            </span>
                         </div>
                     )}
 
@@ -1037,7 +1058,7 @@ function Register() {
                                 <button type="submit" className="f6-btn f6-btn-primary">{returnToReview ? "Save and return to review" : "Next →"}</button>
                             )}
                         </div>
-                        {!isReview && <p className="f6-hint f6-memory-note">Your answers stay on this page while it is open. They are not saved anywhere until you submit, so closing or reloading the page loses them.</p>}
+                        {!isReview && !submitted && <p className="f6-hint f6-memory-note">Your answers are saved as a draft on this device as you type. Attached files and your Aadhaar number are not saved.</p>}
                     </form>
 
                 </section>

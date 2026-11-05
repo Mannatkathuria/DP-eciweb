@@ -17,6 +17,7 @@ import { AppealsPanel, AssistedNomination, ComplaintsPanel, StationRecords, Stat
 import { BloRegisterPanel, FieldSurveyPanel, RecordOfficerPanel, RollQualityPanel } from "../components/desk/RollPanels";
 import { EncorePanel, EplanPanel, EtpbPanel, EvmPanel, IndexCardPanel } from "../components/desk/ElectionPanels";
 import { DataStoresPanel, GrievancesPanel, LibraryAdminPanel, ObserverPortalPanel, PartyCompliancePanel, PartyFilingsPanel, SeizuresPanel, SquadPanel } from "../components/desk/MonitorPanels";
+import { InboxPanel, WorkloadPanel } from "../components/desk/InboxPanels";
 import "../styles/desk.css";
 
 // The signed-in home of every election role: who you are, where your authority runs, what you
@@ -72,7 +73,8 @@ const PANELS = {
     partyCompliance: () => <PartyCompliancePanel />,
     observerPortal: () => <ObserverPortalPanel />,
     library: () => <LibraryAdminPanel />,
-    dataStores: () => <DataStoresPanel />
+    dataStores: () => <DataStoresPanel />,
+    workload: () => <WorkloadPanel />
 };
 
 // Desks with many panels get a grouped side menu instead of one long row of tabs.
@@ -82,7 +84,7 @@ const GROUP_OF = {
     stationsDeo: "Stations and field", stationsCeo: "Stations and field", stationsEci: "Stations and field", fieldSurvey: "Stations and field", fieldSurveyRead: "Stations and field", issues: "Stations and field", issuesClose: "Stations and field",
     logistics: "Stations and field", security: "Stations and field", stationRecords: "Stations and field", stationReports: "Stations and field", nodal: "Stations and field",
     complaints: "Complaints and monitoring", squads: "Complaints and monitoring", seizures: "Complaints and monitoring", grievances: "Complaints and monitoring", expObserve: "Complaints and monitoring",
-    observerPortal: "Oversight", observerFile: "Oversight", observerRead: "Oversight", observerReview: "Oversight", directions: "Oversight", directionsIssue: "Oversight",
+    workload: "Oversight", observerPortal: "Oversight", observerFile: "Oversight", observerRead: "Oversight", observerReview: "Oversight", directions: "Oversight", directionsIssue: "Oversight",
     audit: "Records and administration", library: "Records and administration", dataStores: "Records and administration"
 };
 const GROUP_ORDER = ["Oversight", "Electoral roll", "Election work", "Stations and field", "Complaints and monitoring", "Records and administration"];
@@ -150,6 +152,7 @@ export default function RoleDesk() {
                     <div className="stack">
                     {tab === "overview" ? (
                         <>
+                            <InboxPanel onOpen={change} tabs={workTabs.map(([id]) => id)} />
                             {summaryKey && PANELS[summaryKey]({ area })}
                             {desk.screens.length > 0 && (
                                 <section className="panel">

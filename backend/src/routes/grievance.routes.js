@@ -1,3 +1,4 @@
+import { idempotent } from "../middlewares/idempotency.middleware.js";
 import express from "express";
 import { optionalJWT, requirePasswordChanged, verifyJWT } from "../middlewares/verifyJWT.middleware.js";
 import { authorize } from "../middlewares/authorize.middleware.js";
@@ -9,7 +10,7 @@ const router = express.Router();
 const intake = limiter("ngsp-intake", { windowMs: 10 * 60 * 1000, limit: 15, message: "Too many grievances from this connection. Try again later." });
 const auth = [verifyJWT, requirePasswordChanged];
 router.get("/lists", grievanceLists);
-router.post("/", intake, optionalJWT, fileGrievance);
+router.post("/", intake, idempotent("grievance"), optionalJWT, fileGrievance);
 router.get("/track/:ref", intake, trackGrievance);
 router.post("/track/:ref/reopen", intake, reopenGrievance);
 router.get("/", ...auth, authorize("grievance:handle", "national:view"), listGrievances);

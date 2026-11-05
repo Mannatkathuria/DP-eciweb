@@ -1,58 +1,148 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import api from "../api/axios";
 import PageHead from "../components/PageHead";
+import { apiMessage } from "../config/elections";
 
-// A decision aid: choose your situation, get the one form and the next step.
-const SITUATIONS = [
-  { id: "new", label: "I am registering for the first time", form: "Form 6", what: "Application for inclusion of your name in the electoral roll. You need proof of age and proof of address.", action: { to: "/register", label: "Start Form 6" } },
-  { id: "overseas", label: "I am an Indian citizen living abroad", form: "Form 6A", what: "Registration for overseas electors, using your Indian passport details.", action: {to: "/voters/forms/form-6a", label: "Form 6A"} },
-  { id: "delete", label: "I want to object to or remove an entry", form: "Form 7", what: "An objection to an entry in the roll of your constituency, or a request to delete your own entry. The elector is given notice and may reply; a BLO verifies and the ERO decides.", action: {to: "/voters/forms/form-7", label: "Form 7"} },
-  { id: "correct", label: "I moved, or need to correct my details", form: "Form 8", what: "Shifting your residence, correcting your entry, replacing a card, or marking yourself as a person with disability.", note: "Sign in as a voter, then submit the change from your dashboard so a booth level officer can review it.", action: {to: "/voters/forms/form-8", label: "Form 8"} },
-  { id: "aadhaar", label: "I want to link my Aadhaar number", form: "Form 6B", what: "Voluntary intimation of your Aadhaar number, used to authenticate your entry.", action: {to: "/voters/forms/form-6b", label: "Form 6B"}  },
-  { id: "service", label: "I am in the armed forces or a service voter", form: "Forms 2, 2A and 3", what: "Enrolment of service voters, such as the armed forces, ITBP and State armed police.", action: {to: "/voters/forms/form-2", label: "Form 2"} },
-  { id: "find", label: "I want to know whether I am on the roll", form: "No form needed", what: "Search by EPIC number or by your details.", action: { to: "/electoral-roll", label: "Search the roll" } }
-];
+// Voter Mitra: ask in your own words (English, Hindi or Hinglish) or pick a service. The answer
+// comes from the Commission's service catalogue, never invented: what it is, the steps, the form,
+// the documents, and where to start. It can be read aloud and shown in simpler words.
+
+const VOICE = { en: "en-IN", hi: "hi-IN", pa: "pa-IN", te: "te-IN", ta: "ta-IN", kn: "kn-IN" };
+const EXAMPLES = ["I turned 18, how do I get my name on the roll?", "My father passed away", "I moved to another city", "I lost my voter card", "मेरा नाम गलत छपा है"];
 
 export default function Voters() {
-  const [id, setId] = useState("");
-  const pick = SITUATIONS.find((s) => s.id === id);
+  const { i18n } = useTranslation();
+  const [catalogue, setCatalogue] = useState({ groups: [], services: [] });
+  const [group, setGroup] = useState("");
+  const [question, setQuestion] = useState("");
+  const [result, setResult] = useState(null); // { answer, related, faqs, fallback }
+  const [simple, setSimple] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const answerRef = useRef(null);
+
+  useEffect(() => {
+    api.get("/assist/services").then((r) => setCatalogue(r.data.data)).catch(() => setError("The list of services could not be loaded. You can still ask a question."));
+    return () => window.speechSynthesis?.cancel();
+  }, []);
+
+  const show = (data) => { window.speechSynthesis?.cancel(); setSpeaking(false); setResult(data); setTimeout(() => answerRef.current?.focus(), 0); };
+  const ask = async (q) => {
+    const text = (q ?? question).trim();
+    if (!text) return;
+    setQuestion(text); setBusy(true); setError("");
+    try { show((await api.post("/assist/ask", { question: text })).data.data); }
+    catch (e) { setError(apiMessage(e, "Voter Mitra could not answer just now. Call 1950 for help.")); }
+    finally { setBusy(false); }
+  };
+  const open = (id) => {
+    const s = catalogue.services.find((x) => x.id === id);
+    if (s) show({ answer: s, related: [], faqs: [] }); else ask(id);
+  };
+
+  const a = result?.answer;
+  const speak = () => {
+    const synth = window.speechSynthesis;
+    if (!synth || !a) return;
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
+    const text = [a.title, simple ? a.simple : a.summary, ...(a.steps ?? []).map((s, i) => `Step ${i + 1}. ${s}`), a.documents?.length ? `Documents: ${a.documents.join(". ")}` : ""].join(". ");
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = VOICE[i18n.resolvedLanguage] ?? "en-IN";
+    u.onend = () => setSpeaking(false);
+    synth.cancel(); synth.speak(u); setSpeaking(true);
+  };
+
+  const shown = catalogue.services.filter((s) => !group || s.group === group);
+
   return (
     <>
-      <PageHead title="Forms and services" crumbs={[{ label: "Voters" }]}
-        lede="Tell us your situation and we will point you to the right form. The same services and forms apply in every State and Union Territory." />
+      <PageHead title="Voter Mitra" crumbs={[{ label: "Voters" }, { label: "Voter Mitra" }]}
+        lede="Tell us what you need in your own words, or pick a service. We will tell you which form to use, what to keep ready and where to start." />
       <section className="section">
         <div className="container split">
-          <div className="panel">
-            <div className="field">
-              <label htmlFor="situation">What is your situation?</label>
-              <select id="situation" value={id} onChange={(e) => setId(e.target.value)}>
-                <option value="">Choose one</option>
-                {SITUATIONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-            </div>
-            <div aria-live="polite" style={{ marginTop: 20 }}>
-              {pick ? (
-                <>
-                  <h2>{pick.form}</h2>
-                  <p>{pick.what}</p>
-                  {pick.note && <div className="alert">{pick.note}</div>}
-                  {pick.action && <Link className="btn btn-primary" to={pick.action.to}>{pick.action.label}</Link>}
-                </>
-              ) : <p className="muted">Your answer will appear here.</p>}
-            </div>
+          <div className="stack">
+            <form className="panel" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+              <div className="field">
+                <label htmlFor="mitra-q">What do you need help with?</label>
+                <input id="mitra-q" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="For example: I moved to another city" autoComplete="off" />
+              </div>
+              <div className="cluster">
+                <button className="btn btn-primary" disabled={busy || !question.trim()}>{busy ? "Finding…" : "Ask"}</button>
+                <span className="muted" style={{ fontSize: ".9rem" }}>English, हिन्दी or Hinglish</span>
+              </div>
+              {!result && (
+                <div className="pill-cloud" style={{ marginTop: 14 }}>
+                  {EXAMPLES.map((x) => <button key={x} type="button" className="chip" onClick={() => ask(x)}>{x}</button>)}
+                </div>
+              )}
+            </form>
+
+            {error && <div className="alert alert-error" role="alert">{error}</div>}
+
+            {result && (
+              <article className="panel" ref={answerRef} tabIndex={-1} aria-live="polite" style={{ outline: "none" }}>
+                {a ? (
+                  <>
+                    <p className="eyebrow" style={{ margin: 0 }}>{a.form || a.group}</p>
+                    <h2 style={{ marginTop: 4 }}>{a.title}</h2>
+                    <p>{simple ? a.simple : a.summary}</p>
+                    {a.steps?.length > 0 && (<><h3>What to do</h3><ol style={{ paddingLeft: 20, lineHeight: 1.7 }}>{a.steps.map((s) => <li key={s}>{s}</li>)}</ol></>)}
+                    {a.documents?.length > 0 && (<><h3>Keep ready</h3><ul style={{ paddingLeft: 20, lineHeight: 1.7 }}>{a.documents.map((d) => <li key={d}>{d}</li>)}</ul></>)}
+                    <div className="cluster" style={{ marginTop: 16 }}>
+                      {a.action && <Link className="btn btn-primary" to={a.action.to}>{a.action.label}</Link>}
+                      {a.also && <Link className="btn btn-secondary" to={a.also.to}>{a.also.label}</Link>}
+                      {a.track && <Link className="btn btn-quiet" to="/check-request">Track an application</Link>}
+                    </div>
+                    <div className="cluster" style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                      <button type="button" className="chip" aria-pressed={simple} onClick={() => setSimple(!simple)}>Simpler words</button>
+                      {"speechSynthesis" in window && <button type="button" className="chip" aria-pressed={speaking} onClick={speak}>{speaking ? "Stop reading" : "Read aloud"}</button>}
+                      {a.library && <Link to={`/library/${a.library}`}>Read more</Link>}
+                    </div>
+                    {a.source && <p className="muted" style={{ fontSize: ".85rem", marginTop: 12 }}>Based on: {a.source}. The official forms and guidelines are authoritative.</p>}
+                  </>
+                ) : (
+                  <>
+                    <h2 style={{ marginTop: 0 }}>We could not match that to a service</h2>
+                    <p>{result.fallback}</p>
+                    <p className="muted">Try different words, or pick a service from the list.</p>
+                  </>
+                )}
+                {result.related?.length > 0 && (
+                  <p style={{ marginBottom: 0 }}><span className="muted">Did you mean: </span>
+                    {result.related.map((r, i) => <span key={r.id}>{i > 0 && " · "}<button type="button" className="link-button" onClick={() => open(r.id)}>{r.title}</button></span>)}
+                  </p>
+                )}
+                {result.faqs?.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <h3>From the library</h3>
+                    <ul className="rows">{result.faqs.map((f) => <li key={f.slug}><Link className="row-link" to={`/library/${f.slug}`}><span><strong>{f.question}</strong></span><span className="go">Open</span></Link></li>)}</ul>
+                  </div>
+                )}
+              </article>
+            )}
           </div>
+
           <aside className="stack">
             <div className="panel">
-              <h2>Before you start</h2>
-              <ul style={{ paddingLeft: 20, lineHeight: 1.8 }}>
-                <li>You must be 18 on the qualifying date, 1 January 2026.</li>
-                <li>Keep proof of age and proof of address ready.</li>
-                <li>Every application is reviewed by a booth level officer. You will get a reference ID to follow it.</li>
+              <h2 style={{ marginTop: 0 }}>All services</h2>
+              <div className="pill-cloud" style={{ marginBottom: 12 }}>
+                <button type="button" className="chip" aria-pressed={!group} onClick={() => setGroup("")}>All</button>
+                {catalogue.groups.map((g) => <button key={g} type="button" className="chip" aria-pressed={group === g} onClick={() => setGroup(g)}>{g}</button>)}
+              </div>
+              <ul className="rows">
+                {shown.map((s) => (
+                  <li key={s.id}><button type="button" className="row-link" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit" }} aria-current={a?.id === s.id ? "true" : undefined} onClick={() => open(s.id)}>
+                    <span><strong>{s.title}</strong>{s.form && <small>{s.form}</small>}</span><span className="go">›</span>
+                  </button></li>
+                ))}
               </ul>
             </div>
             <div className="panel">
-              <h2>Need a person?</h2>
-              <p>Call <a href="tel:1950"><strong>1950</strong></a>, the voter helpline, or ask your booth level officer.</p>
+              <h2 style={{ marginTop: 0 }}>Need a person?</h2>
+              <p style={{ marginBottom: 0 }}>Call <a href="tel:1950"><strong>1950</strong></a>, the voter helpline, or ask your booth level officer.</p>
             </div>
           </aside>
         </div>

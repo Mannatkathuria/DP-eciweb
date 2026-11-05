@@ -41,8 +41,8 @@ const setup = async () => {
     const { default: app } = await import("../src/app.js");
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}/api/v1`;
-    const call = async (method, path, body, token) => {
-        const res = await fetch(`${base}${path}`, { method, headers: { "Content-Type": "application/json", "X-Forwarded-For": `10.21.${crypto.randomInt(0, 255)}.${crypto.randomInt(1, 255)}`, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    const call = async (method, path, body, token, extra = {}) => {
+        const res = await fetch(`${base}${path}`, { method, headers: { "Content-Type": "application/json", "X-Forwarded-For": `10.21.${crypto.randomInt(0, 255)}.${crypto.randomInt(1, 255)}`, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra },
             body: body === undefined ? undefined : JSON.stringify(body) });
         return { status: res.status, body: await res.json().catch(() => null) };
     };
@@ -432,4 +432,76 @@ test("data stores: the status names what is in Redis and in MongoDB and whether 
     if (process.env.MONGODB_URI) assert.equal(electors.inSync, true, "every elector in Redis is in the MongoDB read model");
     else assert.equal(electors.mongodb, null);
     assert.equal((await call("GET", "/data-stores", undefined, (await makeUser("deo")).token)).status, 403);
+});
+
+test("Voter Mitra matches a question to the right service, with steps, form, documents and where to start", needsRedis, async () => {
+    const { call } = await setup();
+    const ask = async (question) => (await call("POST", "/assist/ask", { question })).body.data;
+    const death = await ask("My father passed away. How can I request removal of his name from the electoral roll?");
+    assert.equal(death.answer.id, "remove_deceased");
+    assert.equal(death.answer.form, "Form 7");
+    assert.ok(death.answer.steps.length >= 3 && death.answer.documents.length >= 1 && death.answer.action.to === "/voters/forms/form-7");
+    assert.equal((await ask("I lost my voter card")).answer.id, "replace_epic");
+    assert.equal((await ask("मेरा नाम जोड़ना है")).answer.id, "register");
+    assert.equal((await ask("What does a BLO do?")).answer.id, "who_blo");
+    const none = await ask("weather tomorrow in Goa");
+    assert.equal(none.answer, null);
+    assert.match(none.fallback, /1950/);
+    const list = await call("GET", "/assist/services");
+    assert.ok(list.body.data.services.length >= 20 && list.body.data.services.every((x) => !x.keywords));
+});
+
+test("roll search: by part and serial number, by name with filters; shows the polling station and source, never whether someone voted", needsRedis, async () => {
+    const { call, area, runId, saveElector } = await setup();
+    const epic = `RLS${String(runId % 1e7).padStart(7, "0")}`;
+    await saveElector({ _id: crypto.randomUUID(), epic, name: `Harpreet Kaur ${runId}`, relativeName: "Mohan Singh", gender: "female", dateOfBirth: "1990-05-05T00:00:00.000Z",
+        state: area.state, district: area.district, assemblyConstituency: area.constituency, partNumber: "77", serialNumber: 412, isActive: true, hasVoted: true, votedAt: new Date().toISOString() });
+    const byPart = await call("POST", "/electors/search", { method: "part", state: area.state, assemblyConstituency: area.constituency, partNumber: "77", serialNumber: "412" });
+    assert.equal(byPart.status, 200, JSON.stringify(byPart.body));
+    assert.equal(byPart.body.data.epic, epic);
+    assert.equal(byPart.body.data.hasVoted, undefined, "whether someone voted is not public");
+    assert.ok(byPart.body.data.source.label.includes(area.constituency));
+    const loose = await call("POST", "/electors/search", { method: "details", name: `harprit kaur ${runId}`, state: area.state, gender: "female", age: 36 });
+    assert.equal(loose.status, 200, "spelling variants match");
+    assert.ok(loose.body.items.some((x) => x.epic === epic));
+    assert.equal((await call("POST", "/electors/search", { method: "details", name: `Harpreet Kaur ${runId}`, state: area.state, gender: "male" })).status, 404, "filters narrow the search");
+    assert.equal((await call("POST", "/electors/search", { method: "part", state: area.state })).status, 400);
+});
+
+test("a retried submission with the same Idempotency-Key files one grievance, not two", needsRedis, async () => {
+    const { call } = await setup();
+    const body = { category: "other", subject: "Helpline not answering", description: "The 1950 helpline did not answer for an hour this evening.", mobile: "9876500111" };
+    const key = crypto.randomUUID();
+    const first = await call("POST", "/grievances", body, null, { "Idempotency-Key": key });
+    assert.equal(first.status, 201);
+    const again = await call("POST", "/grievances", body, null, { "Idempotency-Key": key });
+    assert.equal(again.status, 201);
+    assert.equal(again.body.data.referenceId, first.body.data.referenceId, "the retry gets the same receipt");
+    const fresh = await call("POST", "/grievances", body, null, { "Idempotency-Key": crypto.randomUUID() });
+    assert.notEqual(fresh.body.data.referenceId, first.body.data.referenceId);
+    assert.equal((await call("POST", "/grievances", body, null, { "Idempotency-Key": "short" })).status, 400);
+});
+
+test("officer inbox: work waits with a due date and priority; supervisors see escalations; workload counts per officer and district", needsRedis, async () => {
+    const { call, makeUser, grant, area, runId } = await setup();
+    const ero = await makeUser("ero"); await grant(ero, "ero", area);
+    const deo = await makeUser("deo"); await grant(deo, "deo", { state: area.state, district: area.district });
+    // A grievance about this constituency, filed four days ago (overdue twice over).
+    const g = await call("POST", "/grievances", { category: "electoral_registration", subject: `EPIC not delivered ${runId}`, description: "My EPIC was approved two months ago but has not been delivered.", mobile: "9876500222", ...area });
+    const { docStore } = await import("../src/services/docStore.service.js");
+    const store = docStore("grievances");
+    const doc = await store.findOne({ referenceId: g.body.data.referenceId });
+    await store.put({ ...doc, createdAt: new Date(Date.now() - 7 * 24 * 3600000).toISOString() });
+    const inbox = (await call("GET", "/inbox", undefined, ero.token)).body.data;
+    const mine = inbox.items.find((x) => x.ref === g.body.data.referenceId);
+    assert.ok(mine, "the ERO's inbox has the grievance");
+    assert.equal(mine.priority, "high");
+    assert.ok(mine.overdue && mine.tab === "grievances");
+    assert.ok(inbox.counts.overdue >= 1);
+    const deoInbox = (await call("GET", "/inbox", undefined, deo.token)).body.data;
+    assert.ok(deoInbox.items.some((x) => x.ref === g.body.data.referenceId) || deoInbox.escalated.some((x) => x.ref === g.body.data.referenceId), "the DEO sees it too");
+    const w = await call("GET", "/inbox/workload", undefined, deo.token);
+    assert.equal(w.status, 200, JSON.stringify(w.body));
+    assert.ok(w.body.data.grievances.total >= 1 && Array.isArray(w.body.data.districts) && "avgDisposalHours" in w.body.data.applications);
+    assert.equal((await call("GET", "/inbox/workload", undefined, (await makeUser("voter")).token)).status, 403);
 });

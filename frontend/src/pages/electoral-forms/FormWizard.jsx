@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import useGeography from "../../hooks/useGeography";
+import { preflightDocument, typeNames } from "../../preflight";
+import PreflightNotes from "../../components/PreflightNotes";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const EMPTY = (v) => v === undefined || v === null || v === "";
@@ -93,28 +95,18 @@ function FieldControl({ field, values, files, errors, setValue, setFile }) {
   if (field.type === "file") {
     const file = files[field.name];
     const accepted = (field.accept || "image/jpeg,image/png,application/pdf").split(",").map((x) => x.trim());
-    const choose = (event) => {
+    const maxBytes = field.maxBytes || MAX_FILE_BYTES;
+    const choose = async (event) => {
       const input = event.target;
       const selectedFile = input.files?.[0];
       input.value = "";
       if (!selectedFile) return;
-      if (!accepted.includes(selectedFile.type)) {
-        setFile(field.name, null, `${field.label}: choose one of ${accepted.join(", ")}.`);
-        return;
+      try {
+        const checked = await preflightDocument(selectedFile, { types: accepted, maxBytes, label: field.label });
+        setFile(field.name, { dataUrl: checked.dataUrl, fileName: selectedFile.name, size: selectedFile.size, mimeType: checked.mimeType, warnings: checked.warnings });
+      } catch (err) {
+        setFile(field.name, null, err.message);
       }
-      if (selectedFile.size > (field.maxBytes || MAX_FILE_BYTES)) {
-        setFile(field.name, null, `${field.label}: file exceeds the ${Math.round((field.maxBytes || MAX_FILE_BYTES) / (1024 * 1024))} MB limit.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => setFile(field.name, {
-        dataUrl: reader.result,
-        fileName: selectedFile.name,
-        size: selectedFile.size,
-        mimeType: selectedFile.type,
-      });
-      reader.onerror = () => setFile(field.name, null, `${field.label}: the file could not be read.`);
-      reader.readAsDataURL(selectedFile);
     };
     return (
       <div className={`f6-field f6-wide${error ? " has-error" : ""}`}>
@@ -129,13 +121,14 @@ function FieldControl({ field, values, files, errors, setValue, setFile }) {
               <div><strong className="f6-upload-name">{file.fileName}</strong><span className="f6-upload-status">✓ Attached · {formatSize(file.size)}</span></div>
             </div>
           ) : <p className="f6-upload-empty">No file attached yet.</p>}
+          {file?.warnings?.length > 0 && <PreflightNotes warnings={file.warnings} />}
           <div className="f6-upload-actions">
             <input type="file" id={id} className="f6-visually-hidden" accept={field.accept || "image/jpeg,image/png,application/pdf"}
               onChange={choose} aria-labelledby={`${id}-label ${id}-button`} />
             <label htmlFor={id} id={`${id}-button`} className="f6-btn f6-btn-secondary">{file ? "Replace file" : "Choose file"}</label>
             {file && <button type="button" className="f6-btn f6-btn-text" onClick={() => setFile(field.name, null)}>Remove</button>}
           </div>
-          <p className="f6-hint">Accepted: {accepted.join(", ")}. Maximum {Math.round((field.maxBytes || MAX_FILE_BYTES) / (1024 * 1024))} MB.</p>
+          <p className="f6-hint">Accepted: {typeNames(accepted)}. Maximum {Math.round(maxBytes / (1024 * 1024))} MB. Each file is checked for damage, blur and size before it is attached.</p>
         </div>
         {error && <p id={`${id}-error`} className="f6-error" role="alert">{error}</p>}
       </div>
@@ -236,6 +229,11 @@ export default function FormWizard({ config }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(null);
+  // A saved draft (answers and stage, never files) lets the applicant come back later.
+  const draftKey = `draft:${config.code}`;
+  const [draft, setDraft] = useState(() => { try { return JSON.parse(localStorage.getItem(draftKey) || "null"); } catch { return null; } });
+  // One key per attempt: a retry after a network failure is recognised and not filed twice.
+  const attemptKey = useRef(null);
   const steps = useMemo(() => [{
     title: "Addressed to",
     sections: (v) => [{
@@ -262,6 +260,15 @@ export default function FormWizard({ config }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  useEffect(() => {
+    attemptKey.current = null;
+    if (!dirty || draft) return undefined;
+    const t = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify({ values: Object.fromEntries(Object.entries(values).filter(([k]) => !/aadhaar|password|pin$/i.test(k))), step, savedAt: new Date().toISOString() })); } catch { /* storage unavailable */ } }, 600);
+    return () => clearTimeout(t);
+  }, [values, files, step, dirty, draft, draftKey]);
+  const dropDraft = () => { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } setDraft(null); };
+  const resume = () => { setValues({ ...baseValues, ...draft.values }); setStep(Math.min(draft.step ?? 0, steps.length)); setDraft(null); };
 
   useEffect(() => {
     document.getElementById("ef-stage-heading")?.focus();
@@ -342,17 +349,22 @@ export default function FormWizard({ config }) {
         dataUrl: file.dataUrl, fileName: file.fileName, mimeType: file.mimeType,
       }]));
     try {
+      attemptKey.current ??= crypto.randomUUID();
       const response = await api.post(config.endpoint, {
         formCode: config.code,
         jurisdiction,
         application,
         documents,
-      });
+      }, { headers: { "Idempotency-Key": attemptKey.current } });
       const data = response.data?.data || response.data || {};
       setSubmitted({
         referenceId: data.referenceId || data.applicationId || data.acknowledgementNumber || "Submitted",
         message: response.data?.message || data.message || "Your application has been received.",
+        at: new Date(),
+        office: `ERO, ${values.eroConstituency}, ${values.eroDistrict}, ${values.eroState}`,
+        documents: Object.values(documents).map((d) => d.fileName),
       });
+      dropDraft();
     } catch (err) {
       setError(err.response?.data?.message || (err.response
         ? `The server rejected this request (${err.response.status}).`
@@ -367,6 +379,12 @@ export default function FormWizard({ config }) {
     sections: item.sections(values, files),
     index,
   }));
+  const missing = isReview ? steps.map((item, index) => ({ index, title: item.title, problems: Object.values(validateStep(index)) })).filter((x) => x.problems.length) : [];
+  const printReceipt = () => {
+    document.body.classList.add("printing-receipt");
+    window.addEventListener("afterprint", () => document.body.classList.remove("printing-receipt"), { once: true });
+    window.print();
+  };
   const progress = Math.round(((step + 1) / (steps.length + 1)) * 100);
 
   return (
@@ -385,8 +403,27 @@ export default function FormWizard({ config }) {
             <div className="f6-alert f6-alert-ok f6-submitted" role="status">
               <h2>✓ Application submitted</h2>
               <p>{submitted.message}</p>
-              <p>Reference number: <strong className="f6-ref">{submitted.referenceId}</strong></p>
-              <p><Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>Track this application</Link></p>
+              <dl className="facts f6-receipt">
+                <dt>Reference number</dt><dd className="f6-ref">{submitted.referenceId}</dd>
+                <dt>Form</dt><dd>{config.code.replace("_", " ")}: {config.title}</dd>
+                <dt>Submitted</dt><dd>{submitted.at.toLocaleString("en-IN")}</dd>
+                <dt>Addressed to</dt><dd>{submitted.office}</dd>
+                {submitted.documents.length > 0 && <><dt>Documents</dt><dd>{submitted.documents.join(", ")}</dd></>}
+              </dl>
+              <p className="no-print" style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <button type="button" className="f6-btn f6-btn-secondary" onClick={printReceipt}>Print or save receipt</button>
+                <Link to={`/check-request?ref=${encodeURIComponent(submitted.referenceId)}`}>Track this application</Link>
+              </p>
+            </div>
+          )}
+
+          {draft && !submitted && (
+            <div className="f6-draft" role="status">
+              <span>You have a saved draft from {new Date(draft.savedAt).toLocaleString("en-IN")}. Attached files are not saved and must be added again.</span>
+              <span style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="f6-btn f6-btn-primary f6-btn-small" onClick={resume}>Resume</button>
+                <button type="button" className="f6-btn f6-btn-text" onClick={dropDraft}>Start again</button>
+              </span>
             </div>
           )}
 
@@ -417,7 +454,12 @@ export default function FormWizard({ config }) {
 
             {isReview ? (
               <>
-                <div className="f6-note">Review the information below before submission. Only the fields and files shown here are included in the request.</div>
+                {missing.length > 0 ? (
+                  <div className="f6-missing" role="alert">
+                    <strong>Still needed before you can submit</strong>
+                    <ul>{missing.map((m) => <li key={m.index}><button type="button" className="link-button" onClick={() => { setErrors(validateStep(m.index)); setStep(m.index); }}>{m.title}</button>: {m.problems.join(" ")}</li>)}</ul>
+                  </div>
+                ) : <div className="f6-note">Everything required is filled in. Check the details below: only the fields and files shown here are sent.</div>}
                 {allReviewSections.map((reviewSection) => (
                   <section className="f6-review" key={reviewSection.index}>
                     <div className="f6-review-head">
@@ -470,7 +512,7 @@ export default function FormWizard({ config }) {
                 </button>
               ) : <button type="submit" className="f6-btn f6-btn-primary">Next →</button>}
             </div>
-            {!isReview && <p className="f6-hint f6-memory-note">Your answers stay in this page while it remains open. They are not saved until you submit; closing or reloading the page loses them.</p>}
+            {!isReview && !submitted && <p className="f6-hint f6-memory-note">Your answers are saved as a draft on this device as you type, so you can come back to them. Attached files are not saved.</p>}
           </form>
         </section>
       </main>

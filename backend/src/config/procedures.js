@@ -72,6 +72,12 @@ export const PROCEDURES = [
 // Checklists the presiding officer ticks on the screen. Items are kept short; each points to the
 // library entry that explains it.
 export const CHECKLISTS = {
+    arrival: { title: "Arrival of the polling party", items: [
+        ["party_arrived", "Polling party reached the polling station the day before the poll"],
+        ["arrival_reported", "Arrival reported to the sector officer"],
+        ["material_checked", "Polling material checked against the list at the station"],
+        ["evm_serials", "EVM and VVPAT serial numbers match the second randomisation list"]
+    ] },
     readiness: { title: "Station readiness (before the mock poll)", items: [
         ["staff_present", "All members of the polling party are present"],
         ["layout", "Voting compartment placed so that secrecy is kept; queue lines for men, women, and senior citizens and electors with disabilities"],
@@ -94,6 +100,12 @@ export const CHECKLISTS = {
         ["sealed", "Machines and statutory covers sealed"],
         ["synced", "All offline records on ECIWEB devices sent (nothing waiting to sync)"],
         ["diary", "Presiding officer's diary completed"]
+    ] },
+    post_poll: { title: "After the poll", items: [
+        ["report_filed", "Presiding officer's report (Form 17C Part I) filed on ECIWEB"],
+        ["reconciled", "Votes in the register (Form 17A) match the control unit total"],
+        ["material_returned", "Machines and sealed covers handed over at the receiving centre"],
+        ["receipt", "Receipt for the material obtained from the receiving centre"]
     ] }
 };
 

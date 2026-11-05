@@ -186,7 +186,8 @@ test("presiding officer assistant: sourced procedures, checklists kept and audit
 
     assert.equal((await call("GET", "/poll-day/assistant", undefined, team.po.token)).status, 403, "presiding officer only");
     const a = (await call("GET", "/poll-day/assistant", undefined, team.pro.token)).body.data;
-    assert.deepEqual(Object.keys(a.checklists), ["readiness", "equipment", "closing"]);
+    assert.deepEqual(Object.keys(a.checklists), ["arrival", "readiness", "equipment", "closing", "post_poll"]);
+    assert.ok(["not_started", "mock_poll_done", "open", "closed"].includes(a.poll.status) && a.station.name, "the assistant says where the poll stands");
     assert.ok(a.party.some((p) => p.role === "polling_officer") && a.party.some((p) => p.role === "presiding_officer"));
     assert.equal(a.party.some((p) => p.role === "polling_officer" && p.epic === team.poB.user.epic), false, "not another station's party");
     assert.equal((await call("POST", "/poll-day/checklists/readiness", { item: "nope", done: true }, team.pro.token)).status, 400);

@@ -1,3 +1,4 @@
+import { idempotent } from "../middlewares/idempotency.middleware.js";
 import express from "express";
 import { limiter } from "../middlewares/rateLimit.middleware.js";
 import { login, me, logout, logoutEverywhere, submitRegistration, getRegistrationStatus, getGeography, getRoles } from "../controllers/auth.controller.js";
@@ -13,7 +14,7 @@ const loginLimiter = limiter("login", { windowMs: 15 * 60 * 1000, limit: 20, mes
 router.post("/login", loginLimiter, login);
 // Public: submits a registration REQUEST (no account is created until a BLO approves it).
 const registerLimiter = limiter("register", { windowMs: 60 * 60 * 1000, limit: 10, message: "Too many registration requests. Try again later." });
-router.post("/register", registerLimiter, submitRegistration);
+router.post("/register", registerLimiter, idempotent("form6"), submitRegistration);
 router.get("/register/:id", getRegistrationStatus);
 // The applicant answers an information request, proving it is them with the reference ID and date of birth.
 router.post("/register/:id/information", registerLimiter, respondToInformationRequest("registration", applicantCheck));

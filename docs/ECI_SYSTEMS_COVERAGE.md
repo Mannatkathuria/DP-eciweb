@@ -211,3 +211,20 @@ every read model matches Redis.
 9. **Party treasurer (PTR1000001)** → Form 24A with a bad PAN (rejected row by row), then a good CSV; **ECI** → *Party filings* compliance.
 10. **General observer (GOB1000001)** → *My portal*: deployment, officers, Form 7A, ID card, flying squads; *Reports to the Commission* → arrival report.
 11. `/library`: search "VVPAT"; open a handbook and page through it; FAQ by topic.
+
+## Citizen assistance, roll search and officer workload (November 2026)
+
+| Area | Where | Notes |
+| --- | --- | --- |
+| Voter Mitra | `/voters` (`/help`), `GET /api/v1/assist/services`, `POST /api/v1/assist/ask` | Questions in English, Hindi or Hinglish are matched by keyword to a fixed catalogue (`backend/src/data/services.js`): what the service is, steps, form, documents, where to start, source. It never invents a procedure; unmatched questions get the 1950 helpline. Simpler wording and read-aloud (browser speech). |
+| Drafts and resume | Form 6 and Forms 2–8 | Answers and stage are saved on the device as the applicant types (never files or the Aadhaar number) and offered back with Resume / Start again. |
+| Missing information | Review stage | Lists what is still required, by stage, with a link to each. |
+| Document preflight | `frontend/src/preflight.js` | Before a file is attached: format, real file type (magic bytes), size, damaged/incomplete image or PDF, too small to read (errors); blur, darkness, glare, low resolution, cut-off edges (warnings). OCR is not done; nothing the applicant typed is ever changed. |
+| Retry safety | `Idempotency-Key` header, `idempotency.middleware.js` | Form 6, Forms 2–8 and grievances: a retried submission with the same key gets the same receipt instead of a second filing. |
+| Receipt | After submission | Reference, form, time, office addressed, documents; printable. |
+| Roll search | `/electoral-roll`, `POST /api/v1/electors/search` | By EPIC; by name with district, relative's name, gender and age filters (spelling-tolerant, up to 20 matches); by constituency, part and serial. Shows the polling station (facilities, directions) and the roll's source and last-updated date. Whether someone voted is never shown. A personal checklist (kept on the device) points each "No" to Form 6, 7 or 8; it does not change the roll. |
+| Officer inbox | Desk overview, `GET /api/v1/inbox` | Every case waiting for the officer across modules (forms, Form 6, roll flags, cVIGIL stages, grievances, appeals, permissions, index cards, station problems) with a time limit, priority, waiting time and a button to the panel. Supervisors also see work under them that waited more than twice its limit. |
+| Workload | Desk tab "Workload" (ERO, AERO, BLO supervisor, DEO, CEO, ECI), `GET /api/v1/inbox/workload` | Received, pending, awaiting field verification / decision, overdue, average disposal, repeated verification, reassignments; by officer and by district; cVIGIL and grievance disposal. |
+| Presiding officer | `/poll-day/presiding-officer` | Organised by phase: before the poll (arrival, equipment, readiness), mock poll, poll, closing, after the poll, each with its checklist, the step that moves the poll on, and the procedures for that phase. |
+
+Not done, because they were not simple to do well: OCR suggestions, translated answers (the catalogue is in English; Hindi questions are understood), GIS beyond the existing map.

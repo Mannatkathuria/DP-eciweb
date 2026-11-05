@@ -422,10 +422,13 @@ export const getProcedures = asyncHandler(async (req, res) => {
 });
 
 export const getAssistant = asyncHandler(async (req, res) => {
-    const { station, election } = await stationContext(req);
+    const { station, election, onPollDay } = await stationContext(req);
     const saved = JSON.parse((await redis().get(checklistKey(election._id, station._id))) ?? "{}");
     const party = await listAssignmentsForStation(station, election);
+    const state = await loadState(election, station);
     res.json({ success: true, data: {
+        station: { _id: station._id, name: station.name, partNumber: station.partNumber, constituency: station.constituency },
+        poll: { status: state.status, history: state.history, pollDate: election.schedule?.pollDate ?? null, onPollDay: Boolean(onPollDay), election: election.name },
         checklists: Object.fromEntries(Object.entries(CHECKLISTS).map(([k, c]) => [k, { title: c.title, items: c.items.map(([id, text, ref]) => ({ id, text, ref: ref ?? null, done: saved[k]?.[id] ?? null })) }])),
         party, procedures: PROCEDURES.map((p) => ({ id: p.id, title: p.title })), version: LIBRARY_VERSION
     } });

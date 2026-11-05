@@ -5,6 +5,7 @@ export const NAV = [
     label: "Voters",
     to: "/voters",
     items: [
+      { label: "Voter Mitra", note: "Ask in your own words which form and documents you need", to: "/voters" },
       { label: "Register as a new voter", note: "Apply for inclusion in the roll", to: "/register" },
       { label: "Find your name in the roll", note: "Search by EPIC number or details", to: "/electoral-roll" },
       { label: "Find your polling station", note: "Where you vote, with facilities and any relocation", to: "/booths" },
@@ -14,7 +15,6 @@ export const NAV = [
       { label: "Grievances", note: "Complain about an election service and track it", to: "/grievance" },
       { label: "Postal ballot (service voters)", note: "Open, print and track your ballot", to: "/postal-ballot" },
       { label: "Track an application", note: "Check a request with its reference ID", to: "/check-request" },
-      { label: "Forms and services", note: "Which form do I need?", to: "/voters" }
     ]
   },
   {

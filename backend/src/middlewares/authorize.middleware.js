@@ -13,3 +13,9 @@ export const authorize = (...permissions) => asyncHandler(async (req, res, next)
     req.authority = { permissions: granted, assignments: await effectiveAssignments(req.user) };
     next();
 });
+
+/** Loads the caller's assignments without requiring a particular permission (for pages every officer sees). */
+export const loadAuthority = asyncHandler(async (req, res, next) => {
+    req.authority = { permissions: [], assignments: await effectiveAssignments(req.user) };
+    next();
+});

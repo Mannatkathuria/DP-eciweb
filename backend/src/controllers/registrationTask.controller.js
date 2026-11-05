@@ -109,7 +109,9 @@ export const assignTask = asyncHandler(async (req, res) => {
         const bloAssignment = (await activeBloAssignments()).find((a) => a.userId === bloUser._id && covers(a, asRecord(task)));
         if (!bloAssignment) throw new ApiError(409, "That BLO has no active assignment covering this person's area.");
 
-        const updated = { ...task, assignedTo: { userId: bloUser._id, epic: bloUser.epic, assignmentId: bloAssignment._id }, updatedAt: new Date().toISOString() };
+        const updated = { ...task, assignedTo: { userId: bloUser._id, epic: bloUser.epic, assignmentId: bloAssignment._id }, updatedAt: new Date().toISOString(),
+            // Counted for the workload view: a task moved from one BLO to another.
+            reassignments: (task.reassignments ?? 0) + (task.assignedTo && task.assignedTo.epic !== bloUser.epic ? 1 : 0) };
         const tx = transaction();
         saveTask(updated, tx);
         await recordAudit(auditEvent({
