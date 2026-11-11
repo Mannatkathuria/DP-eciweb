@@ -6,10 +6,8 @@ import { NAV } from "../config/navigation";
 import { GROUPS, rolesInGroup, homeFor, signInPath } from "../config/roles";
 import { STATES } from "../config/states";
 import EciEmblem from "./EciEmblem";
+import { LANGUAGES } from "../languages";
 
-const LANGUAGES = [
-  ["en", "English"], ["hi", "हिन्दी"], ["pa", "ਪੰਜਾਬੀ"], ["te", "తెలుగు"], ["ta", "தமிழ்"], ["kn", "ಕನ್ನಡ"]
-];
 
 function UtilityBar() {
   const { i18n } = useTranslation();
@@ -44,7 +42,7 @@ function UtilityBar() {
           <button type="button" aria-pressed={dark} onClick={() => setDark(!dark)}>Dark theme</button>
           <label className="sr-only" htmlFor="site-language">Language</label>
           <select id="site-language" value={i18n.resolvedLanguage || "en"} onChange={(e) => i18n.changeLanguage(e.target.value)}>
-            {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+            {LANGUAGES.map(({ code, label }) => <option key={code} value={code} translate="no">{label}</option>)}
           </select>
         </div>
       </div>

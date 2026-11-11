@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import api from "../api/axios";
 import PageHead from "../components/PageHead";
 import { apiMessage } from "../config/elections";
+import { voiceFor } from "../languages";
 
 // Voter Mitra: ask in your own words (English, Hindi or Hinglish) or pick a service. The answer
 // comes from the Commission's service catalogue, never invented: what it is, the steps, the form,
 // the documents, and where to start. It can be read aloud and shown in simpler words.
 
-const VOICE = { en: "en-IN", hi: "hi-IN", pa: "pa-IN", te: "te-IN", ta: "ta-IN", kn: "kn-IN" };
 const EXAMPLES = ["I turned 18, how do I get my name on the roll?", "My father passed away", "I moved to another city", "I lost my voter card", "मेरा नाम गलत छपा है"];
 
 export default function Voters() {
@@ -50,7 +50,7 @@ export default function Voters() {
     if (speaking) { synth.cancel(); setSpeaking(false); return; }
     const text = [a.title, simple ? a.simple : a.summary, ...(a.steps ?? []).map((s, i) => `Step ${i + 1}. ${s}`), a.documents?.length ? `Documents: ${a.documents.join(". ")}` : ""].join(". ");
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = VOICE[i18n.resolvedLanguage] ?? "en-IN";
+    u.lang = voiceFor(i18n.resolvedLanguage);
     u.onend = () => setSpeaking(false);
     synth.cancel(); synth.speak(u); setSpeaking(true);
   };

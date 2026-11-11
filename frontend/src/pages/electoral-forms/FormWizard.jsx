@@ -231,6 +231,7 @@ export default function FormWizard({ config }) {
   const [submitted, setSubmitted] = useState(null);
   // A saved draft (answers and stage, never files) lets the applicant come back later.
   const draftKey = `draft:${config.code}`;
+  const formName = config.code.replace(/^FORM_/, "Form ");
   const [draft, setDraft] = useState(() => { try { return JSON.parse(localStorage.getItem(draftKey) || "null"); } catch { return null; } });
   // One key per attempt: a retry after a network failure is recognised and not filed twice.
   const attemptKey = useRef(null);
@@ -390,11 +391,11 @@ export default function FormWizard({ config }) {
   return (
     <>
       <div className="container">
-        <p className="crumb-line"><Link to="/home">Home</Link> / <Link to="/voters">Voter services</Link> / <span>{config.code}</span></p>
+        <p className="crumb-line"><Link to="/home">Home</Link> / <Link to="/voters">Voter Mitra</Link> / <span>{formName}</span></p>
       </div>
       <main className="portal-page f6-page">
         <section className="portal-card portal-wide f6-card" id="ef-form-card">
-          <p className="eyebrow">Election Commission of India · {config.code}</p>
+          <p className="eyebrow">Election Commission of India · {formName}</p>
           <h1>{config.title}</h1>
           <p className="portal-muted f6-intro">{config.intro}</p>
           <p className="f6-legend-note">Fields marked <span className="f6-req">*</span> are required. Optional fields may be left blank.</p>
@@ -405,7 +406,7 @@ export default function FormWizard({ config }) {
               <p>{submitted.message}</p>
               <dl className="facts f6-receipt">
                 <dt>Reference number</dt><dd className="f6-ref">{submitted.referenceId}</dd>
-                <dt>Form</dt><dd>{config.code.replace("_", " ")}: {config.title}</dd>
+                <dt>Form</dt><dd>{formName}: {config.title}</dd>
                 <dt>Submitted</dt><dd>{submitted.at.toLocaleString("en-IN")}</dd>
                 <dt>Addressed to</dt><dd>{submitted.office}</dd>
                 {submitted.documents.length > 0 && <><dt>Documents</dt><dd>{submitted.documents.join(", ")}</dd></>}
@@ -427,7 +428,7 @@ export default function FormWizard({ config }) {
             </div>
           )}
 
-          <nav aria-label={`${config.code} stages`} className="f6-progress">
+          <nav aria-label={`${formName} stages`} className="f6-progress">
             <p className="f6-progress-label" id="ef-progress-label">
               {isReview ? "Review and submit" : `Stage ${step + 1} of ${steps.length + 1}: `}
               <strong>{isReview ? "Review and submit" : currentStep.title}</strong>

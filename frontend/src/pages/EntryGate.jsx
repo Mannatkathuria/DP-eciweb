@@ -5,8 +5,8 @@ import { AuthContext } from "../context/AuthContext";
 import { hasSeenEntry, markEntrySeen } from "../config/entry";
 import { homeFor } from "../config/roles";
 import EciEmblem from "../components/EciEmblem";
+import { LANGUAGES } from "../languages";
 
-const LANGUAGES = [["en", "English"], ["hi", "हिन्दी"], ["pa", "ਪੰਜਾਬੀ"], ["te", "తెలుగు"], ["ta", "தமிழ்"], ["kn", "ಕನ್ನಡ"]];
 
 /**
  * The site's front door. A first-time visitor chooses how to continue; after that, "/" skips
@@ -56,7 +56,7 @@ export default function EntryGate() {
           <label>
             <span className="sr-only">Language</span>
             <select value={i18n.resolvedLanguage || "en"} onChange={(e) => i18n.changeLanguage(e.target.value)}>
-              {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              {LANGUAGES.map(({ code, label }) => <option key={code} value={code} translate="no">{label}</option>)}
             </select>
           </label>
           <span>Need help? Call <a href="tel:1950">1950</a>, the voter helpline.</span>
