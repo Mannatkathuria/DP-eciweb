@@ -7,6 +7,7 @@ import { GROUPS, rolesInGroup, homeFor, signInPath } from "../config/roles";
 import { STATES } from "../config/states";
 import EciEmblem from "./EciEmblem";
 import { LANGUAGES } from "../languages";
+import { setLanguage } from "../i18n";
 
 
 function UtilityBar() {
@@ -41,7 +42,7 @@ function UtilityBar() {
           <button type="button" aria-pressed={contrast} onClick={toggleContrast}>High contrast</button>
           <button type="button" aria-pressed={dark} onClick={() => setDark(!dark)}>Dark theme</button>
           <label className="sr-only" htmlFor="site-language">Language</label>
-          <select id="site-language" value={i18n.resolvedLanguage || "en"} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+          <select id="site-language" value={i18n.resolvedLanguage || "en"} onChange={(e) => setLanguage(e.target.value)}>
             {LANGUAGES.map(({ code, label }) => <option key={code} value={code} translate="no">{label}</option>)}
           </select>
         </div>

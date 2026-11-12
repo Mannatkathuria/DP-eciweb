@@ -6,6 +6,7 @@ import { hasSeenEntry, markEntrySeen } from "../config/entry";
 import { homeFor } from "../config/roles";
 import EciEmblem from "../components/EciEmblem";
 import { LANGUAGES } from "../languages";
+import { setLanguage } from "../i18n";
 
 
 /**
@@ -55,7 +56,7 @@ export default function EntryGate() {
         <div className="gate-foot">
           <label>
             <span className="sr-only">Language</span>
-            <select value={i18n.resolvedLanguage || "en"} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+            <select value={i18n.resolvedLanguage || "en"} onChange={(e) => setLanguage(e.target.value)}>
               {LANGUAGES.map(({ code, label }) => <option key={code} value={code} translate="no">{label}</option>)}
             </select>
           </label>

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { tr } from "../i18n";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { PROOF_TYPES, PROOF_MAX_BYTES } from "../proofDocument";
@@ -132,9 +133,9 @@ const combinedAddress = (form) => [
 
 const nameRules = (value, label, required) => {
     const v = clean(value);
-    if (!v) return required ? `Enter ${label}.` : null;
-    if (!ENGLISH_NAME.test(v)) return `${label[0].toUpperCase()}${label.slice(1)} can contain English letters, spaces, full stops, hyphens and apostrophes only.`;
-    if (v.length > 60) return "Keep this under 60 characters.";
+    if (!v) return required ? tr("Enter {{field}}.", { field: tr(label) }) : null;
+    if (!ENGLISH_NAME.test(v)) return tr("{{Field}} can contain English letters, spaces, full stops, hyphens and apostrophes only.", { Field: tr(`${label[0].toUpperCase()}${label.slice(1)}`) });
+    if (v.length > 60) return tr("Keep this under 60 characters.");
     return null;
 };
 
@@ -159,7 +160,7 @@ const VALIDATORS = {
         aadhaarOption: f.aadhaarOption ? null : "Choose one of the two Aadhaar options.",
         aadhaarNumber: f.aadhaarOption !== "have" ? null
             : !f.aadhaarNumber ? "Enter your 12-digit Aadhaar number."
-                : f.aadhaarNumber.length !== 12 ? `Aadhaar number must have 12 digits (you entered ${f.aadhaarNumber.length}).` : null,
+                : f.aadhaarNumber.length !== 12 ? tr("Aadhaar number must have 12 digits (you entered {{count}}).", { count: f.aadhaarNumber.length }) : null,
         gender: f.gender ? null : "Choose your gender."
     }),
     dob: (f, files) => ({
@@ -173,7 +174,7 @@ const VALIDATORS = {
             town: clean(f.town) ? null : "Enter your town or village.",
             postOffice: clean(f.postOffice) ? null : "Enter your post office.",
             pinCode: !f.pinCode ? "Enter your PIN code."
-                : f.pinCode.length !== 6 ? `PIN code must have 6 digits (you entered ${f.pinCode.length}).`
+                : f.pinCode.length !== 6 ? tr("PIN code must have 6 digits (you entered {{count}}).", { count: f.pinCode.length })
                     : !PIN_CODE.test(f.pinCode) ? "PIN code cannot start with 0." : null,
             tehsil: clean(f.tehsil) ? null : "Enter your tehsil / taluqa / mandal.",
             state: f.state ? null : "Select your State / UT.",
@@ -182,7 +183,7 @@ const VALIDATORS = {
             // one of the options offered for the chosen district.
             assemblyConstituency: geo.constituencyOptions.length === 0 && f.district
                 ? "No constituency is listed for this State/UT, so this form cannot be submitted for it yet."
-                : !f.assemblyConstituency ? `Select your ${geo.constituencyLabel.toLowerCase()}.`
+                : !f.assemblyConstituency ? tr("Select your {{place}}.", { place: tr(geo.constituencyLabel).toLowerCase() })
                     : !geo.constituencyOptions.some((a) => a.id === f.assemblyConstituency) ? "Select a constituency from the list for this district." : null,
             addressDocType: f.addressDocType ? null : "Choose the document you are attaching as proof of residence.",
             addressDocOther: f.addressDocType === "other" && !clean(f.addressDocOther) ? "Name the document you are attaching." : null,
@@ -190,7 +191,7 @@ const VALIDATORS = {
         };
         const address = combinedAddress(f);
         if (!errors.town && address.length > ADDRESS_MAX) {
-            errors.street = `The address lines together must be ${ADDRESS_MAX} characters or fewer (now ${address.length}). Shorten them.`;
+            errors.street = tr("The address lines together must be {{max}} characters or fewer (now {{count}}). Shorten them.", { max: ADDRESS_MAX, count: address.length });
         }
         return errors;
     },
@@ -382,8 +383,8 @@ function FileField({ name, label, purpose, types, value, onChange, required, err
         input.value = ""; // lets the same file be chosen again after a removal
         if (!file) return;
         setLocalError("");
-        if (!types.includes(file.type)) { setLocalError(`This file type is not accepted. Upload ${formats}.`); return; }
-        if (file.size > PROOF_MAX_BYTES) { setLocalError(`This file is ${formatSize(file.size)}. The limit is ${MAX_MB} MB.`); return; }
+        if (!types.includes(file.type)) { setLocalError(tr("This file type is not accepted. Upload {{formats}}.", { formats })); return; }
+        if (file.size > PROOF_MAX_BYTES) { setLocalError(tr("This file is {{size}}. The limit is {{max}} MB.", { size: formatSize(file.size), max: MAX_MB })); return; }
         setReading(true);
         try {
             const checked = await preflightDocument(file, { types, maxBytes: PROOF_MAX_BYTES, label: "This file" });
@@ -663,7 +664,7 @@ function Register() {
     const relationLabel = RELATIONS.find((r) => r.value === form.relation)?.value;
     const contactOwners = [
         { value: "Self", label: "My own (applicant)" },
-        { value: "Relative", label: relationLabel ? `My relative named above (${relationLabel})` : "My relative named above" }
+        { value: "Relative", label: relationLabel ? tr("My relative named above ({{relation}})", { relation: tr(relationLabel) }) : "My relative named above" }
     ];
 
     const stages = {
@@ -771,13 +772,13 @@ function Register() {
                         placeholder={stateEntry ? t("register.selectDistrict") : "Select a State / UT first"} options={stateEntry?.districts.map((d) => d.name) || []} />
                     <SelectField name="assemblyConstituency" label={constituencyLabel} value={form.assemblyConstituency} onChange={set("assemblyConstituency")} required error={e.assemblyConstituency}
                         disabled={!districtEntry || constituencyOptions.length === 0}
-                        placeholder={districtEntry ? `Select ${constituencyLabel}` : "Select a district first"}
+                        placeholder={districtEntry ? tr("Select {{place}}", { place: tr(constituencyLabel) }) : "Select a district first"}
                         options={constituencyOptions.map((a) => ({ value: a.id, label: `${a.no} – ${a.name}` }))}
                         hint={!stateEntry ? "Select your State / UT and district first."
                             : stateEntry.constituencies !== "available" ? "No constituency is listed for this State/UT."
                                 : [
                                     parliamentaryOnly && "This UT has no Legislative Assembly, so Form 6 asks for its Parliamentary Constituency.",
-                                    districtEntry?.acScope === "state" && `ECI lists no constituency under this district, so all ${constituencyOptions.length} of ${stateEntry.name} are shown.`,
+                                    districtEntry?.acScope === "state" && tr("ECI lists no constituency under this district, so all {{count}} of {{state}} are shown.", { count: constituencyOptions.length, state: stateEntry.name }),
                                     "Numbers and names as listed by the Election Commission of India."
                                 ].filter(Boolean).join(" ")} />
                 </Section>
@@ -866,7 +867,7 @@ function Register() {
                         </CheckField>
                     </Section>
                 )}
-                <Section title={`(${form.ageDocType === "other" ? "v" : "iv"}) Warning about false declarations`}>
+                <Section title={`(${form.ageDocType === "other" ? "v" : "iv"}) ${tr("Warning about false declarations")}`}>
                     <div className="f6-warning f6-wide" role="note">
                         I am aware that making the above statement or declaration in relation to this application which is false and which I know or believe to be false
                         or do not believe to be true, is punishable under Section 31 of Representation of the People Act, 1950 (43 of 1950) with imprisonment for a term
@@ -895,7 +896,7 @@ function Register() {
     // ---- review stage ----
     const show = (v) => (clean(v) ? clean(v) : <span className="f6-muted">Not given</span>);
     const label = (list, v) => list.find((o) => o.value === v)?.label || v;
-    const docLine = (list, type, other) => (type === "other" ? `Other: ${clean(other) || "not named"}` : type ? label(list, type) : null);
+    const docLine = (list, type, other) => (type === "other" ? tr("Other: {{name}}", { name: clean(other) || tr("not named") }) : type ? label(list, type) : null);
     const fileLine = (f) => (f ? `${f.fileName} (${formatSize(f.size)})` : null);
     const dobText = (() => { const p = parseDob(form.dobDay, form.dobMonth, form.dobYear); return p.date ? `${form.dobDay.padStart(2, "0")}/${form.dobMonth.padStart(2, "0")}/${form.dobYear}` : null; })();
     const maskedAadhaar = form.aadhaarOption === "have" && form.aadhaarNumber ? `XXXX XXXX ${form.aadhaarNumber.slice(-4)}` : null;
@@ -910,8 +911,8 @@ function Register() {
             ["Relative", form.relation ? label(RELATIONS, form.relation) : null, false],
             ["Relative's name (official language)", show(form.relOlName), false],
             ["Relative's name in English", show(form.relEnName), false],
-            ["Mobile number", form.mobile ? `${form.mobile} (${form.mobileOf === "Relative" ? "relative's" : form.mobileOf === "Self" ? "my own" : "owner not chosen"})` : show(""), false],
-            ["Email", form.email.trim() ? `${form.email.trim()} (${form.emailOf === "Relative" ? "relative's" : form.emailOf === "Self" ? "my own" : "owner not chosen"})` : show(""), false]
+            ["Mobile number", form.mobile ? `${form.mobile} (${tr(form.mobileOf === "Relative" ? "relative's" : form.mobileOf === "Self" ? "my own" : "owner not chosen")})` : show(""), false],
+            ["Email", form.email.trim() ? `${form.email.trim()} (${tr(form.emailOf === "Relative" ? "relative's" : form.emailOf === "Self" ? "my own" : "owner not chosen")})` : show(""), false]
         ] },
         { index: 2, rows: [
             ["Aadhaar", form.aadhaarOption === "none" ? "I don't have an Aadhaar number" : maskedAadhaar, false],
@@ -932,13 +933,13 @@ function Register() {
             ["Address-proof file", fileLine(files.addressProof), true]
         ] },
         { index: 5, rows: [
-            ["Disability", hasDisability ? [...form.disabilities, clean(form.disabilityOther)].filter(Boolean).join(", ")
-                + (form.disabilityPercent ? `, ${form.disabilityPercent}%` : "") + (form.disabilityCertificate ? `, certificate: ${form.disabilityCertificate}` : "") : show(""), false],
+            ["Disability", hasDisability ? [...form.disabilities.map((d) => tr(d)), clean(form.disabilityOther)].filter(Boolean).join(", ")
+                + (form.disabilityPercent ? `, ${form.disabilityPercent}%` : "") + (form.disabilityCertificate ? `, ${tr("certificate:")} ${form.disabilityCertificate}` : "") : show(""), false],
             ["Family member on the roll", clean(form.familyName) ? [clean(form.familyName), clean(form.familyRelation), form.familyEpic].filter(Boolean).join(", ") : show(""), false]
         ] },
         { index: 6, rows: [
             ["Place of birth", [form.birthTown, form.birthDistrict, form.birthState].map(clean).filter(Boolean).join(", ") || null, false],
-            ["Resident at this address since", form.residentMonth && form.residentYear ? `${MONTHS[Number(form.residentMonth) - 1]} ${form.residentYear}` : null, false],
+            ["Resident at this address since", form.residentMonth && form.residentYear ? `${tr(MONTHS[Number(form.residentMonth) - 1])} ${form.residentYear}` : null, false],
             ["First-time applicant", form.firstTime ? "Declared" : null, false],
             ...(form.ageDocType === "other" ? [["Age-proof declaration", form.ageDeclaration ? "Declared" : null, false]] : []),
             ["Declaration confirmed", form.truthConfirmed ? "Yes" : null, false],

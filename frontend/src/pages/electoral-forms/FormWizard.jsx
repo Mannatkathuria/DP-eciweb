@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { tr } from "../../i18n";
 import useGeography from "../../hooks/useGeography";
 import { preflightDocument, typeNames } from "../../preflight";
 import PreflightNotes from "../../components/PreflightNotes";
@@ -174,15 +175,15 @@ function validateFields(fields, values, files) {
           : field.type === "multi" ? !Array.isArray(value) || value.length === 0
             : typeof value === "string" ? !value.trim() : EMPTY(value);
       if (missing) {
-        found[field.name] = field.requiredMessage || `Complete ${field.label.toLowerCase()}.`;
+        found[field.name] = field.requiredMessage || tr("Complete {{field}}.", { field: tr(field.label).toLowerCase() });
         continue;
       }
     }
     if (!found[field.name] && field.type === "number" && !EMPTY(value)) {
       const numericValue = Number(value);
-      if (!Number.isFinite(numericValue)) found[field.name] = `Enter a valid number for ${field.label.toLowerCase()}.`;
-      else if (field.min !== undefined && numericValue < Number(field.min)) found[field.name] = `Enter a value of at least ${field.min}.`;
-      else if (field.max !== undefined && numericValue > Number(field.max)) found[field.name] = `Enter a value no greater than ${field.max}.`;
+      if (!Number.isFinite(numericValue)) found[field.name] = tr("Enter a valid number for {{field}}.", { field: tr(field.label).toLowerCase() });
+      else if (field.min !== undefined && numericValue < Number(field.min)) found[field.name] = tr("Enter a value of at least {{min}}.", { min: field.min });
+      else if (field.max !== undefined && numericValue > Number(field.max)) found[field.name] = tr("Enter a value no greater than {{max}}.", { max: field.max });
     }
     if (!found[field.name] && field.type === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(value).trim())) {
       found[field.name] = "Enter a valid email address.";
@@ -368,7 +369,7 @@ export default function FormWizard({ config }) {
       dropDraft();
     } catch (err) {
       setError(err.response?.data?.message || (err.response
-        ? `The server rejected this request (${err.response.status}).`
+        ? tr("The server rejected this request ({{status}}).", { status: err.response.status })
         : "Could not reach the server. Check your connection and try again."));
     } finally {
       setLoading(false);
@@ -430,7 +431,7 @@ export default function FormWizard({ config }) {
 
           <nav aria-label={`${formName} stages`} className="f6-progress">
             <p className="f6-progress-label" id="ef-progress-label">
-              {isReview ? "Review and submit" : `Stage ${step + 1} of ${steps.length + 1}: `}
+              {isReview ? "Review and submit" : tr("Stage {{n}} of {{total}}:", { n: step + 1, total: steps.length + 1 }) + " "}
               <strong>{isReview ? "Review and submit" : currentStep.title}</strong>
             </p>
             <div className="f6-bar" role="progressbar" aria-labelledby="ef-progress-label" aria-valuemin={1}
