@@ -22,10 +22,24 @@ let observer = null;
 
 const key = (s) => s.replace(/\s+/g, " ").trim();
 
+// Dates written in English in the markup ("31 Oct 2026", "October 2026") are shown with the month
+// in the chosen language; the day and year stay as they are.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DATE = /^(\d{1,2} )?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)([a-z]*) (\d{4})$/;
+let dateLang = null;
+function localDate(k) {
+  const m = DATE.exec(k);
+  if (!m || !dateLang) return null;
+  try {
+    const month = new Intl.DateTimeFormat(dateLang, { month: m[3] ? "long" : "short" }).format(new Date(2000, MONTHS.indexOf(m[2]), 15));
+    return `${m[1] ?? ""}${month} ${m[4]}`;
+  } catch { return null; }
+}
+
 function lookup(text) {
   const k = key(text);
   if (!k || !dict) return null;
-  const v = dict[k];
+  const v = dict[k] || localDate(k);
   if (!v) return null;
   return text.match(/^\s*/)[0] + v + text.match(/\s*$/)[0];
 }
@@ -108,6 +122,7 @@ export function applyLanguage(code, catalogue) {
   restore();
   if (!code || code === "en" || !catalogue) { dict = null; document.title = titleSrc; return; }
   dict = catalogue;
+  dateLang = code + "-IN";
   start();
   walk(document.body);
   document.title = lookup(titleSrc) ?? titleSrc;
@@ -121,17 +136,18 @@ if (import.meta.env?.DEV && typeof window !== "undefined") {
     if (!dict) return [];
     const ours = new Set([...touched.values()].map((v) => v.out));
     const out = new Set();
+    const INDIC = /[ऀ-෿]/; // already in an Indian script (may still contain "EPIC", "BLO" ...)
     const it = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n = it.nextNode(); n; n = it.nextNode()) {
       const k = key(n.nodeValue);
-      if (!/[A-Za-z]{3}/.test(k) || !n.parentElement || skipped(n.parentElement) || ours.has(n.nodeValue)) continue;
+      if (!/[A-Za-z]{3}/.test(k) || INDIC.test(k) || !n.parentElement || skipped(n.parentElement) || ours.has(n.nodeValue)) continue;
       if (!dict[k]) out.add(k);
     }
     for (const el of document.body.querySelectorAll("[placeholder],[aria-label],[title],[alt]")) {
       if (skipped(el, true)) continue;
       for (const a of ATTRS) {
         const v = el.getAttribute(a);
-        if (v && /[A-Za-z]{3}/.test(v) && touchedAttrs.get(el)?.[a]?.out !== v) out.add(`@${a}: ${key(v)}`);
+        if (v && /[A-Za-z]{3}/.test(v) && !INDIC.test(v) && touchedAttrs.get(el)?.[a]?.out !== v) out.add(`@${a}: ${key(v)}`);
       }
     }
     return [...out];
