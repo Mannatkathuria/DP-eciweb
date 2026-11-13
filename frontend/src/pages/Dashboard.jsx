@@ -187,7 +187,7 @@ function Dashboard() {
             <header className="voter-dashboard-header">
                 <div>
                     <p className="eyebrow">{t("dashboard.voterTitle") || "Voter Services"}</p>
-                    <p>{t("common.signedInAs") || "Signed in as"} <strong>{userData?.name || userData?.epic}</strong> (EPIC: {userData?.epic})</p>
+                    <p>{t("common.signedInAs") || "Signed in as"} <strong translate="no">{userData?.name || userData?.epic}</strong> (EPIC: <span translate="no">{userData?.epic}</span>)</p>
                 </div>
                 <button className="secondary-btn" onClick={async () => { await logout(); navigate("/"); }}>
                     {t("common.signOut") || "Sign Out"}
@@ -196,7 +196,7 @@ function Dashboard() {
 
             <section className="hero">
                 <p className="eyebrow">Digital Election Services · ECI</p>
-                <h1>{t("dashboard.welcome") || "Welcome"}{userData?.name ? `, ${userData.name}` : ""}</h1>
+                <h1>{t("dashboard.welcome") || "Welcome"}{userData?.name ? <>, <span translate="no">{userData.name}</span></> : ""}</h1>
                 <p className="hero-description">{t("dashboard.manageRecord") || "Manage your electoral roll profile, verify your identity, and view your assigned polling booth."}</p>
 
                 {justVerified && (

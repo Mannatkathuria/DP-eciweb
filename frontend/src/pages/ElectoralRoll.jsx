@@ -127,7 +127,7 @@ export default function ElectoralRoll() {
               <p className="muted">Choose yours. Use the filters to narrow the list if you do not see it.</p>
               <ul className="rows">{items.map((x) => (
                 <li key={x.epic}><button type="button" className="row-link" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit" }} onClick={() => setChosen(x)}>
-                  <span><strong>{x.name}</strong><small>{x.relativeName ? `${x.relationType ? `${x.relationType} ` : ""}${x.relativeName} · ` : ""}{x.age ? `${x.age} years · ` : ""}{x.assemblyConstituency}, part {x.partNumber}</small></span>
+                  <span translate="no"><strong>{x.name}</strong><small>{x.relativeName ? `${x.relationType ? `${x.relationType} ` : ""}${x.relativeName} · ` : ""}{x.age ? `${x.age} years · ` : ""}{x.assemblyConstituency}, part {x.partNumber}</small></span>
                   <span className="go">View</span></button></li>
               ))}</ul>
             </div>
@@ -137,23 +137,23 @@ export default function ElectoralRoll() {
             <div className="split">
               <article className="panel" role="status">
                 {items?.length > 1 && <button type="button" className="link-button" onClick={() => setChosen(null)}>← All {items.length} matches</button>}
-                <h2 style={{ marginTop: 4 }}>{e.name}</h2>
+                <h2 style={{ marginTop: 4 }} translate="no">{e.name}</h2>
                 <p>{e.isActive === false ? <span className="badge badge-rejected">Not active on the roll</span> : <span className="badge badge-verified">On the roll</span>}</p>
                 <dl className="facts">
-                  <dt>EPIC number</dt><dd>{e.epic}</dd>
+                  <dt>EPIC number</dt><dd translate="no">{e.epic}</dd>
                   {e.relativeName && <><dt>{e.relationType ? `${e.relationType[0].toUpperCase()}${e.relationType.slice(1)}` : "Relative"}</dt><dd>{e.relativeName}</dd></>}
                   {e.age && <><dt>Age</dt><dd>{e.age}</dd></>}
                   {e.gender && <><dt>Gender</dt><dd style={{ textTransform: "capitalize" }}>{e.gender.replace("_", " ")}</dd></>}
                   <dt>Constituency</dt><dd>{e.assemblyConstituency}{e.district ? `, ${e.district}` : ""}, {e.state}</dd>
                   <dt>Part / serial</dt><dd>Part {e.partNumber ?? "—"}, serial {e.serialNumber ?? "—"}</dd>
-                  {e.address && <><dt>Address</dt><dd>{e.address}{e.pinCode ? ` – ${e.pinCode}` : ""}</dd></>}
+                  {e.address && <><dt>Address</dt><dd translate="no">{e.address}{e.pinCode ? ` – ${e.pinCode}` : ""}</dd></>}
                 </dl>
 
                 <h3>Polling station</h3>
                 {st ? (
                   <>
-                    <p style={{ marginBottom: 4 }}><strong>{st.name}</strong>{st.partNumber ? ` (part ${st.partNumber})` : ""}</p>
-                    <p className="muted" style={{ marginTop: 0 }}>{st.address}</p>
+                    <p style={{ marginBottom: 4 }}><strong translate="no">{st.name}</strong>{st.partNumber ? ` (part ${st.partNumber})` : ""}</p>
+                    <p className="muted" style={{ marginTop: 0 }} translate="no">{st.address}</p>
                     {st.accessibility && <div className="pill-cloud" style={{ marginBottom: 8 }}>{Object.entries(FACILITIES).filter(([k]) => st.accessibility[k]).map(([k, label]) => <span key={k} className="chip">{label}</span>)}</div>}
                     <div className="cluster">
                       {st.location && <a className="btn btn-secondary btn-small" href={`https://www.google.com/maps/dir/?api=1&destination=${st.location.lat},${st.location.lng}`} target="_blank" rel="noreferrer">Directions</a>}
