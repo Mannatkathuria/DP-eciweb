@@ -2,18 +2,21 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PageHead from "../components/PageHead";
 import { GROUPS, ROLES, signInPath } from "../config/roles";
+import { useTr } from "../i18n";
 
 /** One place to find the sign-in page for any role. Filter by group or by typing part of a role name. */
 export default function SignInHub() {
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const group = params.get("group") || "all";
+  const tr = useTr();
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ROLES.filter((r) => (group === "all" || r.group === group) &&
-      (!q || r.label.toLowerCase().includes(q) || r.blurb.toLowerCase().includes(q)));
-  }, [group, query]);
+    // Match the English wording and the wording in the chosen language.
+    const has = (text) => text.toLowerCase().includes(q) || tr(text).toLowerCase().includes(q);
+    return ROLES.filter((r) => (group === "all" || r.group === group) && (!q || has(r.label) || has(r.blurb)));
+  }, [group, query, tr]);
 
   const choose = (id) => { const next = new URLSearchParams(params); id === "all" ? next.delete("group") : next.set("group", id); setParams(next, { replace: true }); };
 
@@ -37,7 +40,7 @@ export default function SignInHub() {
           {group !== "all" && <p className="muted">{GROUPS.find((g) => g.id === group)?.blurb}</p>}
 
           {visible.length === 0 ? (
-            <div className="alert">No role matches “{query}”. Try a shorter word, or choose All roles.</div>
+            <div className="alert">{tr("No role matches “{{query}}”. Try a shorter word, or choose All roles.", { query })}</div>
           ) : (
             <ul className="rows" aria-live="polite">
               {visible.map((r) => (

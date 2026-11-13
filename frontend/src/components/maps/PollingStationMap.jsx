@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { tr } from "../../i18n";
 
 const EMPTY_GEOJSON = {
   type: "FeatureCollection",
@@ -400,7 +401,7 @@ export default function PollingStationMap({
           <span><span aria-hidden="true" style={{ display: "inline-block", width: 12, height: 12, borderRadius: 99, background: "#2563eb", marginRight: 6, verticalAlign: "middle" }} />Polling stations</span>
           <span><span aria-hidden="true" style={{ display: "inline-block", width: 12, height: 12, borderRadius: 99, background: "#ef4444", marginRight: 6, verticalAlign: "middle" }} />Your location</span>
         </div>
-        <span className="muted" role="status">{loading ? "Updating stations…" : `${stations.length} stations in view`}</span>
+        <span className="muted" role="status">{loading ? "Updating stations…" : `${stations.length} ${tr("stations in view")}`}</span>
       </div>
       <div ref={containerRef} style={{ width: "100%", height: "min(650px, 70vh)", borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" }}
         role="region" aria-label="Map of approved polling stations" />

@@ -5,6 +5,7 @@ import "../styles/desk.css";
 import PageHead from "../components/PageHead";
 import Tabs from "../components/Tabs";
 import { apiMessage } from "../config/elections";
+import { tr } from "../i18n";
 
 // The reference library: handbooks and manuals, the compendium of instructions, eBooks, the FAQ
 // and training material, with search; and a reader with chapters, page-by-page navigation and printing.
@@ -41,8 +42,8 @@ export default function Library() {
                         <button className="btn btn-primary">Search</button>
                         {query && <button type="button" className="btn btn-quiet" onClick={() => { setQ(""); setQuery(""); }}>Clear</button>}</div>
                     </form>
-                    {!query && <Tabs label="Library sections" active={tab} onChange={(t) => { setTab(t); setCat(""); }} tabs={TABS.map(([id, label]) => ({ id, label: meta?.counts?.[id] ? `${label} (${meta.counts[id]})` : label }))} />}
-                    {query && <p className="muted">{items.length} result(s) for “{query}”.</p>}
+                    {!query && <Tabs label="Library sections" active={tab} onChange={(t) => { setTab(t); setCat(""); }} tabs={TABS.map(([id, label]) => ({ id, label: meta?.counts?.[id] ? `${tr(label)} (${meta.counts[id]})` : label }))} />}
+                    {query && <p className="muted">{tr("{{count}} result(s) for “{{query}}”.", { count: items.length, query })}</p>}
                     {error && <div className="alert alert-error" role="alert">{error}</div>}
                     {loading && <p className="muted" role="status">Loading…</p>}
                     {!query && tab === "faq" && (
@@ -59,7 +60,7 @@ export default function Library() {
                                 : <Link key={x._id} className="screen-card lib-card" to={`/library/${x.slug}`}>
                                     <strong>{x.title}</strong>
                                     <small>{x.summary}</small>
-                                    <small className="muted">{[x.category, x.reference, x.issuedOn, x.chapterCount ? `${x.chapterCount} chapters · ${x.pageCount} pages` : null].filter(Boolean).join(" · ")}</small>
+                                    <small className="muted">{[x.category, x.reference, x.issuedOn, x.chapterCount ? tr("{{chapters}} chapters · {{pages}} pages", { chapters: x.chapterCount, pages: x.pageCount }) : null].filter(Boolean).join(" · ")}</small>
                                 </Link>)}
                         </div>
                     )}
@@ -101,7 +102,7 @@ export function LibraryReader() {
                     </nav>
                     <article className="panel reader-page">
                         {page ? <>
-                            <p className="muted" style={{ marginTop: 0 }}>{page.chapter} · page {index + 1} of {pages.length}</p>
+                            <p className="muted" style={{ marginTop: 0 }}>{page.chapter} · {tr("page {{n}} of {{total}}", { n: index + 1, total: pages.length })}</p>
                             <p style={{ fontSize: "1.08rem", lineHeight: 1.7 }}>{page.text}</p>
                             <div className="desk-actions no-print">
                                 <button type="button" className="btn btn-quiet" disabled={index <= 0} onClick={() => go(index - 1)}>← Previous</button>

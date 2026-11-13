@@ -173,8 +173,8 @@ function VotingVerification() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
                             <div>
                                 <p className="eyebrow">Electoral Record</p>
-                                <h2 style={{ margin: "0 0 4px" }}>{session.voter?.name}</h2>
-                                <p className="portal-muted" style={{ margin: "2px 0" }}><strong>EPIC:</strong> <code>{session.voter?.epic}</code></p>
+                                <h2 style={{ margin: "0 0 4px" }} translate="no">{session.voter?.name}</h2>
+                                <p className="portal-muted" style={{ margin: "2px 0" }}><strong>EPIC:</strong> <code translate="no">{session.voter?.epic}</code></p>
                                 <p className="portal-muted" style={{ margin: "2px 0" }}><strong>DOB & Gender:</strong> {session.voter?.dateOfBirth?.slice(0, 10)} · {session.voter?.gender}</p>
                                 <p className="portal-muted" style={{ margin: "2px 0" }}><strong>Constituency:</strong> {session.voter?.assemblyConstituency}, {session.voter?.district}</p>
                                 <p className="portal-muted" style={{ margin: "2px 0" }}><strong>Polling Station:</strong> {session.voter?.pollingStation} (Part {session.voter?.partNumber})</p>
@@ -215,7 +215,7 @@ function VotingVerification() {
                         {votedReceipt && (
                             <div className="admin-notice" style={{ background: "#e8f5e9", borderLeft: "5px solid #56a581", marginTop: "24px" }}>
                                 <h3 style={{ color: "#2e7d32", margin: "0 0 6px" }}>✓ Voting Completed & Certified</h3>
-                                <p style={{ margin: "4px 0" }}>Voter <strong>{votedReceipt.name}</strong> ({votedReceipt.epic}) has successfully cast their vote.</p>
+                                <p style={{ margin: "4px 0" }}>Voter <strong translate="no">{votedReceipt.name}</strong> (<span translate="no">{votedReceipt.epic}</span>) has successfully cast their vote.</p>
                                 <p style={{ margin: "4px 0" }}><strong>Polling Booth:</strong> {votedReceipt.pollingStation}</p>
                                 <p style={{ margin: "4px 0" }}><strong>Timestamp:</strong> {new Date(votedReceipt.votedAt).toLocaleString()}</p>
                                 <small style={{ color: "var(--text-secondary)" }}>

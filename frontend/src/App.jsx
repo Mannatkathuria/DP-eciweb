@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import SiteLayout from "./components/SiteLayout";
 import EntryGate from "./pages/EntryGate";
