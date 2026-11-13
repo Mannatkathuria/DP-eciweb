@@ -429,7 +429,7 @@ export default function FormWizard({ config }) {
             </div>
           )}
 
-          <nav aria-label={`${formName} stages`} className="f6-progress">
+          <nav aria-label={`${tr(formName)} – ${tr("stages")}`} className="f6-progress">
             <p className="f6-progress-label" id="ef-progress-label">
               {isReview ? "Review and submit" : tr("Stage {{n}} of {{total}}:", { n: step + 1, total: steps.length + 1 }) + " "}
               <strong>{isReview ? "Review and submit" : currentStep.title}</strong>
@@ -451,7 +451,7 @@ export default function FormWizard({ config }) {
 
           <form onSubmit={isReview ? submit : (event) => { event.preventDefault(); next(); }} noValidate className="f6-form">
             <h2 className="f6-stage-title" id="ef-stage-heading" tabIndex={-1}>
-              {isReview ? "Review and submit" : `${step + 1}. ${currentStep.title}`}
+              {isReview ? "Review and submit" : `${step + 1}. ${tr(currentStep.title)}`}
             </h2>
 
             {isReview ? (
@@ -465,7 +465,7 @@ export default function FormWizard({ config }) {
                 {allReviewSections.map((reviewSection) => (
                   <section className="f6-review" key={reviewSection.index}>
                     <div className="f6-review-head">
-                      <h3>{reviewSection.index + 1}. {reviewSection.title}</h3>
+                      <h3>{reviewSection.index + 1}. {tr(reviewSection.title)}</h3>
                       <button type="button" className="f6-btn f6-btn-secondary f6-btn-small" onClick={() => { setErrors({}); setStep(reviewSection.index); }}>Edit</button>
                     </div>
                     {reviewSection.sections.map((group, groupIndex) => (
