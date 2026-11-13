@@ -52,7 +52,8 @@ export function collect() {
   const found = new Map();
   const add = (text, file) => {
     if (typeof text !== "string" || !looksLikeText(text)) return;
-    const k = text.replace(/\s+/g, " ").trim();
+    // A leading "#" marks a numeric table column (desk kit's Table strips it before render).
+    const k = text.replace(/\s+/g, " ").trim().replace(/^#(?=\S)/, "");
     if (!found.has(k)) found.set(k, new Set());
     found.get(k).add(path.relative(src, file).replaceAll("\\", "/"));
   };
